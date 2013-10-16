@@ -1,0 +1,15 @@
+# Python
+__pycache__
+
+# Virtualenv
+bin/
+Scripts/
+[Ll]ib/
+[Ii]nclude/
+tcl/
+
+# IDE/Editor Files
+*.sublime-workspace
+
+# Configuration
+/config.json

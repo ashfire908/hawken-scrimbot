@@ -1,0 +1,32 @@
+{
+	"folders":
+	[
+		{
+			"path": "scrimbot"
+		}
+	],
+    "build_systems":
+    [
+        {
+            "name": "Python Dev",
+            "cmd": ["${project_path}/bin/python", "run.py"],
+            "working_dir": "$project_path",
+            "selector": "source.python",
+            "windows":
+            {
+                "cmd": ["${project_path:$file_path\\..}\\Scripts\\python.exe", "run.py"],
+                "working_dir": "$project_path"
+            },
+            "variants": [
+                {
+                    "name": "IDLE Prompt",
+                    "cmd": ["${project_path}/bin/python", "${project_path}/bin/idle-script.py"],
+                    "windows":
+                    {
+                        "cmd": ["${project_path}\\Scripts\\python.exe", "${project_path}\\Scripts\\idle-script.py"]
+                    }
+                }
+            ]
+        }
+    ]
+}
