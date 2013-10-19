@@ -93,6 +93,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.add_command_handler("pm::srd", self.command_server_rank_detailed)
         # Match/Server
         self.add_command_handler("pm::spectate", self.command_spectate)
+        self.add_command_handler("pm::spec", self.command_spectate)
 
         # Plugins
         self.register_plugin("xep_0030")  # Service Discovery
@@ -517,6 +518,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
                     # Send the message
                     msg_target = "{0}@{1}".format(guid, self.xmpp_server)
                     self.send_message(mto=msg_target, mbody=message)
+
     def command_commands(self, command, arguments, target, user):
         # Get a list of available commands
         command_list = []
