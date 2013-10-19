@@ -335,7 +335,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         return None
 
     def reservation_get_saved(self, owner):
-        # Check if there actually is a active reservation
+        # Check if there actually is a saved server
         if self.reservation_has_saved(owner):
             return self.reservations[owner]["saved"]
         return None
@@ -343,19 +343,19 @@ class ScrimBot(sleekxmpp.ClientXMPP):
     def reservation_add(self, owner, advertisement):
         # Init owner; check for duplicate advertisements
         self.reservation_init(owner)
-        if advertisement in self.reservations[owner]["advertisements"].keys():
+        if advertisement in self.reservations[owner]["advertisements"]:
             return False
 
         # Save advertisement
         self.reservations[owner]["advertisements"].append(advertisement)
         return True
 
-    def reservation_set_saved(self, owner, advertisement):
+    def reservation_set_saved(self, owner, server):
         # Init owner
         self.reservation_init(owner)
 
-        # Save advertisement
-        self.reservations[owner]["saved"] = advertisement
+        # Save server
+        self.reservations[owner]["saved"] = server
         return True
 
     def reservation_delete(self, owner, advertisement):
@@ -370,16 +370,16 @@ class ScrimBot(sleekxmpp.ClientXMPP):
     def reservation_delete_current(self, owner):
         return self.reservation_delete(owner, self.reservation_get_current(owner))
 
-    def reservation_post_server(self, owner, server_info, users=None, party=False):
+    def reservation_post_server(self, owner, server, users=None, party=False):
         # Autoset users, if needed
         if users is None and not party:
             users = [owner]
 
         # Post the advertisement
         if party:
-            advertisement = self.hawken_api.matchmaking_advertisement_post_server(server_info["GameVersion"], server_info["Region"], server_info["Guid"], self.own_guid, users, owner)
+            advertisement = self.hawken_api.matchmaking_advertisement_post_server(server["GameVersion"], server["Region"], server["Guid"], self.own_guid, users, owner)
         else:
-            advertisement = self.hawken_api.matchmaking_advertisement_post_server(server_info["GameVersion"], server_info["Region"], server_info["Guid"], self.own_guid, users)
+            advertisement = self.hawken_api.matchmaking_advertisement_post_server(server["GameVersion"], server["Region"], server["Guid"], self.own_guid, users)
 
         # Record the advertisement
         self.reservation_add(owner, advertisement)
@@ -652,7 +652,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
     @RequiredPerm(("admin", "spectator"))
     def command_spectate(self, command, arguments, target, user):
         # Check if the user is authorized to even think about using spectator mode
-        if not self.perms_user_group(user, "spectator") and not self.perms_user_group(user, "admin"):
+        if not self.perms_user_check_groups(user, ("admin", "spectator")):
             self.send_message(mto=target, mbody="You are not authorized to spectate.")
         # Validate arguments
         elif len(arguments) < 1:
@@ -661,7 +661,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
         # Cancel/Ok
         elif arguments[0] in ("cancel", "confirm"):
             # Delete the server reservation (as it's fulfilled now)
-            if self.user_advertisement_delete(user):
+            if self.reservation_delete_current(user):
                 if arguments[0] == "cancel":
                     self.send_message(mto=target, mbody="Canceled pending server reservation.")
                 else:
@@ -673,16 +673,22 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
                     self.send_message(mto=target, mbody="No reservation found to confirm.")
         # Save
         elif arguments[0] == "save":
-            # Save the advertisement server for later use
-            result = self.user_advertisement_save(user)
-
-                # Get the server you are on currently
-            if result is True:
-                self.send_message(mto=target, mbody="Reservation saved for future use.")
-            elif result is None:
+            # Grab the reservation for the user
+            reservation = self.reservation_get_current(user)
+            if reservation is None:
+                # No reservation found
                 self.send_message(mto=target, mbody="No reservation found to save.")
             else:
-                self.send_message(mto=target, mbody="Error: Failed to load reservation info - advertisement probably expired.")
+                # Load the advertisement
+                advertisement = self.hawken_api.matchmaking_advertisement(reservation)
+
+                if advertisement is None:
+                    # Couldn't find the advertisement
+                    self.send_message(mto=target, mbody="Error: Failed to load reservation info - advertisement probably expired.")
+                else:
+                    # Save the advertisement server for later use
+                    result = self.reservation_set_saved(user, advertisement["AssignedServerGuid"])
+                    self.send_message(mto=target, mbody="Reservation saved for future use.")
         # Save current
         elif arguments[0] == "savecurrent":
             # Get the user's current server
@@ -692,7 +698,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
             if server is None:
                 self.send_message(mto=target, mbody="You are not on a server.")
             else:
-                result = self.user_advertisement_save(user, server[0])
+                result = self.reservation_set_saved(user, server[0])
 
                 if result is True:
                     self.send_message(mto=target, mbody="Current server saved for future use.")
@@ -702,22 +708,22 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
         # Clear
         elif arguments[0] == "clear":
             # Clear the advertisement info for the user
-            self.user_advertisement_clear(user)
+            self.reservation_clear(user)
             self.send_message(mto=target, mbody="Cleared stored reservation info for your user.")
         # Renew
         elif arguments[0] == "renew":
             # Check if the user has a saved advertisement
-            if not self.user_advertisement_saved_has(user):
+            if not self.reservation_has_saved(user):
                 self.send_message(mto=target, mbody="No saved reservation on file.")
             else:
                 # Get the server info
-                server = self.hawken_api.server_info(self.user_advertisement_saved_get(user))
+                server = self.hawken_api.server_info(self.reservation_get_saved(user))
                 # Check we got a server
                 if server is None:
                     self.send_message(mto=target, mbody="Error: Could not find server from the last reservation.")
                 else:
                     # Place the reservation
-                    self.user_advertisement_post_server([user], server)
+                    self.reservation_post_server(user, server)
 
                     self.send_message(mto=target, mbody="Renewing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.command_prefix, command))
                     self.poll_reservation(target, user)
@@ -748,7 +754,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
                             self.send_message(mto=target, mbody="Warning: Server outside your skill level ({1} vs {0}) - reservation may fail!".format(user_level, server_level))
 
                 # Place the reservation
-                self.user_advertisement_post_server([user], server)
+                self.reservation_post_server(user, server)
 
                 self.send_message(mto=target, mbody="Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.command_prefix, command))
                 self.poll_reservation(target, user)
