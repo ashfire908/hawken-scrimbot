@@ -467,6 +467,21 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         # A loop would probably be better here
         self.mmr_usage = dict.fromkeys(self.mmr_usage, 0)
 
+    def format_dhms(self, seconds):
+        minutes, seconds = divmod(seconds, 60)
+        hours, minutes = divmod(minutes, 60)
+        days, hours = divmod(hours, 24)
+        output = []
+        if days != 0:
+            output.append("{} day".format(days))
+        if hours != 0:
+            output.append("{} hour".format(hours))
+        if minutes != 0:
+            output.append("{} minute".format(minutes))
+        if seconds != 0:
+            output.append("{} second".format(seconds))
+        return" ".join(output)
+
     def command_botinfo(self, command, arguments, target, user):
         message = """Hello, I am ScrimBot, the Hawken Scrim Bot. I do various competitive-related and utility functions. I am run by Ashfire908.
 
@@ -563,7 +578,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
             try:
                 if self.mmr_usage[user] >= self.mmr_limit:
                     # Refuse request
-                    self.send_message(mto=target, mbody="You have reached your limit of mmr requests for today.")
+                    self.send_message(mto=target, mbody="You have reached your limit of mmr requests for the current {} period.".format(self.format_dhms(self.mmr_period)))
                     return
             except KeyError:
                 # No count set, just ignore
