@@ -39,6 +39,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.own_password = None
         self.mmr_limit = -1
         self.mmr_period = 60 * 60 * 6
+        self.mmr_restricted = False
 
         # Load config
         if not self._config_load() and username is None:
@@ -138,6 +139,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.own_password = config.get("api_password", self.own_password)
         self.mmr_limit = config.get("mmr_limit", self.mmr_limit)
         self.mmr_period = config.get("mmr_period", self.mmr_period)
+        self.mmr_restricted = config.get("mmr_restricted", self.mmr_restricted)
 
         # Logging
         if "log_level" in config.keys():
@@ -168,7 +170,8 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             "offline": self.bot_offline,
             "permissions": self.permissions,
             "mmr_limit": self.mmr_limit,
-            "mmr_period": self.mmr_period
+            "mmr_period": self.mmr_period,
+            "mmr_restricted": self.mmr_restricted
         }
 
         # Write the config
@@ -517,7 +520,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
     @RequiredPerm(("admin", "mmr"))
     def command_mmr(self, command, arguments, target, user):
         # Check if the user is authorized to use the mmr mode
-        if not self.perms_user_check_groups(user, ("admin", "mmr")):
+        if self.mmr_restricted and not self.perms_user_check_groups(user, ("admin", "mmr")):
             self.send_message(mto=target, mbody="You are not authorized to lookup mmr.")
             return
 
