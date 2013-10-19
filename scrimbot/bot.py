@@ -492,11 +492,17 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
         self.send_message(mto=target, mbody=message)
 
     @HiddenCommand()
+    @RequiredPerm(("admin", ))
     def command_testexception(self, command, arguments, target, user):
-        # Test - raise exception
-        raise hawkenapi.WrongOwner("test error msg", 503)
+        # Verify the user is an admin
+        if not self.perms_user_group(user, "admin"):
+            self.send_message(mto=target, mbody="You are not an admin.")
+        else:
+            # Test - raise exception
+            raise hawkenapi.WrongOwner("test error msg", 503)
 
     @HiddenCommand()
+    @RequiredPerm(("admin", ))
     def command_tell(self, command, arguments, target, user):
         # Verify the user is an admin
         if not self.perms_user_group(user, "admin"):
@@ -890,6 +896,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
         else:
             self.send_message(mto=target, mbody="{0} not in any groups.".format(identifier))
 
+    @HiddenCommand()
     @RequiredPerm(("admin", ))
     def command_save_config(self, command, arguments, target, user):
         # Verify the user is an admin
