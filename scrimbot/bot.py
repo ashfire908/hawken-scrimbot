@@ -77,6 +77,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         # Tests
         self.add_command_handler("pm::testexception", self.command_testexception)
         self.add_command_handler("pm::saveconfig", self.command_save_config)
+        self.add_command_handler("pm::tell", self.command_tell)
         # Permission management
         self.add_command_handler("pm::authorize", self.command_authorize)
         self.add_command_handler("pm::deauthorize", self.command_authorize)
@@ -479,6 +480,28 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
         # Test - raise exception
         raise hawkenapi.WrongOwner("test error msg", 503)
 
+    @HiddenCommand()
+    def command_tell(self, command, arguments, target, user):
+        # Verify the user is an admin
+        if not self.perms_user_group(user, "admin"):
+            self.send_message(mto=target, mbody="You are not an admin.")
+        else:
+            # Check the arguments
+            if len(arguments) < 1:
+                self.send_message(mto=target, mbody="Missing arguments: <user> <message>")
+            else:
+                callsign = arguments[0]
+                message = " ".join(arguments[1:])
+
+                # Get the user's guid
+                guid = self.get_cached_guid(callsign)
+
+                if guid is None:
+                    self.send_message(mto=target, mbody="Error: No such user.")
+                else:
+                    # Send the message
+                    msg_target = "{0}@{1}".format(guid, self.xmpp_server)
+                    self.send_message(mto=msg_target, mbody=message)
     def command_commands(self, command, arguments, target, user):
         # Get a list of available commands
         command_list = []
