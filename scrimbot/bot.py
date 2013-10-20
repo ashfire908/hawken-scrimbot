@@ -40,6 +40,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.mmr_limit = -1
         self.mmr_period = 60 * 60 * 6
         self.mmr_restricted = False
+        self.sr_min = 2
 
         # Load config
         if not self._config_load() and username is None:
@@ -142,6 +143,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.mmr_limit = config.get("mmr_limit", self.mmr_limit)
         self.mmr_period = config.get("mmr_period", self.mmr_period)
         self.mmr_restricted = config.get("mmr_restricted", self.mmr_restricted)
+        self.sr_min = config.get("sr_min", self.sr_min)
 
         # Logging
         if "log_level" in config.keys():
@@ -173,7 +175,8 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             "permissions": self.permissions,
             "mmr_limit": self.mmr_limit,
             "mmr_period": self.mmr_period,
-            "mmr_restricted": self.mmr_restricted
+            "mmr_restricted": self.mmr_restricted,
+            "sr_min": self.sr_min
         }
 
         # Write the config
@@ -462,19 +465,22 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             mmr["min"] = min(mmr["list"])
             mmr["mean"] = math.fsum(mmr["list"])/float(len(mmr["list"]))
 
-        # Process each user's stats
-        for user in users.values():
-            # Check if they have an mmr
-            if not user["mmr"] is None:
-                # Calculate the deviation
-                user["deviation"] = user["mmr"] - mmr["mean"]  # Server MMR can be fixed
+            # Process each user's stats
+            for user in users.values():
+                # Check if they have an mmr
+                if not user["mmr"] is None:
+                    # Calculate the deviation
+                    user["deviation"] = user["mmr"] - mmr["mean"]  # Server MMR can be fixed
 
-        # Calculate standard deviation
-        stddev_list = [user["deviation"] ** 2 for user in users.values() if "deviation" in user]
-        if len(stddev_list) > 0:
-            mmr["stddev"] = math.sqrt(math.fsum(stddev_list)/float(len(stddev_list)))
+            # Calculate standard deviation
+            stddev_list = [user["deviation"] ** 2 for user in users.values() if "deviation" in user]
+            if len(stddev_list) > 0:
+                mmr["stddev"] = math.sqrt(math.fsum(stddev_list)/float(len(stddev_list)))
 
-        return mmr
+            return mmr
+        else:
+            # Can't pull mmr out of thin air
+            return False
 
     def poll_reservation(self, target, user):
         # Get the advertisement
@@ -699,9 +705,14 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
             server_info = self.hawken_api.server_info(server[0])
 
             if server_info is None:
+                # Failed to load server info
                 self.send_message(mto=target, mbody="Error: Failed to load server info.")
             elif len(server_info["Users"]) < 1:
-                self.send_message(mto=target, mbody="There needs to be at least 2 people on the server to use this command.")
+                # No one is on the server
+                self.send_message(mto=target, mbody="No one is on the server '{0[ServerName]}'.".format(server_info))
+            elif len(server_info["Users"]) < self.sr_min and not self.perms_user_group(user, "admin"):
+                # Not enough people on the server
+                self.send_message(mto=target, mbody="There needs to be at least {0} people on the server to use this command.".format(self.sr_min))
             else:
                 # Display the standard server rank
                 message = "Ranking info for {0[ServerName]}: MMR Average: {0[ServerRanking]}, Average Pilot Level: {0[DeveloperData][AveragePilotLevel]}".format(server_info)
@@ -719,9 +730,14 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
             server_info = self.hawken_api.server_info(server[0])
 
             if server_info is None:
+                # Failed to load server info
                 self.send_message(mto=target, mbody="Error: Failed to load server info.")
             elif len(server_info["Users"]) < 1:
-                self.send_message(mto=target, mbody="There needs to be at least 2 people on the server to use this command.")
+                # No one is on the server
+                self.send_message(mto=target, mbody="No one is on {0[ServerName]}.".format(server_info))
+            elif len(server_info["Users"]) < self.sr_min and not self.perms_user_group(user, "admin"):
+                # Not enough people on the server
+                self.send_message(mto=target, mbody="There needs to be at least {0} people on the server to use this command.".format(self.sr_min))
             else:
                 # Load the MMR for all the players on the server
                 fail = False
@@ -746,8 +762,12 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
                     # Process stats, display
                     mmr_info = self.server_mmr_statistics(users)
 
-                    message = "MMR breakdown for {0[ServerName]}: Average MMR: {1[mean]:.2f}, Max MMR: {1[max]:.2f}, Min MMR: {1[min]:.2f}, Standard deviation {1[stddev]:.3f}".format(server_info, mmr_info)
-                    self.send_message(mto=target, mbody=message)
+                    if not mmr_info:
+                        # No one with an mmr
+                        self.send_message(mto=target, mbody="No one on {0[ServerName]} has an mmr.".format(server_info))
+                    else:
+                        message = "MMR breakdown for {0[ServerName]}: Average MMR: {1[mean]:.2f}, Max MMR: {1[max]:.2f}, Min MMR: {1[min]:.2f}, Standard deviation {1[stddev]:.3f}".format(server_info, mmr_info)
+                        self.send_message(mto=target, mbody=message)
 
     @RequiredPerm(("admin", "spectator"))
     def command_spectate(self, command, arguments, target, user):
