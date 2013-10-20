@@ -1,0 +1,8 @@
+{
+    "Python": {
+        "python": 'Scripts\\python.exe',
+        "pythonExtraPaths": [
+            'lib\\site-packages'
+        ]
+    }
+}
