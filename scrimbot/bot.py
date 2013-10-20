@@ -396,6 +396,60 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             # Drop data stored
             del self.reservations[owner]
 
+    def update_roster(self):
+        logging.info("Updating roster.")
+        # Process roster list
+        whitelist = set(self.perms_group("admin") + self.perms_group("whitelist"))
+        for jid in self.client_roster.keys():
+            user = jid.split("@", 1)[0]
+            # Check if the user is on the list
+            if user in whitelist:
+                # Remove user so we don't try to add them later
+                whitelist.remove(user)
+                # Make sure the user is whitelisted the user
+                self.client_roster[jid]["whitelisted"] = True
+            elif self.bot_offline:
+                # gtfo <3
+                self.client_roster[jid].remove()
+
+            # Add a delay between removals so we don't spam the server
+            time.sleep(0.05)
+        # Whitelist any users we didn't see
+        for user in whitelist:
+            jid = "@".join(user, self.xmpp_server)
+            self.client_roster.add(jid, whitelisted=True)
+
+            # Add a delay between removals so we don't spam the server
+            time.sleep(0.05)
+
+    def user_whitelist(self, user):
+        found = False
+        # Check the roster for the user
+        for jid in self.client_roster.keys():
+            if user == jid.split("@", 1)[0]:
+                # Set the user as whitelisted
+                self.client_roster[jid]["whitelisted"] = True
+                found = True
+                break
+
+        if not found:
+            # Add the user as whitelisted
+            self.client_roster.add("{}@{}".format(user, self.xmpp_server), whitelisted=True)
+
+    def user_dewhitelist(self, user):
+        # Check the roster for the user
+        for jid in self.client_roster.keys():
+            if user == jid.split("@", 1)[0]:
+                # Set the user as whitelisted
+                self.client_roster[jid]["whitelisted"] = False
+
+                # Remove the user if the bot is in offline mode
+                if self.bot_offline:
+                    self.client_roster[jid].remove()
+                break
+
+        # If we got here, either way the user is unwhitelisted
+
     def server_mmr_statistics(self, users):
         # TODO: Redo the loop so this isn't needed or such
         users = deepcopy(users)
@@ -836,8 +890,12 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
                     if self.perms_user_group(group, target_guid):
                         self.send_message(mto=target, mbody="'{0}' is already in the '{1}' group.".format(target_callsign, group))
                     else:
+                        update_whitelist = group in ("admin", "whitelist") and not self.perms_user_check_groups(target_guid, ("admin", "whitelist"))
                         self.perms_group_user_add(group, target_guid)
                         self.send_message(mto=target, mbody="'{0}' has been added to the '{1}' group.".format(target_callsign, group))
+                        if update_whitelist:
+                            self.user_whitelist(target_guid)
+                            self.send_message(mto=target, mbody="Whitelist updated.")
                 else:
                     # Check if the user is not in the group
                     if self.perms_user_group(group, target_guid):
@@ -845,6 +903,9 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
                     else:
                         self.perms_group_user_remove(group, target_guid)
                         self.send_message(mto=target, mbody="'{0}' has been removed from the '{1}' group.".format(target_callsign, group))
+                        if group in ("admin", "whitelist") and not self.perms_user_check_groups(target_guid, ("admin", "whitelist")):
+                            self.user_dewhitelist(target_guid)
+                            self.send_message(mto=target, mbody="Whitelist updated.")
 
     @RequiredPerm(("admin", ))
     def command_group(self, command, arguments, target, user):
@@ -915,20 +976,18 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
         if self.bot_offline:
             logging.warning("Offline mode enabled.")
             self.auto_authorize = False
-            # Remove everyone from the roster (except admins)
-            logging.info("Purging friends list.")
-            for jid in self.client_roster.keys():
-                if not self.perms_user_check_groups(jid.split("@", 1)[0], ("admin", "whitelist")):
-                    self.update_roster(jid, subscription="remove")
-
-                    # Add a delay between removals so we don't spam the server
-                    time.sleep(0.05)
+            self.auto_subscribe = False
+            self.update_roster()
 
         # CROWBAR IS READY
         logging.info("Bot connected and ready.")
 
     def handle_message(self, message):
-        if message["type"] in ("normal", "chat"):
+        # Check if the bot is in offline mode, and if so, if the user is whitelisted
+        if self.bot_offline and not self.perms_user_check_groups(message["from"].user, ("admin", "whitelist")):
+            # Ignore it, we are offline
+            pass
+        elif message["type"] in ("normal", "chat"):
             # Drop messages from people not friends with
             if not self.is_friend(message["from"].user):
                 pass
