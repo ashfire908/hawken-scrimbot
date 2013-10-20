@@ -1007,12 +1007,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
 
     def handle_command(self, args, message, room=None):
         # Split the arguments
-        #command, *arguments = args.split(" ")
-        command = args.split(" ")[0]
-        try:
-            arguments = args.split(" ")[1:]
-        except KeyError:
-            arguments = []
+        command, *arguments = args.split(" ")
 
         # Get the targeted handler name
         if room is None:
