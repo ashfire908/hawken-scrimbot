@@ -500,9 +500,16 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             advertisement_info = self.hawken_api.matchmaking_advertisement(advertisement)
             # Verify the advertisement still exists
             if advertisement_info is None:
-                self.send_message(mto=target, mbody="Error: Could not retrieve advertisement - expired? Stopped polling.")
-                timeout = False
-                break
+                # Verify the advertisement hasn't been canceled
+                if not self.reservation_has(user):
+                    logging.debug("Reservation for {0} has been canceled - stopped polling.".format(user))
+                    timeout = False
+                    break
+                else:
+                    # Couldn't find reservation
+                    self.send_message(mto=target, mbody="Error: Could not retrieve advertisement - expired? Stopped polling for reservation.")
+                    timeout = False
+                    break
             else:
                 # Check if the reservation has been completed
                 if advertisement_info["ReadyToDeliver"]:
