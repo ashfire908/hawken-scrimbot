@@ -394,7 +394,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         if owner in self.reservations.keys():
             # Delete each of the advertisements stored
             for advertisement in self.reservation_get(owner):
-                self.reservation_delete(advertisement)
+                self.reservation_delete(owner, advertisement)
 
             # Drop data stored
             del self.reservations[owner]
