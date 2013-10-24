@@ -419,7 +419,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             time.sleep(0.05)
         # Whitelist any users we didn't see
         for user in whitelist:
-            jid = "@".join(user, self.xmpp_server)
+            jid = "@".join((user, self.xmpp_server))
             self.client_roster.add(jid, whitelisted=True)
 
             # Add a delay between removals so we don't spam the server
