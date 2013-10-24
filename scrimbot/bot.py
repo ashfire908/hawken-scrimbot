@@ -75,6 +75,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.add_command_handler("pm::botinfo", self.command_botinfo)
         self.add_command_handler("pm::commands", self.command_commands)
         self.add_command_handler("pm::whoami", self.command_whoami)
+        self.add_command_handler("pm::hammertime", self.command_hammertime)
         # Tests
         self.add_command_handler("pm::testexception", self.command_testexception)
         self.add_command_handler("pm::saveconfig", self.command_save_config)
@@ -998,6 +999,10 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
             # Save the current config
             self._config_save()
             self.send_chat_message(mto=target, mbody="Bot config saved.")
+
+    @HiddenCommand()
+    def command_hammertime(self, command, arguments, target, user):
+        self.send_chat_message(mto=target, mbody="STOP! HAMMER TIME!")
 
     def bot_start(self, event):
         # Send presence info, retrieve roster
