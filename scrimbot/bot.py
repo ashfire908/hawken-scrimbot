@@ -61,7 +61,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.xmpp_server_party = "party.{}".format(self.xmpp_server)
 
         # Setup client
-        jid = "{}@{}".format(self.own_guid, self.xmpp_server)
+        jid = "{}@{}/HawkenScrimBot".format(self.own_guid, self.xmpp_server)
         xmpp_auth = self.hawken_api.presence_access(self.own_guid)
         super(ScrimBot, self).__init__(jid, xmpp_auth)
 
@@ -190,6 +190,10 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             logging.error("Failed to save config file: {0} {1}".format(type(ex), ex))
             return False
         return True
+
+    def send_chat_message(self, mto=None, mbody=None):
+        # Fixes messages getting displayed as System Messages/Emergency Broadcasts
+        self.send_message(mto=mto, mbody=mbody, mtype="chat")
 
     def perms_init(self, groups):
         # Roundabout way of creating the attribute
@@ -507,7 +511,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
                     break
                 else:
                     # Couldn't find reservation
-                    self.send_message(mto=target, mbody="Error: Could not retrieve advertisement - expired? Stopped polling for reservation.")
+                    self.send_chat_message(mto=target, mbody="Error: Could not retrieve advertisement - expired? Stopped polling for reservation.")
                     timeout = False
                     break
             else:
@@ -520,7 +524,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
                         server_name = "<unknown>"
 
                     message = "\nReservation for server '{2}' complete.\nServer IP: {0}:{1}.\n\nUse either '{3}spectate confirm' or '{3}spectate save' after connecting to mark the reservation as complete."
-                    self.send_message(mto=target, mbody=message.format(advertisement_info["AssignedServerIp"].strip(r"\n"), advertisement_info["AssignedServerPort"], server_name, self.command_prefix))
+                    self.send_chat_message(mto=target, mbody=message.format(advertisement_info["AssignedServerIp"].strip(r"\n"), advertisement_info["AssignedServerPort"], server_name, self.command_prefix))
                     timeout = False
                     break
 
@@ -529,7 +533,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
 
         if timeout:
             self.reservation_delete(user, advertisement)
-            self.send_message(mto=target, mbody="Time limit reached - reservation canceled.")
+            self.send_chat_message(mto=target, mbody="Time limit reached - reservation canceled.")
 
     def reset_mmr(self):
         # A loop would probably be better here
@@ -556,14 +560,14 @@ class ScrimBot(sleekxmpp.ClientXMPP):
 If you need help with the bot, talk to Ashfire908 on the #hawkenscrim IRC channel, or send an email to: scrimbot@hawkenwiki.com
 
 This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Meteor Entertainment."""
-        self.send_message(mto=target, mbody=message)
+        self.send_chat_message(mto=target, mbody=message)
 
     @HiddenCommand()
     @RequiredPerm(("admin", ))
     def command_testexception(self, command, arguments, target, user):
         # Verify the user is an admin
         if not self.perms_user_group(user, "admin"):
-            self.send_message(mto=target, mbody="You are not an admin.")
+            self.send_chat_message(mto=target, mbody="You are not an admin.")
         else:
             # Test - raise exception
             raise hawkenapi.WrongOwner("test error msg", 503)
@@ -573,11 +577,11 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
     def command_tell(self, command, arguments, target, user):
         # Verify the user is an admin
         if not self.perms_user_group(user, "admin"):
-            self.send_message(mto=target, mbody="You are not an admin.")
+            self.send_chat_message(mto=target, mbody="You are not an admin.")
         else:
             # Check the arguments
             if len(arguments) < 1:
-                self.send_message(mto=target, mbody="Missing arguments: <user> <message>")
+                self.send_chat_message(mto=target, mbody="Missing arguments: <user> <message>")
             else:
                 callsign = arguments[0]
                 message = " ".join(arguments[1:])
@@ -586,11 +590,11 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
                 guid = self.get_cached_guid(callsign)
 
                 if guid is None:
-                    self.send_message(mto=target, mbody="Error: No such user.")
+                    self.send_chat_message(mto=target, mbody="Error: No such user.")
                 else:
                     # Send the message
                     msg_target = "{0}@{1}".format(guid, self.xmpp_server)
-                    self.send_message(mto=msg_target, mbody=message)
+                    self.send_chat_message(mto=msg_target, mbody=message)
 
     def command_commands(self, command, arguments, target, user):
         # Get a list of available commands
@@ -617,7 +621,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
         # Format commands for output
         commands = [self.command_prefix + x[4:] for x in command_list if x.find("pm::") == 0]
 
-        self.send_message(mto=target, mbody="Currently loaded commands: {0}".format(" ".join(sorted(commands))))
+        self.send_chat_message(mto=target, mbody="Currently loaded commands: {0}".format(" ".join(sorted(commands))))
 
     def command_whoami(self, command, arguments, target, user):
         # Get the user's callsign
@@ -625,16 +629,16 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
 
         if callsign is None:
             # No callsign - display error
-            self.send_message(mto=target, mbody="Error: Failed to look up your callsign - possible corrupt account data?")
+            self.send_chat_message(mto=target, mbody="Error: Failed to look up your callsign - possible corrupt account data?")
         else:
             # Display callsign
-            self.send_message(mto=target, mbody="You are '{}'.".format(callsign))
+            self.send_chat_message(mto=target, mbody="You are '{}'.".format(callsign))
 
     @RequiredPerm(("admin", "mmr"))
     def command_mmr(self, command, arguments, target, user):
         # Check if the user is authorized to use the mmr mode
         if self.mmr_restricted and not self.perms_user_check_groups(user, ("admin", "mmr")):
-            self.send_message(mto=target, mbody="You are not authorized to lookup mmr.")
+            self.send_chat_message(mto=target, mbody="You are not authorized to lookup mmr.")
             return
 
         # Determine the requested user
@@ -653,7 +657,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
             try:
                 if self.mmr_usage[user] >= self.mmr_limit:
                     # Refuse request
-                    self.send_message(mto=target, mbody="You have reached your limit of mmr requests for the current {} period.".format(self.format_dhms(self.mmr_period)))
+                    self.send_chat_message(mto=target, mbody="You have reached your limit of mmr requests for the current {} period.".format(self.format_dhms(self.mmr_period)))
                     return
             except KeyError:
                 # No count set, just ignore
@@ -661,20 +665,20 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
 
         # Verify the user is allowed to look up this person's mmr
         if target_user != user and not self.perms_user_group(user, "admin"):
-            self.send_message(mto=target, mbody="You are not an admin.")
+            self.send_chat_message(mto=target, mbody="You are not an admin.")
         # Verify this is a real user
         elif not target_user:
-            self.send_message(mto=target, mbody="No such user.")
+            self.send_chat_message(mto=target, mbody="No such user.")
         else:
             # Get the user's stats
             stats = self.hawken_api.user_stats(target_user)
 
             if stats is None:
                 # Failed to load data
-                self.send_message(mto=target, mbody="Error: Failed to look up {} stats.".format(identifier))
+                self.send_chat_message(mto=target, mbody="Error: Failed to look up {} stats.".format(identifier))
             elif "MatchMaking.Rating" not in stats.keys():
                 # No MMR recorded
-                self.send_message(mto=target, mbody="Error: {} does not appear to have a MMR.".format(identifier))
+                self.send_chat_message(mto=target, mbody="Error: {} does not appear to have a MMR.".format(identifier))
             else:
                 if limit_active:
                     # Record request
@@ -691,14 +695,14 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
 
                 # Display user's MMR
                 if limit_active:
-                    self.send_message(mto=target, mbody="{0} MMR is {1}. ({2} out of {3} requests)".format(identifier, rating, self.mmr_usage[user], self.mmr_limit))
+                    self.send_chat_message(mto=target, mbody="{0} MMR is {1}. ({2} out of {3} requests)".format(identifier, rating, self.mmr_usage[user], self.mmr_limit))
                 else:
-                    self.send_message(mto=target, mbody="{0} MMR is {1}.".format(identifier, rating))
+                    self.send_chat_message(mto=target, mbody="{0} MMR is {1}.".format(identifier, rating))
 
     @HiddenCommand()
     def command_elo(self, command, arguments, target, user):
         # Easter egg
-        self.send_message(mto=target, mbody="Fuck off. (use !mmr)")
+        self.send_chat_message(mto=target, mbody="Fuck off. (use !mmr)")
 
     def command_server_rank(self, command, arguments, target, user):
         # Find the server the user is on
@@ -706,24 +710,24 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
 
         # Check if they are actually on a server
         if server is None:
-            self.send_message(mto=target, mbody="You are not on a server.")
+            self.send_chat_message(mto=target, mbody="You are not on a server.")
         else:
             # Load the server info
             server_info = self.hawken_api.server_info(server[0])
 
             if server_info is None:
                 # Failed to load server info
-                self.send_message(mto=target, mbody="Error: Failed to load server info.")
+                self.send_chat_message(mto=target, mbody="Error: Failed to load server info.")
             elif len(server_info["Users"]) < 1:
                 # No one is on the server
-                self.send_message(mto=target, mbody="No one is on the server '{0[ServerName]}'.".format(server_info))
+                self.send_chat_message(mto=target, mbody="No one is on the server '{0[ServerName]}'.".format(server_info))
             elif len(server_info["Users"]) < self.sr_min and not self.perms_user_group(user, "admin"):
                 # Not enough people on the server
-                self.send_message(mto=target, mbody="There needs to be at least {0} people on the server to use this command.".format(self.sr_min))
+                self.send_chat_message(mto=target, mbody="There needs to be at least {0} people on the server to use this command.".format(self.sr_min))
             else:
                 # Display the standard server rank
                 message = "Ranking info for {0[ServerName]}: MMR Average: {0[ServerRanking]}, Average Pilot Level: {0[DeveloperData][AveragePilotLevel]}".format(server_info)
-                self.send_message(mto=target, mbody=message)
+                self.send_chat_message(mto=target, mbody=message)
 
     def command_server_rank_detailed(self, command, arguments, target, user):
         # Find the server the user is on
@@ -731,20 +735,20 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
 
         # Check if they are actually on a server
         if server is None:
-            self.send_message(mto=target, mbody="You are not on a server.")
+            self.send_chat_message(mto=target, mbody="You are not on a server.")
         else:
             # Load the server info
             server_info = self.hawken_api.server_info(server[0])
 
             if server_info is None:
                 # Failed to load server info
-                self.send_message(mto=target, mbody="Error: Failed to load server info.")
+                self.send_chat_message(mto=target, mbody="Error: Failed to load server info.")
             elif len(server_info["Users"]) < 1:
                 # No one is on the server
-                self.send_message(mto=target, mbody="No one is on {0[ServerName]}.".format(server_info))
+                self.send_chat_message(mto=target, mbody="No one is on {0[ServerName]}.".format(server_info))
             elif len(server_info["Users"]) < self.sr_min and not self.perms_user_group(user, "admin"):
                 # Not enough people on the server
-                self.send_message(mto=target, mbody="There needs to be at least {0} people on the server to use this command.".format(self.sr_min))
+                self.send_chat_message(mto=target, mbody="There needs to be at least {0} people on the server to use this command.".format(self.sr_min))
             else:
                 # Load the MMR for all the players on the server
                 fail = False
@@ -764,58 +768,58 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
 
                 if fail:
                     # Display error message
-                    self.send_message(mto=target, mbody="Error: Failed to load player data.")
+                    self.send_chat_message(mto=target, mbody="Error: Failed to load player data.")
                 else:
                     # Process stats, display
                     mmr_info = self.server_mmr_statistics(users)
 
                     if not mmr_info:
                         # No one with an mmr
-                        self.send_message(mto=target, mbody="No one on {0[ServerName]} has an mmr.".format(server_info))
+                        self.send_chat_message(mto=target, mbody="No one on {0[ServerName]} has an mmr.".format(server_info))
                     else:
                         message = "MMR breakdown for {0[ServerName]}: Average MMR: {1[mean]:.2f}, Max MMR: {1[max]:.2f}, Min MMR: {1[min]:.2f}, Standard deviation {1[stddev]:.3f}".format(server_info, mmr_info)
-                        self.send_message(mto=target, mbody=message)
+                        self.send_chat_message(mto=target, mbody=message)
 
     @RequiredPerm(("admin", "spectator"))
     def command_spectate(self, command, arguments, target, user):
         # Check if the user is authorized to even think about using spectator mode
         if not self.perms_user_check_groups(user, ("admin", "spectator")):
-            self.send_message(mto=target, mbody="You are not authorized to spectate.")
+            self.send_chat_message(mto=target, mbody="You are not authorized to spectate.")
         # Validate arguments
         elif len(arguments) < 1:
-            self.send_message(mto=target, mbody="Missing target server name or subcommand.")
+            self.send_chat_message(mto=target, mbody="Missing target server name or subcommand.")
         # Handle subcommands
         # Cancel/Ok
         elif arguments[0] in ("cancel", "confirm"):
             # Delete the server reservation (as it's fulfilled now)
             if self.reservation_delete_current(user):
                 if arguments[0] == "cancel":
-                    self.send_message(mto=target, mbody="Canceled pending server reservation.")
+                    self.send_chat_message(mto=target, mbody="Canceled pending server reservation.")
                 else:
-                    self.send_message(mto=target, mbody="Confirmed; Marking reservation as complete.")
+                    self.send_chat_message(mto=target, mbody="Confirmed; Marking reservation as complete.")
             else:
                 if arguments[0] == "cancel":
-                    self.send_message(mto=target, mbody="No reservation found to cancel.")
+                    self.send_chat_message(mto=target, mbody="No reservation found to cancel.")
                 else:
-                    self.send_message(mto=target, mbody="No reservation found to confirm.")
+                    self.send_chat_message(mto=target, mbody="No reservation found to confirm.")
         # Save
         elif arguments[0] == "save":
             # Grab the reservation for the user
             reservation = self.reservation_get_current(user)
             if reservation is None:
                 # No reservation found
-                self.send_message(mto=target, mbody="No reservation found to save.")
+                self.send_chat_message(mto=target, mbody="No reservation found to save.")
             else:
                 # Load the advertisement
                 advertisement = self.hawken_api.matchmaking_advertisement(reservation)
 
                 if advertisement is None:
                     # Couldn't find the advertisement
-                    self.send_message(mto=target, mbody="Error: Failed to load reservation info - advertisement probably expired.")
+                    self.send_chat_message(mto=target, mbody="Error: Failed to load reservation info - advertisement probably expired.")
                 else:
                     # Save the advertisement server for later use
                     result = self.reservation_set_saved(user, advertisement["AssignedServerGuid"])
-                    self.send_message(mto=target, mbody="Reservation saved for future use.")
+                    self.send_chat_message(mto=target, mbody="Reservation saved for future use.")
         # Save current
         elif arguments[0] == "savecurrent":
             # Get the user's current server
@@ -823,36 +827,36 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
 
             # Check if they are actually on a server
             if server is None:
-                self.send_message(mto=target, mbody="You are not on a server.")
+                self.send_chat_message(mto=target, mbody="You are not on a server.")
             else:
                 result = self.reservation_set_saved(user, server[0])
 
                 if result is True:
-                    self.send_message(mto=target, mbody="Current server saved for future use.")
+                    self.send_chat_message(mto=target, mbody="Current server saved for future use.")
                 else:
                     logging.warn("Command spectate savecurrent returned non-true on advertisement save - this should not happen.")
-                    self.send_message(mto=target, mbody="Error: Failed to save current server for future use. (This is a bug, please report it.)")
+                    self.send_chat_message(mto=target, mbody="Error: Failed to save current server for future use. (This is a bug, please report it.)")
         # Clear
         elif arguments[0] == "clear":
             # Clear the advertisement info for the user
             self.reservation_clear(user)
-            self.send_message(mto=target, mbody="Cleared stored reservation info for your user.")
+            self.send_chat_message(mto=target, mbody="Cleared stored reservation info for your user.")
         # Renew
         elif arguments[0] == "renew":
             # Check if the user has a saved advertisement
             if not self.reservation_has_saved(user):
-                self.send_message(mto=target, mbody="No saved reservation on file.")
+                self.send_chat_message(mto=target, mbody="No saved reservation on file.")
             else:
                 # Get the server info
                 server = self.hawken_api.server_info(self.reservation_get_saved(user))
                 # Check we got a server
                 if server is None:
-                    self.send_message(mto=target, mbody="Error: Could not find server from the last reservation.")
+                    self.send_chat_message(mto=target, mbody="Error: Could not find server from the last reservation.")
                 else:
                     # Place the reservation
                     self.reservation_post_server(user, server)
 
-                    self.send_message(mto=target, mbody="Renewing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.command_prefix, command))
+                    self.send_chat_message(mto=target, mbody="Renewing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.command_prefix, command))
                     self.poll_reservation(target, user)
         # Handle normal server requests
         else:
@@ -861,15 +865,15 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
 
             # Verify the info
             if server is False:
-                self.send_message(mto=target, mbody="Error: Failed to load server list.")
+                self.send_chat_message(mto=target, mbody="Error: Failed to load server list.")
             elif server is None:
-                self.send_message(mto=target, mbody="Error: Could not find server '{0}'.".format(arguments[0]))
+                self.send_chat_message(mto=target, mbody="Error: Could not find server '{0}'.".format(arguments[0]))
             else:
                 # Check for possible issues with the reservation
                 # Server full
                 user_count = len(server["Users"])
                 if user_count >= server["MaxUsers"]:
-                    self.send_message(mto=target, mbody="Warning: Server is full ({0}/{1}) - reservation may fail!".format(user_count, server["MaxUsers"]))
+                    self.send_chat_message(mto=target, mbody="Warning: Server is full ({0}/{1}) - reservation may fail!".format(user_count, server["MaxUsers"]))
                 # Server outside user's rank
                 server_level = int(server["DeveloperData"]["AveragePilotLevel"])
                 if server_level != 0:
@@ -878,22 +882,22 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
                         user_level = int(user_stats["Progress.Pilot.Level"])
                         if user_level + 10 <= server_level or \
                            user_level - 10 >= server_level:
-                            self.send_message(mto=target, mbody="Warning: Server outside your skill level ({1} vs {0}) - reservation may fail!".format(user_level, server_level))
+                            self.send_chat_message(mto=target, mbody="Warning: Server outside your skill level ({1} vs {0}) - reservation may fail!".format(user_level, server_level))
 
                 # Place the reservation
                 self.reservation_post_server(user, server)
 
-                self.send_message(mto=target, mbody="Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.command_prefix, command))
+                self.send_chat_message(mto=target, mbody="Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.command_prefix, command))
                 self.poll_reservation(target, user)
 
     @RequiredPerm(("admin", ))
     def command_authorize(self, command, arguments, target, user):
         # Verify the user is an admin
         if not self.perms_user_group(user, "admin"):
-            self.send_message(mto=target, mbody="You are not an admin.")
+            self.send_chat_message(mto=target, mbody="You are not an admin.")
         # Verify arguments count
         elif len(arguments) != 2:
-            self.send_message(mto=target, mbody="Missing arguments. Syntax: <user> <group>")
+            self.send_chat_message(mto=target, mbody="Missing arguments. Syntax: <user> <group>")
         else:
             # Grab the arguments
             target_callsign, group = arguments
@@ -904,58 +908,58 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
 
             # Check the user exists
             if target_guid is None:
-                self.send_message(mto=target, mbody="No such user exists.")
+                self.send_chat_message(mto=target, mbody="No such user exists.")
             # Can't change the permissions of your own user
             elif target_guid == user:
-                self.send_message(mto=target, mbody="You cannot change the permissions on your own user.")
+                self.send_chat_message(mto=target, mbody="You cannot change the permissions on your own user.")
             # Check the group type
             elif group not in self.perms_groups():
-                self.send_message(mto=target, mbody="Unknown group '{0}'.".format(group))
+                self.send_chat_message(mto=target, mbody="Unknown group '{0}'.".format(group))
             else:
                 if command == "authorize":
                     # Check if the user is already in the group
                     if self.perms_user_group(group, target_guid):
-                        self.send_message(mto=target, mbody="'{0}' is already in the '{1}' group.".format(target_callsign, group))
+                        self.send_chat_message(mto=target, mbody="'{0}' is already in the '{1}' group.".format(target_callsign, group))
                     else:
                         update_whitelist = group in ("admin", "whitelist") and not self.perms_user_check_groups(target_guid, ("admin", "whitelist"))
                         self.perms_group_user_add(group, target_guid)
-                        self.send_message(mto=target, mbody="'{0}' has been added to the '{1}' group.".format(target_callsign, group))
+                        self.send_chat_message(mto=target, mbody="'{0}' has been added to the '{1}' group.".format(target_callsign, group))
                         if update_whitelist:
                             self.user_whitelist(target_guid)
-                            self.send_message(mto=target, mbody="Whitelist updated.")
+                            self.send_chat_message(mto=target, mbody="Whitelist updated.")
                 else:
                     # Check if the user is not in the group
                     if self.perms_user_group(group, target_guid):
-                        self.send_message(mto=target, mbody="'{0}' is not in the '{1}' group.".format(target_callsign, group))
+                        self.send_chat_message(mto=target, mbody="'{0}' is not in the '{1}' group.".format(target_callsign, group))
                     else:
                         self.perms_group_user_remove(group, target_guid)
-                        self.send_message(mto=target, mbody="'{0}' has been removed from the '{1}' group.".format(target_callsign, group))
+                        self.send_chat_message(mto=target, mbody="'{0}' has been removed from the '{1}' group.".format(target_callsign, group))
                         if group in ("admin", "whitelist") and not self.perms_user_check_groups(target_guid, ("admin", "whitelist")):
                             self.user_dewhitelist(target_guid)
-                            self.send_message(mto=target, mbody="Whitelist updated.")
+                            self.send_chat_message(mto=target, mbody="Whitelist updated.")
 
     @RequiredPerm(("admin", ))
     def command_group(self, command, arguments, target, user):
         # Verify the user is an admin
         if not self.perms_user_group(user, "admin"):
-            self.send_message(mto=target, mbody="You are not an admin.")
+            self.send_chat_message(mto=target, mbody="You are not an admin.")
         # Check if we are looking up a specific group
         elif len(arguments) > 0:
             group = arguments[0].lower()
             # Verify we have a valid group
             if group not in self.perms_groups():
-                self.send_message(mto=target, mbody="Unknown group '{0}'.".format(group))
+                self.send_chat_message(mto=target, mbody="Unknown group '{0}'.".format(group))
             else:
                 # Convert guids to callsigns, where possible.
                 users = [self.get_cached_callsign(x) or x for x in self.perms_group(group)]
                 # Display the users in the group
                 if len(users) == 0:
-                    self.send_message(mto=target, mbody="No users in group '{0}'.".format(group))
+                    self.send_chat_message(mto=target, mbody="No users in group '{0}'.".format(group))
                 else:
-                    self.send_message(mto=target, mbody="Users in group '{0}': {1}".format(group, ", ".join(sorted(users))))
+                    self.send_chat_message(mto=target, mbody="Users in group '{0}': {1}".format(group, ", ".join(sorted(users))))
         else:
             # Display the groups
-            self.send_message(mto=target, mbody="Groups: {0}".format(", ".join(sorted(self.perms_groups()))))
+            self.send_chat_message(mto=target, mbody="Groups: {0}".format(", ".join(sorted(self.perms_groups()))))
 
     def command_user_group(self, command, arguments, target, user):
         # Check if we have a specific user
@@ -963,11 +967,11 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
             target_callsign = arguments[0]
             target_guid = self.get_cached_guid(target_callsign)
             if target_guid is None:
-                self.send_message(mto=target, mbody="No such user exists.")
+                self.send_chat_message(mto=target, mbody="No such user exists.")
                 return
             # Check if requesting another user, if so verify the user is an admin
             elif target_guid != user and not self.perms_user_group(user, "admin"):
-                self.send_message(mto=target, mbody="You are not an admin.")
+                self.send_chat_message(mto=target, mbody="You are not an admin.")
                 return
             elif target_guid == user:
                 identifier = "you are"
@@ -980,20 +984,20 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
         # Display the groups the user is in
         groups = self.perms_user_groups(target_guid)
         if len(groups) > 0:
-            self.send_message(mto=target, mbody="Groups {0} in: {1}".format(identifier, ", ".join(sorted(groups))))
+            self.send_chat_message(mto=target, mbody="Groups {0} in: {1}".format(identifier, ", ".join(sorted(groups))))
         else:
-            self.send_message(mto=target, mbody="{0} not in any groups.".format(identifier))
+            self.send_chat_message(mto=target, mbody="{0} not in any groups.".format(identifier))
 
     @HiddenCommand()
     @RequiredPerm(("admin", ))
     def command_save_config(self, command, arguments, target, user):
         # Verify the user is an admin
         if not self.perms_user_group(user, "admin"):
-            self.send_message(mto=target, mbody="You are not an admin.")
+            self.send_chat_message(mto=target, mbody="You are not an admin.")
         else:
             # Save the current config
             self._config_save()
-            self.send_message(mto=target, mbody="Bot config saved.")
+            self.send_chat_message(mto=target, mbody="Bot config saved.")
 
     def bot_start(self, event):
         # Send presence info, retrieve roster
@@ -1014,7 +1018,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
         if self.bot_offline and not self.perms_user_check_groups(message["from"].user, ("admin", "whitelist")):
             # Ignore it, we are offline
             pass
-        elif message["type"] in ("normal", "chat"):
+        elif message["type"] == "chat":
             # Drop messages from people not friends with
             if not self.is_friend(message["from"].user):
                 pass
@@ -1046,7 +1050,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
         if command_target not in self.registered_commands.keys():
             # No handler
             if room is None:
-                self.send_message(mto=message["from"].bare, mbody="Error: No such command.")
+                self.send_chat_message(mto=message["from"].bare, mbody="Error: No such command.")
             else:
                 self.send_message(mto=message["from"].bare, mbody="Error: No such command.", mtype="groupchat")
         else:
@@ -1059,7 +1063,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
                     handler(command, arguments, message["from"].bare, message["from"].user)
                 except Exception as ex:
                     logging.error("Command {0} has failed due to an exception: {1} {2}".format(command, type(ex), ex))
-                    self.send_message(mto=message["from"].bare, mbody="Error: The command you attempted to run has encountered an unhandled exception. {0} This error has been logged.".format(type(ex)))
+                    self.send_chat_message(mto=message["from"].bare, mbody="Error: The command you attempted to run has encountered an unhandled exception. {0} This error has been logged.".format(type(ex)))
                     raise
             else:
                 # Signature: handler(command, args, target, callsign, room)
