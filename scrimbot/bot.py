@@ -530,7 +530,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
                     except KeyError:
                         server_name = "<unknown>"
 
-                    message = "\nReservation for server '{2}' complete.\nServer IP: {0}:{1}.\n\nUse either '{3}spectate confirm' or '{3}spectate save' after connecting to mark the reservation as complete."
+                    message = "\nReservation for server '{2}' complete.\nServer IP: {0}:{1}.\n\nUse '{3}spectate confirm' after joining the server, or '{3}spectate cancel' if you do not plan on joining the server."
                     self.send_chat_message(mto=target, mbody=message.format(advertisement_info["AssignedServerIp"].strip(r"\n"), advertisement_info["AssignedServerPort"], server_name, self.command_prefix))
                     timeout = False
                     break
@@ -802,25 +802,18 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
             self.send_chat_message(mto=target, mbody="Missing target server name or subcommand.")
         # Handle subcommands
         # Cancel/Ok
-        elif arguments[0] in ("cancel", "confirm"):
+        elif arguments[0] in "cancel":
             # Delete the server reservation (as it's fulfilled now)
             if self.reservation_delete_current(user):
-                if arguments[0] == "cancel":
-                    self.send_chat_message(mto=target, mbody="Canceled pending server reservation.")
-                else:
-                    self.send_chat_message(mto=target, mbody="Confirmed; Marking reservation as complete.")
+                self.send_chat_message(mto=target, mbody="Canceled pending server reservation.")
             else:
-                if arguments[0] == "cancel":
-                    self.send_chat_message(mto=target, mbody="No reservation found to cancel.")
-                else:
-                    self.send_chat_message(mto=target, mbody="No reservation found to confirm.")
-        # Save
-        elif arguments[0] == "save":
+                self.send_chat_message(mto=target, mbody="No reservation found to cancel.")
+        elif arguments[0] in "confirm":
             # Grab the reservation for the user
             reservation = self.reservation_get_current(user)
             if reservation is None:
                 # No reservation found
-                self.send_chat_message(mto=target, mbody="No reservation found to save.")
+                self.send_chat_message(mto=target, mbody="No reservation found to confirm.")
             else:
                 # Load the advertisement
                 advertisement = self.hawken_api.matchmaking_advertisement(reservation)
@@ -831,9 +824,12 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
                 else:
                     # Save the advertisement server for later use
                     result = self.reservation_set_saved(user, advertisement["AssignedServerGuid"])
-                    self.send_chat_message(mto=target, mbody="Reservation saved for future use.")
+                    self.send_chat_message(mto=target, mbody="Reservation confirmed; saved for future use.")
+
+                # Delete the server reservation (as it's fulfilled now)
+                self.reservation_delete_current(user)
         # Save current
-        elif arguments[0] == "savecurrent":
+        elif arguments[0] == "save":
             # Get the user's current server
             server = self.hawken_api.user_server(user)
 
