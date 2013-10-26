@@ -372,8 +372,8 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         # Check that the advertisement exists
         if self.reservation_has(owner) and advertisement in self.reservations[owner]["advertisements"]:
             # Delete the reservation
-            self.hawken_api.matchmaking_advertisement_delete(advertisement)
             self.reservations[owner]["advertisements"].remove(advertisement)
+            self.hawken_api.matchmaking_advertisement_delete(advertisement)
             return True
         return False
 
