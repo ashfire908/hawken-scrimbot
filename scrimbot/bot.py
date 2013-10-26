@@ -41,6 +41,8 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.mmr_period = 60 * 60 * 6
         self.mmr_restricted = False
         self.sr_min = 2
+        self.globals_period = 60 * 60 * 12
+        self.spec_rankrange = 8
 
         # Load config
         if not self._config_load() and username is None:
@@ -102,9 +104,11 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.register_plugin("xep_0045")  # Multi-User Chat
         self.register_plugin("xep_0199")  # XMPP Ping
 
-        # Setup mmr reset timer
+        # Setup timers
         self.mmr_reset_thread = threading.Timer(self.mmr_period, self.reset_mmr)
         self.mmr_reset_thread.start()
+        self.globals_update_thread = threading.Timer(self.globals_period, self.globals_update)
+        self.globals_update_thread.start()
 
     def _config_filename(self):
         filename = os.path.join(self.config_path, self.config_filename)
@@ -145,6 +149,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.mmr_period = config.get("mmr_period", self.mmr_period)
         self.mmr_restricted = config.get("mmr_restricted", self.mmr_restricted)
         self.sr_min = config.get("sr_min", self.sr_min)
+        self.globals_period = config.get("globals_period", self.globals_period)
 
         # Logging
         if "log_level" in config.keys():
@@ -177,7 +182,8 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             "mmr_limit": self.mmr_limit,
             "mmr_period": self.mmr_period,
             "mmr_restricted": self.mmr_restricted,
-            "sr_min": self.sr_min
+            "sr_min": self.sr_min,
+            "globals_period": self.globals_period
         }
 
         # Write the config
@@ -540,6 +546,11 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         # A loop would probably be better here
         self.mmr_usage = dict.fromkeys(self.mmr_usage, 0)
 
+    def globals_update(self):
+        # Get the global item, update settings
+        global_data = self.hawken_api.game_items("ff7aa68d-d450-44c3-86f0-a403e87b0f64")
+        self.spec_rankrange = global_data["MMPilotLevelRange"]
+
     def format_dhms(self, seconds):
         minutes, seconds = divmod(seconds, 60)
         hours, minutes = divmod(minutes, 60)
@@ -881,8 +892,8 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
                     user_stats = self.hawken_api.user_stats(user)
                     if user_stats is not None:
                         user_level = int(user_stats["Progress.Pilot.Level"])
-                        if user_level + 10 <= server_level or \
-                           user_level - 10 >= server_level:
+                        if user_level + self.spec_rankrange <= server_level or \
+                           user_level - self.spec_rankrange >= server_level:
                             self.send_chat_message(mto=target, mbody="Warning: Server outside your skill level ({1} vs {0}) - reservation may fail!".format(user_level, server_level))
 
                 # Place the reservation
