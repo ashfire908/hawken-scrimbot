@@ -13,7 +13,7 @@ from copy import deepcopy
 import sleekxmpp
 
 import hawkenapi.client
-import hawkenapi.exceptions
+from hawkenapi.exceptions import InvalidBatch
 
 from scrimbot.commands import RequiredPerm, HiddenCommand
 
@@ -526,7 +526,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
                 if advertisement_info["ReadyToDeliver"]:
                     # Get the server name
                     try:
-                        server_name = self.hawken_api.server_info(advertisement_info["AssignedServerGuid"])["ServerName"]
+                        server_name = self.hawken_api.server_list(advertisement_info["AssignedServerGuid"])["ServerName"]
                     except KeyError:
                         server_name = "<unknown>"
 
@@ -582,7 +582,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
             self.send_chat_message(mto=target, mbody="You are not an admin.")
         else:
             # Test - raise exception
-            raise hawkenapi.WrongOwner("test error msg", 503)
+            raise Exception("test error msg")
 
     @HiddenCommand()
     @RequiredPerm(("admin", ))
@@ -725,7 +725,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
             self.send_chat_message(mto=target, mbody="You are not on a server.")
         else:
             # Load the server info
-            server_info = self.hawken_api.server_info(server[0])
+            server_info = self.hawken_api.server_list(server[0])
 
             if server_info is None:
                 # Failed to load server info
@@ -750,7 +750,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
             self.send_chat_message(mto=target, mbody="You are not on a server.")
         else:
             # Load the server info
-            server_info = self.hawken_api.server_info(server[0])
+            server_info = self.hawken_api.server_list(server[0])
 
             if server_info is None:
                 # Failed to load server info
@@ -763,25 +763,21 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
                 self.send_chat_message(mto=target, mbody="There needs to be at least {0} people on the server to use this command.".format(self.sr_min))
             else:
                 # Load the MMR for all the players on the server
-                fail = False
-                users = {}
-                for user_guid in server_info["Users"]:
-                    data = self.hawken_api.user_stats(user_guid)
-                    if data is None:
-                        fail = True
-                        break
-                    try:
-                        mmr = data["MatchMaking.Rating"]
-                    except KeyError:
-                        # This is to handle a quirk of the API where users have no mmr
-                        mmr = None
-
-                    users[user_guid] = {"mmr": mmr}
-
-                if fail:
-                    # Display error message
+                try:
+                    data = self.hawken_api.user_stats(server_info["Users"])
+                except InvalidBatch:
                     self.send_chat_message(mto=target, mbody="Error: Failed to load player data.")
                 else:
+                    users = {}
+                    for user_data in data:
+                        try:
+                            mmr = user_data["MatchMaking.Rating"]
+                        except KeyError:
+                            # Handle a quirk of the API where users have no mmr
+                            mmr = None
+
+                        users[user_data["Guid"]] = {"mmr": mmr}
+
                     # Process stats, display
                     mmr_info = self.server_mmr_statistics(users)
 
@@ -856,7 +852,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
                 self.send_chat_message(mto=target, mbody="No saved reservation on file.")
             else:
                 # Get the server info
-                server = self.hawken_api.server_info(self.reservation_get_saved(user))
+                server = self.hawken_api.server_list(self.reservation_get_saved(user))
                 # Check we got a server
                 if server is None:
                     self.send_chat_message(mto=target, mbody="Error: Could not find server from the last reservation.")
@@ -869,7 +865,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
         # Handle normal server requests
         else:
             # Get the server info
-            server = self.hawken_api.server_info_by_name(arguments[0])
+            server = self.hawken_api.server_by_name(arguments[0])
 
             # Verify the info
             if server is False:
