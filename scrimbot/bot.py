@@ -13,9 +13,11 @@ from copy import deepcopy
 import sleekxmpp
 
 import hawkenapi.client
+import hawkenapi.sleekxmpp
 from hawkenapi.exceptions import InvalidBatch
 
 from scrimbot.commands import RequiredPerm, HiddenCommand
+from scrimbot.party import Party
 
 
 # Bot class
@@ -26,6 +28,8 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.reservations = {}
         self.registered_commands = {}
         self.mmr_usage = {}
+        self.parties = {}
+        self.party_alias = {}
         self.config_filename = "config.json"
         self.config_path = config_path or "."
 
@@ -33,7 +37,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.advertisement_poll_limit = 30.0
         self.advertisement_poll_rate = 0.5
         self.command_prefix = "!"
-        self.perms_init(("admin", "spectator", "mmr"))
+        self.perms_init(("admin", "spectator", "mmr", "party"))
         self.bot_offline = False
         self.own_guid = None
         self.own_password = None
@@ -43,6 +47,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.sr_min = 2
         self.globals_period = 60 * 60 * 12
         self.spec_rankrange = 8
+        self.party_cleanup_period = 60 * 15
 
         # Load config
         if not self._config_load() and username is None:
@@ -70,13 +75,15 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         # Event handlers
         self.add_event_handler("session_start", self.bot_start)
         self.add_event_handler("message", self.handle_message, threaded=True)
-        #self.add_event_handler("groupchat_message", self.handle_groupchat_message, threaded=True)
+        self.add_event_handler("groupchat_message", self.handle_groupchat_message, threaded=True)
 
         # Command handlers
         # Meta/Utilities
         self.add_command_handler("pm::botinfo", self.command_botinfo)
         self.add_command_handler("pm::commands", self.command_commands)
+        self.add_command_handler("muc::commands", self.command_commands)
         self.add_command_handler("pm::whoami", self.command_whoami)
+        self.add_command_handler("muc::whoami", self.command_whoami)
         self.add_command_handler("pm::hammertime", self.command_hammertime)
         # Tests
         self.add_command_handler("pm::testexception", self.command_testexception)
@@ -98,17 +105,46 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         # Match/Server
         self.add_command_handler("pm::spectate", self.command_spectate)
         self.add_command_handler("pm::spec", self.command_spectate)
+        # Party
+        self.add_command_handler("pm::party", self.command_party)
+        self.add_command_handler("pm::partylist", self.command_party_list)
+        self.add_command_handler("pm::partyinvite", self.command_party_invite)
+        self.add_command_handler("pm::partykick", self.command_party_kick)
+        self.add_command_handler("pm::partydeploy", self.command_party_deploy)
+        self.add_command_handler("pm::partycancel", self.command_party_cancel)
+        self.add_command_handler("pm::partyconfirm", self.command_party_confirm)
+        self.add_command_handler("pm::partyleave", self.command_party_leave)
+        self.add_command_handler("pm::partytransfer", self.command_party_transfer)
+        self.add_command_handler("pm::plist", self.command_party_list)
+        self.add_command_handler("pm::pinvite", self.command_party_invite)
+        self.add_command_handler("pm::pkick", self.command_party_kick)
+        self.add_command_handler("pm::pdeploy", self.command_party_deploy)
+        self.add_command_handler("pm::pcancel", self.command_party_cancel)
+        self.add_command_handler("pm::pconfirm", self.command_party_confirm)
+        self.add_command_handler("pm::pleave", self.command_party_leave)
+        self.add_command_handler("pm::ptransfer", self.command_party_transfer)
+        # Party (from party)
+        self.add_command_handler("muc::invite", self.command_party_invite)
+        self.add_command_handler("muc::kick", self.command_party_kick)
+        self.add_command_handler("muc::deploy", self.command_party_deploy)
+        self.add_command_handler("muc::cancel", self.command_party_cancel)
+        self.add_command_handler("muc::confirm", self.command_party_confirm)
+        self.add_command_handler("muc::leave", self.command_party_leave)
+        self.add_command_handler("muc::transfer", self.command_party_transfer)
 
         # Plugins
         self.register_plugin("xep_0030")  # Service Discovery
         self.register_plugin("xep_0045")  # Multi-User Chat
         self.register_plugin("xep_0199")  # XMPP Ping
+        self.register_plugin("hawken_party")  # Hawken Party
 
         # Setup timers
         self.mmr_reset_thread = threading.Timer(self.mmr_period, self.reset_mmr)
         self.mmr_reset_thread.start()
         self.globals_update_thread = threading.Timer(self.globals_period, self.globals_update)
         self.globals_update_thread.start()
+        self.party_cleanup_thread = threading.Timer(self.party_cleanup_period, self.party_cleanup)
+        self.party_cleanup_thread.start()
 
     def _config_filename(self):
         filename = os.path.join(self.config_path, self.config_filename)
@@ -150,6 +186,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.mmr_restricted = config.get("mmr_restricted", self.mmr_restricted)
         self.sr_min = config.get("sr_min", self.sr_min)
         self.globals_period = config.get("globals_period", self.globals_period)
+        self.party_cleanup_period = config.get("party_cleanup_period", self.party_cleanup_period)
 
         # Logging
         if "log_level" in config.keys():
@@ -183,7 +220,8 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             "mmr_period": self.mmr_period,
             "mmr_restricted": self.mmr_restricted,
             "sr_min": self.sr_min,
-            "globals_period": self.globals_period
+            "globals_period": self.globals_period,
+            "party_cleanup_period": self.party_cleanup_period
         }
 
         # Write the config
@@ -201,6 +239,10 @@ class ScrimBot(sleekxmpp.ClientXMPP):
     def send_chat_message(self, mto=None, mbody=None):
         # Fixes messages getting displayed as System Messages/Emergency Broadcasts
         self.send_message(mto=mto, mbody=mbody, mtype="chat")
+
+    def send_group_message(self, mto=None, mbody=None):
+        # Handle the backend nastyness
+        self.plugin["hawken_party"].message(mto, self.boundjid.full, self.own_guid, mbody)
 
     def perms_init(self, groups):
         # Roundabout way of creating the attribute
@@ -321,6 +363,54 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         # TODO: Do we want to cache a case-insensitive callsign here?
 
         return guid
+
+    def party_get(self, identifier):
+        # Look for the party by guid
+        if identifier in self.parties.keys():
+            return self.parties[identifier]
+
+        # Look for a matching alias
+        for alias, guid in self.party_alias.items():
+            if alias.lower() == identifier.lower():
+                return self.parties[guid]
+
+        # Could not find party
+        return False
+
+    def party_create(self, guid, alias=None):
+        # Create the party
+        self.parties[guid] = Party(self, guid, self.own_guid, self.own_callsign)
+        self.parties[guid].create()
+
+        # Add an alias, if given
+        if alias is not None:
+            self.party_alias[alias] = guid
+
+    def party_join(self, guid, alias=None):
+        # Join the party
+        self.parties[guid] = Party(self, guid, self.own_guid, self.own_callsign)
+        self.parties[guid].join()
+
+        # Add an alias, if given
+        if alias is not None:
+            self.party_alias[alias] = guid
+
+    def party_leave(self, guid, leader=None):
+        # Abort any deployment in progress
+        self.parties[guid].abort()
+
+        # Transfer to a new leader, if given
+        if leader is not None:
+            self.parties[guid].leader_set(leader)
+
+        # Leave the party and forget about it
+        self.parties[guid].leave()
+        del self.parties[guid]
+
+        # Purge any aliases
+        targets = [alias for alias, party in self.parties.items() if party == guid]
+        for alias in targets:
+            del self.party_alias[alias]
 
     def reservation_init(self, guid):
         template = {
@@ -501,19 +591,13 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         start_time = time.time()
         timeout = True
         while (time.time() - start_time) < self.advertisement_poll_limit:
-            # Verify the advertisement hasn't been canceled
-            if not self.reservation_has(user):
-                logging.debug("Reservation for {0} has been canceled - stopped polling.".format(user))
-                timeout = False
-                break
-
             # Check the advertisement
             advertisement_info = self.hawken_api.matchmaking_advertisement(advertisement)
             # Verify the advertisement still exists
             if advertisement_info is None:
                 # Verify the advertisement hasn't been canceled
                 if not self.reservation_has(user):
-                    logging.debug("Reservation for {0} has been canceled - stopped polling.".format(user))
+                    logging.debug("Reservation for user '{0}' has been canceled - stopped polling.".format(user))
                     timeout = False
                     break
                 else:
@@ -542,14 +626,72 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             self.reservation_delete(user, advertisement)
             self.send_chat_message(mto=target, mbody="Time limit reached - reservation canceled.")
 
+    def poll_party_reservation(self, party):
+        # Get the advertisement
+        advertisement = self.party_get(party).reservation
+
+        # Set the output target
+        target = "{0}@{1}".format(party, self.xmpp_server_party)
+
+        # Begin polling the advertisement
+        start_time = time.time()
+        abort = True
+        while (time.time() - start_time) < self.advertisement_poll_limit:
+            # Check the advertisement
+            advertisement_info = self.hawken_api.matchmaking_advertisement(advertisement)
+            # Verify the advertisement still exists
+            if advertisement_info is None:
+                # Verify the advertisement hasn't been canceled
+                if not self.party_get(party).is_matchmaking():
+                    logging.debug("Reservation for party '{0}' has been canceled - stopped polling.".format(party))
+                    abort = True
+                    break
+                else:
+                    # Couldn't find reservation
+                    self.send_group_message(mto=target, mbody="Error: Could not retrieve advertisement - expired? Stopped deployment.")
+                    abort = True
+                    break
+            else:
+                # Check if the reservation has been completed
+                if advertisement_info["ReadyToDeliver"]:
+                    # Signal to deploy
+                    self.party_get(party).deploy_start(advertisement_info["AssignedServerGuid"], advertisement_info["AssignedServerIp"].strip(r"\n"), advertisement_info["AssignedServerPort"])
+                    abort = False
+                    break
+
+            # Wait a bit before requesting again.
+            time.sleep(self.advertisement_poll_rate)
+
+        if abort:
+            self.party_get(party).abort()
+            self.send_group_message(mto=target, mbody="Time limit reached - deployment aborted.")
+
     def reset_mmr(self):
+        logging.info("Resetting MMR usage.")
         # A loop would probably be better here
         self.mmr_usage = dict.fromkeys(self.mmr_usage, 0)
+        # Reschedule task
+        self.mmr_reset_thread = threading.Timer(self.mmr_period, self.reset_mmr)
+        self.mmr_reset_thread.start()
 
     def globals_update(self):
+        logging.info("Updating globals.")
         # Get the global item, update settings
         global_data = self.hawken_api.game_items("ff7aa68d-d450-44c3-86f0-a403e87b0f64")
         self.spec_rankrange = global_data["MMPilotLevelRange"]
+        # Reschedule task
+        self.globals_update_thread = threading.Timer(self.globals_period, self.globals_update)
+        self.globals_update_thread.start()
+
+    def party_cleanup(self):
+        logging.info("Purging empty parties.")
+        # Purge all empty parties
+        targets = [k for k, v in self.parties.items() if len(v.players) == 0]
+        for guid in targets:
+            self.party_leave(guid)
+        # Reschedule task
+        self.party_cleanup_thread = threading.Timer(self.party_cleanup_period, self.party_cleanup)
+        self.party_cleanup_thread.start()
 
     def format_dhms(self, seconds):
         minutes, seconds = divmod(seconds, 60)
@@ -608,7 +750,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
                     msg_target = "{0}@{1}".format(guid, self.xmpp_server)
                     self.send_chat_message(mto=msg_target, mbody=message)
 
-    def command_commands(self, command, arguments, target, user):
+    def command_commands(self, command, arguments, target, user, room=False):
         # Get a list of available commands
         command_list = []
         for command, handler in self.registered_commands.items():
@@ -630,21 +772,28 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
 
             command_list.append(command)
 
-        # Format commands for output
-        commands = [self.command_prefix + x[4:] for x in command_list if x.find("pm::") == 0]
+        if room is False:
+            commands = [self.command_prefix + x[4:] for x in command_list if x.find("pm::") == 0]
+            self.send_chat_message(mto=target, mbody="Currently loaded commands: {0}".format(" ".join(sorted(commands))))
+        else:
+            commands = [self.command_prefix + x[5:] for x in command_list if x.find("muc::") == 0]
+            self.send_group_message(mto=target, mbody="Currently loaded commands: {0}".format(" ".join(sorted(commands))))
 
-        self.send_chat_message(mto=target, mbody="Currently loaded commands: {0}".format(" ".join(sorted(commands))))
-
-    def command_whoami(self, command, arguments, target, user):
+    def command_whoami(self, command, arguments, target, user, room=False):
         # Get the user's callsign
         callsign = self.get_cached_callsign(user)
 
         if callsign is None:
             # No callsign - display error
-            self.send_chat_message(mto=target, mbody="Error: Failed to look up your callsign - possible corrupt account data?")
+            message = "Error: Failed to look up your callsign - possible corrupt account data?"
         else:
             # Display callsign
-            self.send_chat_message(mto=target, mbody="You are '{}'.".format(callsign))
+            message = "You are '{}'.".format(callsign)
+
+        if not room:
+            self.send_chat_message(mto=target, mbody=message)
+        else:
+            self.send_group_message(mto=target, mbody=message)
 
     @RequiredPerm(("admin", "mmr"))
     def command_mmr(self, command, arguments, target, user):
@@ -1007,6 +1156,339 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
     def command_hammertime(self, command, arguments, target, user):
         self.send_chat_message(mto=target, mbody="STOP! HAMMER TIME!")
 
+    @RequiredPerm(("admin", "party"))
+    def command_party(self, command, arguments, target, user):
+        # Verify the user is able to lead parties
+        if not self.perms_user_check_groups(user, ("admin", "party")):
+            self.send_chat_message(mto=target, mbody="You are not authorized to manage a party.")
+        else:
+            if len(arguments) > 0:
+                alias = arguments[0]
+            else:
+                alias = None
+
+            # Create a party
+            party_guid = Party.generate_guid()
+            self.party_create(party_guid, alias)
+
+            # Message the user
+            if alias is None:
+                message = "Created new party '{0}'. Inviting you to it...".format(party_guid)
+            else:
+                message = "Created new party '{1}' ({0}). Inviting you to it...".format(party_guid, alias)
+
+            self.send_chat_message(mto=target, mbody=message)
+
+            # Invite the user
+            self.parties[party_guid].invite(target, self.get_cached_callsign(user))
+
+    @RequiredPerm(("admin", "party"))
+    def command_party_list(self, command, arguments, target, user):
+        # Verify the user is able to lead parties
+        if not self.perms_user_check_groups(user, ("admin", "party")):
+            self.send_chat_message(mto=target, mbody="You are not authorized to manage a party.")
+        else:
+            # Display aliases in favor of guids
+            parties = []
+            guids = []
+            for alias, guid in self.party_alias.items():
+                parties.append(alias)
+                guids.append(guid)
+
+            for guid in self.parties.keys():
+                if guid not in guids:
+                    parties.append(guid)
+
+            self.send_chat_message(mto=target, mbody="Current parties: {0}".format(", ".join(parties)))
+
+    @RequiredPerm(("admin", "party"))
+    def command_party_invite(self, command, arguments, target, user, room=None):
+        # Verify the user is able to lead parties
+        if not self.perms_user_check_groups(user, ("admin", "party")):
+            if room is None:
+                self.send_chat_message(mto=target, mbody="You are not authorized to manage a party.")
+            else:
+                self.send_group_message(mto=target, mbody="You are not authorized to manage a party.")
+        else:
+            if room is not None and len(arguments) < 1:
+                self.send_group_message(mto=target, mbody="Missing target user.")
+            elif room is None and len(arguments) < 2:
+                self.send_chat_message(mto=target, mbody="Missing target user and/or party.")
+            else:
+                # Get the target
+                target_user = self.get_cached_guid(arguments[0])
+                if room is None:
+                    party = self.party_get(arguments[1])
+                else:
+                    party = self.party_get(room)
+
+                # Check party
+                if party is False:
+                    # Can't get here from a party
+                    self.send_chat_message(mto=target, mbody="No such party.")
+                # Check user
+                elif target_user is None:
+                    if room is None:
+                        self.send_chat_message(mto=target, mbody="No such user.")
+                    else:
+                        self.send_group_message(mto=target, mbody="No such user.")
+                else:
+                    # Check party state
+                    if party.is_matchmaking():
+                        if room is None:
+                            self.send_chat_message(mto=target, mbody="Warning: Party is currently matchmaking.")
+                        else:
+                            self.send_group_message(mto=target, mbody="Warning: Party is currently matchmaking.")
+
+                    # Send an invite to the target
+                    party.invite("{0}@{1}".format(target_user, self.xmpp_server), self.get_cached_callsign(target_user))
+                    if room is None:
+                        self.send_chat_message(mto=target, mbody="Invited {0} to the party.".format(self.get_cached_callsign(target_user)))
+
+    @RequiredPerm(("admin", "party"))
+    def command_party_kick(self, command, arguments, target, user, room=None):
+        # Verify the user is able to lead parties
+        if not self.perms_user_check_groups(user, ("admin", "party")):
+            if room is None:
+                self.send_chat_message(mto=target, mbody="You are not authorized to manage a party.")
+            else:
+                self.send_group_message(mto=target, mbody="You are not authorized to manage a party.")
+        else:
+            if room is not None and len(arguments) < 1:
+                self.send_group_message(mto=target, mbody="Missing target player.")
+            elif room is None and len(arguments) < 2:
+                self.send_chat_message(mto=target, mbody="Missing target player and/or party.")
+            else:
+                target_callsign = arguments[0]
+                target_user = self.get_cached_guid(target_callsign)
+                if room is None:
+                    party = self.party_get(arguments[1])
+                else:
+                    party = self.party_get(room)
+
+                # Check party
+                if party is False:
+                    # Can't get here from a party
+                    self.send_chat_message(mto=target, mbody="No such party.")
+                # Check player
+                elif target_user is None:
+                    if room is None:
+                        self.send_chat_message(mto=target, mbody="No such player.")
+                    else:
+                        self.send_group_message(mto=target, mbody="No such player.")
+                elif target_user not in party.players:
+                    message = "{0} is not in the party.".format(target_callsign)
+                    if room is None:
+                        self.send_chat_message(mto=target, mbody=message)
+                    else:
+                        self.send_group_message(mto=target, mbody=message)
+                else:
+                    if room is None:
+                        self.send_chat_message(mto=target, mbody="Kicking {0} from the party.".format(target_callsign))
+
+                    party.kick(target_callsign)
+
+    @RequiredPerm(("admin", "party"))
+    def command_party_deploy(self, command, arguments, target, user, room=None):
+        # Verify the user is able to lead parties
+        if not self.perms_user_check_groups(user, ("admin", "party")):
+            if room is None:
+                self.send_chat_message(mto=target, mbody="You are not authorized to manage a party.")
+            else:
+                self.send_group_message(mto=target, mbody="You are not authorized to manage a party.")
+        else:
+            if room is not None and len(arguments) < 1:
+                self.send_group_message(mto=target, mbody="Missing target server name.")
+            elif room is None and len(arguments) < 2:
+                self.send_chat_message(mto=target, mbody="Missing target server name and/or party.")
+            else:
+                # Get the server info
+                server = self.hawken_api.server_by_name(arguments[0])
+
+                if room is None:
+                    party = self.party_get(arguments[1])
+                else:
+                    party = self.party_get(room)
+
+                # Check party
+                if party is False:
+                    # Can't get here from a party
+                    self.send_chat_message(mto=target, mbody="No such party.")
+                # Check server
+                elif server is False:
+                    if room is None:
+                        self.send_chat_message(mto=target, mbody="Error: Failed to load server list.")
+                    else:
+                        self.send_group_message(mto=target, mbody="Error: Failed to load server list.")
+                elif server is None:
+                    if room is None:
+                        self.send_chat_message(mto=target, mbody="Error: Could not find server '{0}'.".format(arguments[0]))
+                    else:
+                        self.send_group_message(mto=target, mbody="Error: Could not find server '{0}'.".format(arguments[0]))
+                else:
+                    # Check for possible issues with the reservation
+                    # Server full
+                    user_count = len(server["Users"])
+                    if user_count - len(party.players) >= server["MaxUsers"]:
+                        message = "Warning: Server is full ({0}/{1}) - reservation may fail!".format(user_count, server["MaxUsers"])
+                        if room is None:
+                            self.send_chat_message(mto=target, mbody=message)
+                        else:
+                            self.send_group_message(mto=target, mbody=message)
+
+                    # Notify deployment
+                    if room is None:
+                        self.send_chat_message(mto=target, mbody="Deploying to server... Deploying to server '{0}{1} cancel {2}' to abort.".format(self.command_prefix, command, arguments[1]))
+                    else:
+                        self.send_group_message(mto=target, mbody="Deploying party to server... '{0}cancel' to abort.".format(self.command_prefix))
+
+                    # Place the reservation
+                    advertisement = self.hawken_api.matchmaking_advertisement_post_server(server["GameVersion"], server["Region"], server["Guid"], self.own_guid, list(party.players))
+                    party.matchmaking_start(advertisement)
+                    self.poll_party_reservation(party.guid)
+
+    @RequiredPerm(("admin", "party"))
+    def command_party_cancel(self, command, arguments, target, user, room=None):
+        # Verify the user is able to lead parties
+        if not self.perms_user_check_groups(user, ("admin", "party")):
+            if room is None:
+                self.send_chat_message(mto=target, mbody="You are not authorized to manage a party.")
+            else:
+                self.send_group_message(mto=target, mbody="You are not authorized to manage a party.")
+        else:
+            if room is None and len(arguments) < 1:
+                self.send_chat_message(mto=target, mbody="Missing target party.")
+            else:
+                if room is None:
+                    party = self.party_get(arguments[0])
+                else:
+                    party = self.party_get(room)
+
+                # Check party
+                if party is False:
+                    # Can't get here from a party
+                    self.send_chat_message(mto=target, mbody="No such party.")
+
+                if party.is_matchmaking():
+                    # Abort the party
+                    party.abort()
+                    if room is None:
+                        self.send_chat_message(mto=target, mbody="Canceled party matchmaking.")
+                else:
+                    if room is None:
+                        self.send_chat_message(mto=target, mbody="Party is not matchmaking - nothing to cancel.")
+                    else:
+                        self.send_group_message(mto=target, mbody="Party is not matchmaking - nothing to cancel.")
+
+    @RequiredPerm(("admin", "party"))
+    def command_party_confirm(self, command, arguments, target, user, room=None):
+        # Verify the user is able to lead parties
+        if not self.perms_user_check_groups(user, ("admin", "party")):
+            if room is None:
+                self.send_chat_message(mto=target, mbody="You are not authorized to manage a party.")
+            else:
+                self.send_group_message(mto=target, mbody="You are not authorized to manage a party.")
+        else:
+            if room is None and len(arguments) < 1:
+                self.send_chat_message(mto=target, mbody="Missing target party.")
+            else:
+                if room is None:
+                    party = self.party_get(arguments[0])
+                else:
+                    party = self.party_get(room)
+
+                # Check party
+                if party is False:
+                    # Can't get here from a party
+                    self.send_chat_message(mto=target, mbody="No such party.")
+
+                if party.is_matchmaking():
+                    party.confirm()
+                    if room is None:
+                        self.send_chat_message(mto=target, mbody="Confirmed match. Standing by for next deployment.")
+                    else:
+                        self.send_group_message(mto=target, mbody="Confirmed match. Standing by for next deployment.")
+                else:
+                    if room is None:
+                        self.send_chat_message(mto=target, mbody="Party is not matchmaking - nothing to confirm.")
+                    else:
+                        self.send_group_message(mto=target, mbody="Party is not matchmaking - nothing to confirm.")
+
+    @RequiredPerm(("admin", "party"))
+    def command_party_leave(self, command, arguments, target, user, room=None):
+        # Verify the user is able to lead parties
+        if not self.perms_user_check_groups(user, ("admin", "party")):
+            if room is None:
+                self.send_chat_message(mto=target, mbody="You are not authorized to manage a party.")
+            else:
+                self.send_group_message(mto=target, mbody="You are not authorized to manage a party.")
+        else:
+            if room is None and len(arguments) < 1:
+                self.send_chat_message(mto=target, mbody="Missing target party.")
+            else:
+                if room is None:
+                    party = self.party_get(arguments[0])
+                else:
+                    party = self.party_get(room)
+
+                # Check party
+                if party is False:
+                    # Can't get here from a party
+                    self.send_chat_message(mto=target, mbody="No such party.")
+                # Check player
+                else:
+                    if room is None:
+                        self.send_chat_message(mto=target, mbody="Leaving the party.")
+                    else:
+                        self.send_group_message(mto=target, mbody="Leaving the party, have a good day.")
+
+                    self.party_leave(party.guid)
+
+    @RequiredPerm(("admin", "party"))
+    def command_party_transfer(self, command, arguments, target, user, room=None):
+        # Verify the user is able to lead parties
+        if not self.perms_user_check_groups(user, ("admin", "party")):
+            if room is None:
+                self.send_chat_message(mto=target, mbody="You are not authorized to manage a party.")
+            else:
+                self.send_group_message(mto=target, mbody="You are not authorized to manage a party.")
+        else:
+            if room is not None and len(arguments) < 1:
+                self.send_group_message(mto=target, mbody="Missing target player.")
+            elif room is None and len(arguments) < 2:
+                self.send_chat_message(mto=target, mbody="Missing target player and/or party.")
+            else:
+                target_callsign = arguments[0]
+                target_user = self.get_cached_guid(target_callsign)
+                if room is None:
+                    party = self.party_get(arguments[1])
+                else:
+                    party = self.party_get(room)
+
+                # Check party
+                if party is False:
+                    # Can't get here from a party
+                    self.send_chat_message(mto=target, mbody="No such party.")
+                # Check player
+                elif target_user is None:
+                    if room is None:
+                        self.send_chat_message(mto=target, mbody="No such player.")
+                    else:
+                        self.send_group_message(mto=target, mbody="No such player.")
+                elif target_user not in party.players:
+                    message = "{0} is not in the party.".format(target_callsign)
+                    if room is None:
+                        self.send_chat_message(mto=target, mbody=message)
+                    else:
+                        self.send_group_message(mto=target, mbody=message)
+                else:
+                    if room is None:
+                        self.send_chat_message(mto=target, mbody="Transfering control over to {0} and leaving the party.".format(target_callsign))
+                    else:
+                        self.send_group_message(mto=target, mbody="Transfering control over to {0}. Have a good day.".format(target_callsign))
+
+                    self.party_leave(party.guid, target_callsign)
+
     def bot_start(self, event):
         # Send presence info, retrieve roster
         self.send_presence()
@@ -1044,12 +1526,25 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
                 # BOOP
                 message.reply("Beep boop.").send()
 
-    def handle_command(self, args, message, room=None):
+    def handle_groupchat_message(self, message):
+        if message["type"] == "groupchat":
+            # Refuse to take chat from the bot (loop prevention)
+            if message["from"].resource == self.own_callsign:
+                pass
+            # Ignore the bot's own default response
+            elif message["body"] == "Beep boop.":
+                pass
+            # Check if this is a command
+            elif message["body"][0] == self.command_prefix:
+                # Pass it off to the handler
+                self.handle_command(message["body"][1:], message, True)
+
+    def handle_command(self, args, message, party=False):
         # Split the arguments
         command, *arguments = args.split(" ")
 
         # Get the targeted handler name
-        if room is None:
+        if not party:
             command_target = "pm::{0}".format(command.lower())
         else:
             command_target = "muc::{0}".format(command.lower())
@@ -1057,14 +1552,14 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
         # Check if there is a handler registered
         if command_target not in self.registered_commands.keys():
             # No handler
-            if room is None:
+            if not party:
                 self.send_chat_message(mto=message["from"].bare, mbody="Error: No such command.")
             else:
-                self.send_message(mto=message["from"].bare, mbody="Error: No such command.", mtype="groupchat")
+                self.send_group_message(mto=message["from"].bare, mbody="Error: No such command.")
         else:
             # Fire off the handler
             handler = self.registered_commands[command_target]
-            if room is None:
+            if not party:
                 # Signature: handler(command, args, target, user)
                 logging.info("Command {0} called by {1}".format(command, message["from"].user))
                 try:
@@ -1074,11 +1569,11 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
                     self.send_chat_message(mto=message["from"].bare, mbody="Error: The command you attempted to run has encountered an unhandled exception. {0} This error has been logged.".format(type(ex)))
                     raise
             else:
-                # Signature: handler(command, args, target, callsign, room)
-                logging.info("Command {0} called by {1}".format(command, message["from"].resource))
+                # Signature: handler(command, args, target, user, room)
+                logging.info("Command {0} called by {1}".format(command, message["stormid"].id))
                 try:
-                    handler(command, arguments, message["from"].bare, message["from"].resource, room)
+                    handler(command, arguments, message["from"].bare, message["stormid"].id, message["from"].user)
                 except Exception as ex:
                     logging.error("Command {0} has failed due to an exception: {1} {2}".format(command, type(ex), ex))
-                    self.send_message(mto=message["from"].bare, mbody="Error: The command you attempted to run has encountered an unhandled exception. {0} This error has been logged.".format(type(ex)), mtype="groupchat")
+                    self.send_group_message(mto=message["from"].bare, mbody="Error: The command you attempted to run has encountered an unhandled exception. {0} This error has been logged.".format(type(ex)))
                     raise
