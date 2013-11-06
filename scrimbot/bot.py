@@ -549,7 +549,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
     def globals_update(self):
         # Get the global item, update settings
         global_data = self.hawken_api.game_items("ff7aa68d-d450-44c3-86f0-a403e87b0f64")
-        self.spec_rankrange = global_data["MMPilotLevelRange"]
+        self.spec_rankrange = int(global_data["MMPilotLevelRange"])
 
     def format_dhms(self, seconds):
         minutes, seconds = divmod(seconds, 60)
