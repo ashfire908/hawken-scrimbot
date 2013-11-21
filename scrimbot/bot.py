@@ -708,6 +708,14 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             output.append("{} second".format(seconds))
         return" ".join(output)
 
+    def server_rank_user_min(self, server):
+        if self.sr_min == -1:
+            min_players = server["MinUsers"]
+        else:
+            min_players = self.sr_min
+
+        return len(server["Users"]) >= min_players, min_players
+
     def command_botinfo(self, command, arguments, target, user):
         message = """Hello, I am ScrimBot, the Hawken Scrim Bot. I do various competitive-related and utility functions. I am run by Ashfire908.
 
@@ -866,50 +874,68 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
         self.send_chat_message(mto=target, mbody="Fuck off. (use !mmr)")
 
     def command_server_rank(self, command, arguments, target, user):
-        # Find the server the user is on
-        server = self.hawken_api.user_server(user)
-
-        # Check if they are actually on a server
-        if server is None:
-            self.send_chat_message(mto=target, mbody="You are not on a server.")
+        if len(arguments) > 0:
+            # Grab the given server name
+            server_info = self.hawken_api.server_by_name(arguments[0])
         else:
-            # Load the server info
-            server_info = self.hawken_api.server_list(server[0])
+            # Find the server the user is on
+            server = self.hawken_api.user_server(user)
+            # Check if they are actually on a server
+            if server is None:
+                self.send_chat_message(mto=target, mbody="You are not on a server.")
+                return
+            else:
+                # Load the server info
+                server_info = self.hawken_api.server_list(server[0])
 
-            if server_info is None:
-                # Failed to load server info
+        if server_info is None:
+            # Failed to load server info
+            if len(arguments) > 0:
+                self.send_chat_message(mto=target, mbody="Error: No such server name.")
+            else:
                 self.send_chat_message(mto=target, mbody="Error: Failed to load server info.")
-            elif len(server_info["Users"]) < 1:
-                # No one is on the server
-                self.send_chat_message(mto=target, mbody="No one is on the server '{0[ServerName]}'.".format(server_info))
-            elif len(server_info["Users"]) < self.sr_min and not self.perms_user_group(user, "admin"):
+        elif len(server_info["Users"]) < 1:
+            # No one is on the server
+            self.send_chat_message(mto=target, mbody="No one is on the server '{0[ServerName]}'.".format(server_info))
+        else:
+            is_enough, min_users = self.server_rank_user_min(server_info)
+            if not is_enough and not self.perms_user_group(user, "admin"):
                 # Not enough people on the server
-                self.send_chat_message(mto=target, mbody="There needs to be at least {0} people on the server to use this command.".format(self.sr_min))
+                self.send_chat_message(mto=target, mbody="There needs to be at least {0} people on the server to use this command.".format(min_users))
             else:
                 # Display the standard server rank
                 message = "Ranking info for {0[ServerName]}: MMR Average: {0[ServerRanking]}, Average Pilot Level: {0[DeveloperData][AveragePilotLevel]}".format(server_info)
                 self.send_chat_message(mto=target, mbody=message)
 
     def command_server_rank_detailed(self, command, arguments, target, user):
-        # Find the server the user is on
-        server = self.hawken_api.user_server(user)
-
-        # Check if they are actually on a server
-        if server is None:
-            self.send_chat_message(mto=target, mbody="You are not on a server.")
+        if len(arguments) > 0:
+            # Grab the given server name
+            server_info = self.hawken_api.server_by_name(arguments[0])
         else:
-            # Load the server info
-            server_info = self.hawken_api.server_list(server[0])
+            # Find the server the user is on
+            server = self.hawken_api.user_server(user)
+            # Check if they are actually on a server
+            if server is None:
+                self.send_chat_message(mto=target, mbody="You are not on a server.")
+                return
+            else:
+                # Load the server info
+                server_info = self.hawken_api.server_list(server[0])
 
-            if server_info is None:
-                # Failed to load server info
+        if server_info is None:
+            # Failed to load server info
+            if len(arguments) > 0:
+                self.send_chat_message(mto=target, mbody="Error: No such server name.")
+            else:
                 self.send_chat_message(mto=target, mbody="Error: Failed to load server info.")
-            elif len(server_info["Users"]) < 1:
-                # No one is on the server
-                self.send_chat_message(mto=target, mbody="No one is on {0[ServerName]}.".format(server_info))
-            elif len(server_info["Users"]) < self.sr_min and not self.perms_user_group(user, "admin"):
+        elif len(server_info["Users"]) < 1:
+            # No one is on the server
+            self.send_chat_message(mto=target, mbody="No one is on {0[ServerName]}.".format(server_info))
+        else:
+            is_enough, min_users = self.server_rank_user_min(server_info)
+            if not is_enough and not self.perms_user_group(user, "admin"):
                 # Not enough people on the server
-                self.send_chat_message(mto=target, mbody="There needs to be at least {0} people on the server to use this command.".format(self.sr_min))
+                self.send_chat_message(mto=target, mbody="There needs to be at least {0} people on the server to use this command.".format(min_users))
             else:
                 # Load the MMR for all the players on the server
                 try:
