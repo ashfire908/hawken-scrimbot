@@ -973,13 +973,13 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
             self.send_chat_message(mto=target, mbody="Missing target server name or subcommand.")
         # Handle subcommands
         # Cancel/Ok
-        elif arguments[0] in "cancel":
+        elif arguments[0] == "cancel":
             # Delete the server reservation (as it's fulfilled now)
             if self.reservation_delete_current(user):
                 self.send_chat_message(mto=target, mbody="Canceled pending server reservation.")
             else:
                 self.send_chat_message(mto=target, mbody="No reservation found to cancel.")
-        elif arguments[0] in "confirm":
+        elif arguments[0] == "confirm":
             # Grab the reservation for the user
             reservation = self.reservation_get_current(user)
             if reservation is None:
