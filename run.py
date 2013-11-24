@@ -6,7 +6,7 @@ from scrimbot import ScrimBot
 
 if __name__ == "__main__":
     # Config logging
-    logging.basicConfig(level=logging.DEBUG, format="%(asctime)-15s %(levelname)-8s %(message)s")
+    logging.basicConfig(level=logging.DEBUG, format="%(asctime)-15s %(levelname)-8s %(name)s %(message)s")
 
     # Run the bot
     hawkenbot = ScrimBot()

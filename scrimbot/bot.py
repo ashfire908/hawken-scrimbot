@@ -4,6 +4,7 @@
 
 import logging
 import errno
+import traceback
 import time
 import math
 import json
@@ -14,10 +15,13 @@ import sleekxmpp
 
 import hawkenapi.client
 import hawkenapi.sleekxmpp
-from hawkenapi.exceptions import InvalidBatch
+import hawkenapi.exceptions
 
-from scrimbot.commands import RequiredPerm, HiddenCommand
+from scrimbot.commands import RequiredPerm, HiddenCommand, SafeCommand
 from scrimbot.party import Party
+
+# Setup logging
+logger = logging.getLogger("scrimbot")
 
 
 # Bot class
@@ -80,6 +84,8 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         # Command handlers
         # Meta/Utilities
         self.add_command_handler("pm::botinfo", self.command_botinfo)
+        self.add_command_handler("pm::foundabug", self.command_foundabug)
+        self.add_command_handler("muc::foundabug", self.command_foundabug)
         self.add_command_handler("pm::commands", self.command_commands)
         self.add_command_handler("muc::commands", self.command_commands)
         self.add_command_handler("pm::whoami", self.command_whoami)
@@ -148,11 +154,10 @@ class ScrimBot(sleekxmpp.ClientXMPP):
 
     def _config_filename(self):
         filename = os.path.join(self.config_path, self.config_filename)
-        logging.debug("Config filename: {}".format(filename))
         return filename
 
     def _config_load(self):
-        logging.info("Loading the bot config.")
+        logger.info("Loading the bot config.")
 
         # Read the config
         try:
@@ -164,11 +169,11 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         except IOError as ex:
             if ex.errno == errno.ENOENT:
                 # File not found, write out the config.
-                logging.info("No config file found, creating one.")
+                logger.info("No config file found, creating one.")
                 self._config_save()
                 return None
             else:
-                logging.error("Failed to load config file: {0} {1}".format(type(ex), ex))
+                logger.error("Failed to load config file: {0} {1}".format(type(ex), ex))
                 return False
         config = json.loads(data)
 
@@ -188,9 +193,9 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.globals_period = config.get("globals_period", self.globals_period)
         self.party_cleanup_period = config.get("party_cleanup_period", self.party_cleanup_period)
 
-        # Logging
+        # logger
         if "log_level" in config.keys():
-            logging.getLogger().setLevel(config.get("log_level"))
+            logger.setLevel(config.get("log_level"))
 
         # Merge in the permissions
         if "permissions" in config.keys():
@@ -199,10 +204,10 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         return True
 
     def _config_save(self):
-        logging.debug("Saving the bot config.")
+        logger.debug("Saving the bot config.")
 
         # Logging
-        log_level = logging.getLevelName(logging.getLogger().getEffectiveLevel())
+        log_level = logging.getLevelName(logger.getEffectiveLevel())
 
         # Create the config structure, populate
         config = {
@@ -232,7 +237,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             finally:
                 config_file.close()
         except IOError as ex:
-            logging.error("Failed to save config file: {0} {1}".format(type(ex), ex))
+            logger.error("Failed to save config file: {0} {1}".format(type(ex), ex))
             return False
         return True
 
@@ -501,7 +506,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             del self.reservations[owner]
 
     def update_roster(self):
-        logging.info("Updating roster.")
+        logger.info("Updating roster.")
         # Process roster list
         whitelist = set(self.perms_group("admin") + self.perms_group("whitelist"))
         for jid in self.client_roster.keys():
@@ -564,7 +569,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         if len(mmr["list"]) > 0:
             mmr["max"] = max(mmr["list"])
             mmr["min"] = min(mmr["list"])
-            mmr["mean"] = math.fsum(mmr["list"])/float(len(mmr["list"]))
+            mmr["mean"] = math.fsum(mmr["list"]) / float(len(mmr["list"]))
 
             # Process each user's stats
             for user in users.values():
@@ -576,7 +581,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             # Calculate standard deviation
             stddev_list = [user["deviation"] ** 2 for user in users.values() if "deviation" in user]
             if len(stddev_list) > 0:
-                mmr["stddev"] = math.sqrt(math.fsum(stddev_list)/float(len(stddev_list)))
+                mmr["stddev"] = math.sqrt(math.fsum(stddev_list) / float(len(stddev_list)))
 
             return mmr
         else:
@@ -597,7 +602,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             if advertisement_info is None:
                 # Verify the advertisement hasn't been canceled
                 if not self.reservation_has(user):
-                    logging.debug("Reservation for user '{0}' has been canceled - stopped polling.".format(user))
+                    logger.debug("Reservation for user '{0}' has been canceled - stopped polling.".format(user))
                     timeout = False
                     break
                 else:
@@ -643,7 +648,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             if advertisement_info is None:
                 # Verify the advertisement hasn't been canceled
                 if not self.party_get(party).is_matchmaking():
-                    logging.debug("Reservation for party '{0}' has been canceled - stopped polling.".format(party))
+                    logger.debug("Reservation for party '{0}' has been canceled - stopped polling.".format(party))
                     abort = True
                     break
                 else:
@@ -667,7 +672,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             self.send_group_message(mto=target, mbody="Time limit reached - deployment aborted.")
 
     def reset_mmr(self):
-        logging.info("Resetting MMR usage.")
+        logger.info("Resetting MMR usage.")
         # A loop would probably be better here
         self.mmr_usage = dict.fromkeys(self.mmr_usage, 0)
         # Reschedule task
@@ -675,7 +680,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.mmr_reset_thread.start()
 
     def globals_update(self):
-        logging.info("Updating globals.")
+        logger.info("Updating globals.")
         # Get the global item, update settings
         global_data = self.hawken_api.game_items("ff7aa68d-d450-44c3-86f0-a403e87b0f64")
         self.spec_rankrange = int(global_data["MMPilotLevelRange"])
@@ -684,7 +689,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.globals_update_thread.start()
 
     def party_cleanup(self):
-        logging.info("Purging empty parties.")
+        logger.info("Purging empty parties.")
         # Purge all empty parties
         targets = [k for k, v in self.parties.items() if len(v.players) == 0]
         for guid in targets:
@@ -716,6 +721,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
 
         return len(server["Users"]) >= min_players, min_players
 
+    @SafeCommand()
     def command_botinfo(self, command, arguments, target, user):
         message = """Hello, I am ScrimBot, the Hawken Scrim Bot. I do various competitive-related and utility functions. I am run by Ashfire908.
 
@@ -723,6 +729,18 @@ If you need help with the bot, send a pm to Ashfire908 on the Hawken forums, tal
 
 This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Meteor Entertainment."""
         self.send_chat_message(mto=target, mbody=message)
+
+    @SafeCommand()
+    def command_foundabug(self, command, arguments, target, user, room=None):
+        if room is not None:
+            self.send_group_message(mto=target, mbody="Please send this command as a pm, not via a party.")
+        else:
+            message = """If you have encounter an error with the bot, please send in an error report. Either send a pm to Ashfire908 on the Hawken forums, talk to him on the #hawkenscrim IRC channel, or send an email to: scrimbot@hawkenwiki.com
+
+The error report should contain your callsign, what you were doing, the command you were using, what time is was (including timezone), and the error you recieved.
+
+Not every bit of information is required, but at the very least you need to send in your callsign and the approximate time the error occured; Otherwise the error can't be found."""
+            self.send_chat_message(mto=target, mbody=message)
 
     @HiddenCommand()
     @RequiredPerm(("admin", ))
@@ -940,7 +958,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
                 # Load the MMR for all the players on the server
                 try:
                     data = self.hawken_api.user_stats(server_info["Users"])
-                except InvalidBatch:
+                except hawkenapi.exceptions.InvalidBatch:
                     self.send_chat_message(mto=target, mbody="Error: Failed to load player data.")
                 else:
                     users = {}
@@ -1013,7 +1031,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
                 if result is True:
                     self.send_chat_message(mto=target, mbody="Current server saved for future use.")
                 else:
-                    logging.warn("Command spectate savecurrent returned non-true on advertisement save - this should not happen.")
+                    logger.warn("Command spectate savecurrent returned non-true on advertisement save - this should not happen.")
                     self.send_chat_message(mto=target, mbody="Error: Failed to save current server for future use. (This is a bug, please report it.)")
         # Clear
         elif arguments[0] == "clear":
@@ -1521,13 +1539,13 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
         self.get_roster()
 
         if self.bot_offline:
-            logging.warning("Offline mode enabled.")
+            logger.warning("Offline mode enabled.")
             self.auto_authorize = False
             self.auto_subscribe = False
             self.update_roster()
 
         # CROWBAR IS READY
-        logging.info("Bot connected and ready.")
+        logger.info("Bot connected and ready.")
 
     def handle_message(self, message):
         # Check if the bot is in offline mode, and if so, if the user is whitelisted
@@ -1565,6 +1583,54 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
                 # Pass it off to the handler
                 self.handle_command(message["body"][1:], message, True)
 
+    def command_wrapper(self, handler, command, arguments, target, user, room=None):
+        dochecks = True
+        try:
+            # Check if command is marked 'safe'
+            if handler._scrimcommand_safe:
+                # Command is safe, bypass checks
+                dochecks = False
+        except AttributeError:
+            pass
+
+        if dochecks and user is None:
+            # Can't identify user!
+            logger.warn("Command {0} called by unidentified user - target was {1}. Rejecting!".format(command, target))
+
+            # Report back to the user
+            msg = "Error: Failed to identify the user calling the command. Please report your callsign and the command you were using (see {0}foundabug - if that fails, contact Ashfire908 on the forums). This error has been logged.".format(self.command_prefix)
+            if room is None:
+                self.send_chat_message(mto=target, mbody=msg)
+            else:
+                self.send_group_message(mto=target, mbody=msg)
+        else:
+            # Log command usage
+            logger.info("Command {0} called by {1}".format(command, user))
+
+            try:
+                if room is None:
+                    handler(command, arguments, target, user)
+                else:
+                    handler(command, arguments, target, user, room)
+            except Exception as ex:
+                # Generate the trackback
+                exception = traceback.format_exc()
+                if isinstance(ex, hawkenapi.exceptions.ApiException):
+                    # Add additional exception data for api errors
+                    exception += "\nStatus Code: {0}".format(ex.code)
+
+                # Log the error
+                logger.error("""Command {0} has failed due to an exception: {1} {2}
+Arguments: {3} Target: {4} User: {5} Room: {6}
+{7}""".format(command, type(ex), ex, arguments, target, user, room, exception))
+
+                # Report back to the user
+                msg = "Error: The command you attempted to run has encountered an unhandled exception, please report it (see {1}foundabug). {0} This error has been logged.".format(type(ex), self.command_prefix)
+                if room is None:
+                    self.send_chat_message(mto=target, mbody=msg)
+                else:
+                    self.send_group_message(mto=target, mbody=msg)
+
     def handle_command(self, args, message, party=False):
         # Split the arguments
         command, *arguments = args.split(" ")
@@ -1587,19 +1653,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
             handler = self.registered_commands[command_target]
             if not party:
                 # Signature: handler(command, args, target, user)
-                logging.info("Command {0} called by {1}".format(command, message["from"].user))
-                try:
-                    handler(command, arguments, message["from"].bare, message["from"].user)
-                except Exception as ex:
-                    logging.error("Command {0} has failed due to an exception: {1} {2}".format(command, type(ex), ex))
-                    self.send_chat_message(mto=message["from"].bare, mbody="Error: The command you attempted to run has encountered an unhandled exception. {0} This error has been logged.".format(type(ex)))
-                    raise
+                self.command_wrapper(handler, command, arguments, message["from"].bare, message["from"].user)
             else:
                 # Signature: handler(command, args, target, user, room)
-                logging.info("Command {0} called by {1}".format(command, message["stormid"].id))
-                try:
-                    handler(command, arguments, message["from"].bare, message["stormid"].id, message["from"].user)
-                except Exception as ex:
-                    logging.error("Command {0} has failed due to an exception: {1} {2}".format(command, type(ex), ex))
-                    self.send_group_message(mto=message["from"].bare, mbody="Error: The command you attempted to run has encountered an unhandled exception. {0} This error has been logged.".format(type(ex)))
-                    raise
+                self.command_wrapper(handler, command, arguments, message["from"].bare, message["stormid"].id, message["from"].user)

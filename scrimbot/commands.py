@@ -23,3 +23,13 @@ class HiddenCommand(object):
     def __call__(self, function):
         function._scrimcommand_hidden = True
         return function
+
+
+class SafeCommand(object):
+    """Command decorator for bypassing safety checks."""
+    def __init__(self):
+        pass
+
+    def __call__(self, function):
+        function._scrimcommand_safe = True
+        return function
