@@ -1,10 +1,12 @@
 {
-	"folders":
-	[
-		{
-			"path": "scrimbot"
-		}
-	],
+    "folders":
+    [
+        {
+            "follow_symlinks": true,
+            "folder_exclude_patterns": ["*.egg", "*.egg-info", ".codeintel", "include", "bin", "scripts", "lib", "tcl"],
+            "path": "."
+        }
+    ],
     "build_systems":
     [
         {
