@@ -1353,7 +1353,7 @@ Not every bit of information is required, but at the very least you need to send
             for guid in friends:
                 names.append(self.get_cached_callsign(guid))
 
-            self.send_chat_message(mto=target, mbody="Friends list ({1}): {0}".format(", ".join(names), len(friends)))
+            self.send_chat_message(mto=target, mbody="Friends list ({1}): {0}".format(", ".join(sorted(names, key=str.lower)), len(friends)))
 
     @RequiredPerm(("admin", ))
     def command_friendscount(self, command, arguments, target, user):
