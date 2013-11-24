@@ -1141,6 +1141,48 @@ Not every bit of information is required, but at the very least you need to send
 
                     self.send_chat_message(mto=target, mbody="Renewing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.command_prefix, command))
                     self.poll_reservation(target, user)
+        # User
+        elif arguments[0] == "user" and self.perms_user_group(user, "admin"):
+            # Pull the user's guid
+            guid = self.get_cached_guid(arguments[1])
+
+            if guid is None:
+                self.send_chat_message(mto=target, mbody="Unknown player given.")
+            else:
+                # Find the server the user is on
+                server_guid = self.hawken_api.user_server(guid)
+                # Check if they are actually on a server
+                if server_guid is None:
+                    self.send_chat_message(mto=target, mbody="'{0}' is not on a server.".format(arguments[1]))
+                else:
+                    # Grab the server info
+                    server = self.hawken_api.server_list(server_guid[0])
+                    if server is False:
+                        self.send_chat_message(mto=target, mbody="Error: Failed to load server list.")
+                    elif server is None:
+                        self.send_chat_message(mto=target, mbody="Error: Could not find server {0}.".format(server_guid))
+                    else:
+                        # Check for possible issues with the reservation
+                        # Server full
+                        user_count = len(server["Users"])
+                        if user_count >= server["MaxUsers"]:
+                            self.send_chat_message(mto=target, mbody="Warning: Server is full ({0}/{1}) - reservation may fail!".format(user_count, server["MaxUsers"]))
+                        # Server outside user's rank
+                        server_level = int(server["DeveloperData"]["AveragePilotLevel"])
+                        if server_level != 0:
+                            user_stats = self.hawken_api.user_stats(user)
+                            if user_stats is not None:
+                                user_level = int(user_stats["Progress.Pilot.Level"])
+                                if user_level + self.spec_rankrange <= server_level or \
+                                   user_level - self.spec_rankrange >= server_level:
+                                    self.send_chat_message(mto=target, mbody="Warning: Server outside your skill level ({1} vs {0}) - reservation may fail!".format(user_level, server_level))
+
+                        # Place the reservation
+                        self.reservation_post_server(user, server)
+
+                        self.send_chat_message(mto=target, mbody="Player located; placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.command_prefix, command))
+                        self.poll_reservation(target, user)
+
         # Handle normal server requests
         else:
             # Get the server info
