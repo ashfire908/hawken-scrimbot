@@ -206,7 +206,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
 
         # logger
         if "log_level" in config.keys():
-            logger.setLevel(config.get("log_level"))
+            logging.getLogger().setLevel(config.get("log_level"))
 
         # Merge in the permissions
         if "permissions" in config.keys():
@@ -218,7 +218,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         logger.debug("Saving the bot config.")
 
         # Logging
-        log_level = logging.getLevelName(logger.getEffectiveLevel())
+        log_level = logging.getLevelName(logging.getLogger().getEffectiveLevel())
 
         # Create the config structure, populate
         config = {
