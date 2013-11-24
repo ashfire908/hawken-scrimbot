@@ -55,6 +55,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.party_cleanup_period = 60 * 15
         self.cache_save_period = 60 * 30
         self.cache_filename = "cache.json"
+        self.sr_allow_arbitrary = True
 
         # Load config
         if not self._config_load() and username is None:
@@ -198,6 +199,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.party_cleanup_period = config.get("party_cleanup_period", self.party_cleanup_period)
         self.cache_save_period = config.get("cache_save_period", self.cache_save_period)
         self.cache_filename = config.get("cache_filename", self.cache_filename)
+        self.sr_allow_arbitrary = config.get("sr_allow_arbitrary", self.sr_allow_arbitrary)
 
         # logger
         if "log_level" in config.keys():
@@ -234,7 +236,8 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             "globals_period": self.globals_period,
             "party_cleanup_period": self.party_cleanup_period,
             "cache_save_period": self.cache_save_period,
-            "cache_filename": self.cache_filename
+            "cache_filename": self.cache_filename,
+            "sr_allow_arbitrary": self.sr_allow_arbitrary
         }
 
         # Write the config
@@ -948,8 +951,12 @@ Not every bit of information is required, but at the very least you need to send
 
     def command_server_rank(self, command, arguments, target, user):
         if len(arguments) > 0:
-            # Grab the given server name
-            server_info = self.hawken_api.server_by_name(arguments[0])
+            if self.sr_allow_arbitrary:
+                # Grab the given server name
+                server_info = self.hawken_api.server_by_name(arguments[0])
+            else:
+                self.send_chat_message(mto=target, mbody="Arbitrary server rankings have been disabled.")
+                return
         else:
             # Find the server the user is on
             server = self.hawken_api.user_server(user)
@@ -982,8 +989,12 @@ Not every bit of information is required, but at the very least you need to send
 
     def command_server_rank_detailed(self, command, arguments, target, user):
         if len(arguments) > 0:
-            # Grab the given server name
-            server_info = self.hawken_api.server_by_name(arguments[0])
+            if self.sr_allow_arbitrary:
+                # Grab the given server name
+                server_info = self.hawken_api.server_by_name(arguments[0])
+            else:
+                self.send_chat_message(mto=target, mbody="Arbitrary server rankings have been disabled.")
+                return
         else:
             # Find the server the user is on
             server = self.hawken_api.user_server(user)
