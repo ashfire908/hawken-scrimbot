@@ -12,5 +12,6 @@ tcl/
 *.sublime-workspace
 
 # Data
-/config.json
 /logs
+config.json
+cache.json

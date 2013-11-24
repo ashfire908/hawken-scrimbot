@@ -28,6 +28,7 @@ logger = logging.getLogger("scrimbot")
 class ScrimBot(sleekxmpp.ClientXMPP):
     def __init__(self, username=None, password=None, config_path=None):
         # Init cache, storage, base settings, etc
+        self.cache = {"callsigns": {}}
         self.callsigns = {}
         self.reservations = {}
         self.registered_commands = {}
@@ -52,6 +53,8 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.globals_period = 60 * 60 * 12
         self.spec_rankrange = 8
         self.party_cleanup_period = 60 * 15
+        self.cache_save_period = 60 * 30
+        self.cache_filename = "cache.json"
 
         # Load config
         if not self._config_load() and username is None:
@@ -61,6 +64,9 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             self.own_password = password
         elif (username is None and self.own_guid is None) or (password is None and self.own_password is None):
             raise RuntimeError("No login given via arguments or config.")
+
+        # Load cache
+        self._cache_load()
 
         # Init API
         self.hawken_api = hawkenapi.client.Client()
@@ -93,7 +99,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.add_command_handler("pm::hammertime", self.command_hammertime)
         # Tests
         self.add_command_handler("pm::testexception", self.command_testexception)
-        self.add_command_handler("pm::saveconfig", self.command_save_config)
+        self.add_command_handler("pm::save", self.command_save_data)
         self.add_command_handler("pm::tell", self.command_tell)
         # Permission management
         self.add_command_handler("pm::authorize", self.command_authorize)
@@ -148,6 +154,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.mmr_reset_thread = threading.Timer(self.mmr_period, self.reset_mmr)
         self.globals_update_thread = threading.Timer(self.globals_period, self.globals_update)
         self.party_cleanup_thread = threading.Timer(self.party_cleanup_period, self.party_cleanup)
+        self.cache_save_thread = threading.Timer(self.cache_save_period, self.cache_save)
 
     def _config_filename(self):
         filename = os.path.join(self.config_path, self.config_filename)
@@ -166,7 +173,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         except IOError as ex:
             if ex.errno == errno.ENOENT:
                 # File not found, write out the config.
-                logger.info("No config file found, creating one.")
+                logger.warn("No config file found, creating one.")
                 self._config_save()
                 return None
             else:
@@ -189,6 +196,8 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.sr_min = config.get("sr_min", self.sr_min)
         self.globals_period = config.get("globals_period", self.globals_period)
         self.party_cleanup_period = config.get("party_cleanup_period", self.party_cleanup_period)
+        self.cache_save_period = config.get("cache_save_period", self.cache_save_period)
+        self.cache_filename = config.get("cache_filename", self.cache_filename)
 
         # logger
         if "log_level" in config.keys():
@@ -223,7 +232,9 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             "mmr_restricted": self.mmr_restricted,
             "sr_min": self.sr_min,
             "globals_period": self.globals_period,
-            "party_cleanup_period": self.party_cleanup_period
+            "party_cleanup_period": self.party_cleanup_period,
+            "cache_save_period": self.cache_save_period,
+            "cache_filename": self.cache_filename
         }
 
         # Write the config
@@ -235,6 +246,45 @@ class ScrimBot(sleekxmpp.ClientXMPP):
                 config_file.close()
         except IOError as ex:
             logger.error("Failed to save config file: {0} {1}".format(type(ex), ex))
+            return False
+        return True
+
+    def _cache_filename(self):
+        filename = os.path.join(self.config_path, self.cache_filename)
+        return filename
+
+    def _cache_load(self):
+        logger.info("Loading the bot cache.")
+
+        # Read the cache file
+        try:
+            cache_file = open(self._cache_filename(), "r")
+            try:
+                data = cache_file.read()
+            finally:
+                cache_file.close()
+        except IOError as ex:
+            if ex.errno == errno.ENOENT:
+                # File not found.
+                logger.warning("No cache file found.")
+                return None
+            else:
+                logger.error("Failed to load cache file: {0} {1}".format(type(ex), ex))
+                return False
+        self.cache = json.loads(data)
+
+    def _cache_save(self):
+        logger.debug("Saving the bot cache.")
+
+        # Write the cache
+        try:
+            cache_file = open(self._cache_filename(), "w")
+            try:
+                json.dump(self.cache, cache_file)
+            finally:
+                cache_file.close()
+        except IOError as ex:
+            logger.error("Failed to save cache file: {0} {1}".format(type(ex), ex))
             return False
         return True
 
@@ -340,14 +390,14 @@ class ScrimBot(sleekxmpp.ClientXMPP):
 
     def get_cached_callsign(self, guid):
         # Check cache for callsign
-        if guid in self.callsigns.keys():
-            return self.callsigns[guid]
+        if guid in self.cache["callsigns"].keys():
+            return self.cache["callsigns"][guid]
 
         # Fetch callsign
         callsign = self.hawken_api.user_callsign(guid)
         if callsign is not None:
             # Cache callsign
-            self.callsigns[guid] = callsign
+            self.cache["callsigns"][guid] = callsign
 
         return callsign
 
@@ -356,7 +406,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         callsign = callsign.lower()
 
         # Check cache for guid
-        for guid, cs in self.callsigns.items():
+        for guid, cs in self.cache["callsigns"].items():
             if cs.lower() == callsign:
                 return guid
 
@@ -694,6 +744,14 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         # Reschedule task
         self.party_cleanup_thread = threading.Timer(self.party_cleanup_period, self.party_cleanup)
         self.party_cleanup_thread.start()
+
+    def cache_save(self):
+        logger.info("Saving cache.")
+        # Save the cache
+        self._cache_save()
+        # Reschedule task
+        self.cache_save_thread = threading.Timer(self.cache_save_period, self.cache_save)
+        self.cache_save_thread.start()
 
     def format_dhms(self, seconds):
         minutes, seconds = divmod(seconds, 60)
@@ -1184,14 +1242,15 @@ Not every bit of information is required, but at the very least you need to send
 
     @HiddenCommand()
     @RequiredPerm(("admin", ))
-    def command_save_config(self, command, arguments, target, user):
+    def command_save_data(self, command, arguments, target, user):
         # Verify the user is an admin
         if not self.perms_user_group(user, "admin"):
             self.send_chat_message(mto=target, mbody="You are not an admin.")
         else:
-            # Save the current config
+            self.send_chat_message(mto=target, mbody="Saving bot config and cache.")
+            # Save the current config and the cache
             self._config_save()
-            self.send_chat_message(mto=target, mbody="Bot config saved.")
+            self._cache_save()
 
     @HiddenCommand()
     def command_hammertime(self, command, arguments, target, user):
@@ -1546,6 +1605,7 @@ Not every bit of information is required, but at the very least you need to send
         self.mmr_reset_thread.start()
         self.globals_update_thread.start()
         self.party_cleanup_thread.start()
+        self.cache_save_thread.start()
 
         # CROWBAR IS READY
         logger.info("Bot connected and ready.")
