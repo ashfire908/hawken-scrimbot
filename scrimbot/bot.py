@@ -98,6 +98,9 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.add_command_handler("pm::whoami", self.command_whoami)
         self.add_command_handler("muc::whoami", self.command_whoami)
         self.add_command_handler("pm::hammertime", self.command_hammertime)
+        self.add_command_handler("pm::friends", self.command_friends)
+        self.add_command_handler("pm::friendsnamed", self.command_friendsnamed)
+        self.add_command_handler("pm::friendscount", self.command_friendscount)
         # Tests
         self.add_command_handler("pm::testexception", self.command_testexception)
         self.add_command_handler("pm::save", self.command_save_data)
@@ -555,12 +558,29 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             # Drop data stored
             del self.reservations[owner]
 
+    def get_roster_users(self):
+        users = []
+
+        for jid in self.client_roster.keys():
+            user = jid.split("@", 1)[0]
+            if user == self.own_guid:
+                # Don't display the bot in the roster
+                continue
+            else:
+                users.append(user)
+
+        return users
+
     def update_roster(self):
         logger.info("Updating roster.")
         # Process roster list
         whitelist = set(self.perms_group("admin") + self.perms_group("whitelist"))
         for jid in self.client_roster.keys():
             user = jid.split("@", 1)[0]
+            # Ignore the bot in it's own roster
+            if user == self.own_guid:
+                continue
+
             # Check if the user is on the list
             if user in whitelist:
                 # Remove user so we don't try to add them later
@@ -1266,6 +1286,42 @@ Not every bit of information is required, but at the very least you need to send
     @HiddenCommand()
     def command_hammertime(self, command, arguments, target, user):
         self.send_chat_message(mto=target, mbody="STOP! HAMMER TIME!")
+
+    @RequiredPerm(("admin", ))
+    def command_friends(self, command, arguments, target, user):
+        # Verify the user is an admin
+        if not self.perms_user_group(user, "admin"):
+            self.send_chat_message(mto=target, mbody="You are not an admin.")
+        else:
+            # Get the friends list
+            friends = self.get_roster_users()
+            self.send_chat_message(mto=target, mbody="Friends list ({1}): {0}".format(", ".join(friends), len(friends)))
+
+    @RequiredPerm(("admin", ))
+    def command_friendsnamed(self, command, arguments, target, user):
+        # Verify the user is an admin
+        if not self.perms_user_group(user, "admin"):
+            self.send_chat_message(mto=target, mbody="You are not an admin.")
+        else:
+            # Get the friends list
+            friends = self.get_roster_users()
+
+            # Grab all the callsigns
+            names = []
+            for guid in friends:
+                names.append(self.get_cached_callsign(guid))
+
+            self.send_chat_message(mto=target, mbody="Friends list ({1}): {0}".format(", ".join(names), len(friends)))
+
+    @RequiredPerm(("admin", ))
+    def command_friendscount(self, command, arguments, target, user):
+        # Verify the user is an admin
+        if not self.perms_user_group(user, "admin"):
+            self.send_chat_message(mto=target, mbody="You are not an admin.")
+        else:
+            # Get the friends list total
+            count = len(self.get_roster_users())
+            self.send_chat_message(mto=target, mbody="Current number of friends: {0}".format(count))
 
     @RequiredPerm(("admin", "party"))
     def command_party(self, command, arguments, target, user):
