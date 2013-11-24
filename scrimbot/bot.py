@@ -144,13 +144,10 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.register_plugin("xep_0199")  # XMPP Ping
         self.register_plugin("hawken_party")  # Hawken Party
 
-        # Setup timers
+        # Setup task threads
         self.mmr_reset_thread = threading.Timer(self.mmr_period, self.reset_mmr)
-        self.mmr_reset_thread.start()
         self.globals_update_thread = threading.Timer(self.globals_period, self.globals_update)
-        self.globals_update_thread.start()
         self.party_cleanup_thread = threading.Timer(self.party_cleanup_period, self.party_cleanup)
-        self.party_cleanup_thread.start()
 
     def _config_filename(self):
         filename = os.path.join(self.config_path, self.config_filename)
@@ -1543,6 +1540,12 @@ Not every bit of information is required, but at the very least you need to send
             self.auto_authorize = False
             self.auto_subscribe = False
             self.update_roster()
+
+        # Start the task threads
+        logger.info("Starting tasks.")
+        self.mmr_reset_thread.start()
+        self.globals_update_thread.start()
+        self.party_cleanup_thread.start()
 
         # CROWBAR IS READY
         logger.info("Bot connected and ready.")
