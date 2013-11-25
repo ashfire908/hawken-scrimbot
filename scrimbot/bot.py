@@ -759,11 +759,14 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.globals_update_thread.start()
 
     def party_cleanup(self):
-        logger.info("Purging empty parties.")
-        # Purge all empty parties
+        # Check for empty parties
         targets = [k for k, v in self.parties.items() if len(v.players) == 0]
-        for guid in targets:
-            self.party_leave(guid)
+
+        if len(targets) > 0:
+            # Purge all empty parties
+            logger.info("Purging {0} empty parties.".format(len(targets)))
+            for guid in targets:
+                self.party_leave(guid)
         # Reschedule task
         self.party_cleanup_thread = threading.Timer(self.party_cleanup_period, self.party_cleanup)
         self.party_cleanup_thread.start()
@@ -1711,7 +1714,8 @@ Not every bit of information is required, but at the very least you need to send
 
         # Start the task threads
         logger.info("Starting tasks.")
-        self.mmr_reset_thread.start()
+        if self.mmr_limit != -1:
+            self.mmr_reset_thread.start()
         self.globals_update_thread.start()
         self.party_cleanup_thread.start()
         self.cache_save_thread.start()
