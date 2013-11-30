@@ -1783,17 +1783,27 @@ Not every bit of information is required, but at the very least you need to send
                     handler(command, arguments, target, user)
                 else:
                     handler(command, arguments, target, user, room)
-            except Exception as ex:
+            except Exception as e:
                 # Generate the trackback
                 exception = traceback.format_exc()
 
                 # Log the error
                 logger.error("""Command {0} has failed due to an exception: {1} {2}
 Arguments: {3} Target: {4} User: {5} Room: {6}
-{7}""".format(command, type(ex), ex, arguments, target, user, room, exception))
+{7}""".format(command, type(e), e, arguments, target, user, room, exception))
 
                 # Report back to the user
-                msg = "Error: The command you attempted to run has encountered an unhandled exception, please report it (see {1}foundabug). {0} This error has been logged.".format(type(ex), self.command_prefix)
+                if isinstance(e, hawkenapi.exceptions.RetryLimitExceeded):
+                    # Temp error encountered, retry limit reached
+                    msg = "Error: The command you attempted to run has failed due to a temporary issue with the Hawken servers. Please try again later. If the error persists, please report it (see {0}foundabug)!".format(self.command_prefix)
+                elif isinstance(e, (hawkenapi.exceptions.AuthenticationFailure, hawkenapi.exceptions.NotAuthenticated, hawkenapi.exceptions.NotAuthorized)):
+                    # Auth error encountered
+                    msg = "Error: The command you attempted to run has failed due to a authentication failure. If the error persists, please report it (see {0}foundabug)!".format(self.command_prefix)
+                elif isinstance(e, (hawkenapi.exceptions.NotAllowed, hawkenapi.exceptions.WrongOwner, hawkenapi.exceptions.InvalidRequest, hawkenapi.exceptions.InvalidBatch)):
+                    # Bad request, probably a bug
+                    msg = "Error: The command you attempted to run has failed due to an issue between the bot and the Hawken servers. This is most likely a bug! Please report it! See {0}foundabug for more information.".format(self.command_prefix)
+                else:
+                    msg = "Error: The command you attempted to run has encountered an unhandled exception, please report it (see {1}foundabug). {0} This error has been logged.".format(type(e), self.command_prefix)
                 if room is None:
                     self.send_chat_message(mto=target, mbody=msg)
                 else:
