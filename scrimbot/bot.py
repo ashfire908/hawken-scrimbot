@@ -1767,9 +1767,6 @@ Not every bit of information is required, but at the very least you need to send
             except Exception as ex:
                 # Generate the trackback
                 exception = traceback.format_exc()
-                if isinstance(ex, hawkenapi.exceptions.ApiException):
-                    # Add additional exception data for api errors
-                    exception += "\nStatus Code: {0}".format(ex.code)
 
                 # Log the error
                 logger.error("""Command {0} has failed due to an exception: {1} {2}
