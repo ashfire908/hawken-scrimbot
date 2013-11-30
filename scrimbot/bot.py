@@ -1730,16 +1730,14 @@ Not every bit of information is required, but at the very least you need to send
             # Refuse to take chat from the bot (loop prevention)
             elif message["from"].user == self.own_guid:
                 pass
-            # Ignore the bot's own default response
-            elif message["body"] == "Beep boop.":
-                pass
-            # Check if this is a command
-            elif message["body"][0] == self.command_prefix:
-                # Pass it off to the handler
-                self.handle_command(message["body"][1:], message)
+            # Pass off the message to the command
             else:
-                # BOOP
-                message.reply("Beep boop.").send()
+                if message["body"][0] == self.command_prefix:
+                    body = message["body"][1:]
+                else:
+                    body = message["body"]
+                # Pass it off to the handler
+                self.handle_command(body, message)
 
     def handle_groupchat_message(self, message):
         if message["type"] == "groupchat":
@@ -1823,9 +1821,9 @@ Arguments: {3} Target: {4} User: {5} Room: {6}
         if command_target not in self.registered_commands.keys():
             # No handler
             if not party:
-                self.send_chat_message(mto=message["from"].bare, mbody="Error: No such command.")
+                self.send_chat_message(mto=message["from"].bare, mbody="Error: No such command. See {0}commands for a list of commands.".format(self.command_prefix))
             else:
-                self.send_group_message(mto=message["from"].bare, mbody="Error: No such command.")
+                self.send_group_message(mto=message["from"].bare, mbody="Error: No such command. See {0}commands for a list of commands.".format(self.command_prefix))
         else:
             # Fire off the handler
             handler = self.registered_commands[command_target]
