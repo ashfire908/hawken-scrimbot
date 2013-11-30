@@ -56,6 +56,8 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.cache_save_period = 60 * 30
         self.cache_filename = "cache.json"
         self.sr_allow_arbitrary = True
+        self.api_retry_max = 5
+        self.api_retry_delay = 1
 
         # Load config
         if not self._config_load() and username is None:
@@ -72,15 +74,15 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         # Init API
         self.hawken_api = hawkenapi.client.Client()
         self.hawken_api.auto_auth(self.own_guid, self.own_password)
-        self.own_callsign = self.hawken_api.user_callsign(self.own_guid)
+        self.own_callsign = self._retry_wrapper(self.hawken_api.user_callsign, self.own_guid)
 
         # Init client
-        self.xmpp_server = self.hawken_api.presence_domain(self.own_guid)
+        self.xmpp_server = self._retry_wrapper(self.hawken_api.presence_domain, self.own_guid)
         self.xmpp_server_party = "party.{}".format(self.xmpp_server)
 
         # Setup client
         jid = "{}@{}/HawkenScrimBot".format(self.own_guid, self.xmpp_server)
-        xmpp_auth = self.hawken_api.presence_access(self.own_guid)
+        xmpp_auth = self._retry_wrapper(self.hawken_api.presence_access, self.own_guid)
         super(ScrimBot, self).__init__(jid, xmpp_auth)
 
         # Event handlers
@@ -203,6 +205,8 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         self.cache_save_period = config.get("cache_save_period", self.cache_save_period)
         self.cache_filename = config.get("cache_filename", self.cache_filename)
         self.sr_allow_arbitrary = config.get("sr_allow_arbitrary", self.sr_allow_arbitrary)
+        self.api_retry_max = config.get("api_retry_max", self.api_retry_max)
+        self.api_retry_delay = config.get("api_retry_delay", self.api_retry_delay)
 
         # logger
         if "log_level" in config.keys():
@@ -240,7 +244,9 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             "party_cleanup_period": self.party_cleanup_period,
             "cache_save_period": self.cache_save_period,
             "cache_filename": self.cache_filename,
-            "sr_allow_arbitrary": self.sr_allow_arbitrary
+            "sr_allow_arbitrary": self.sr_allow_arbitrary,
+            "api_retry_delay": self.api_retry_delay,
+            "api_retry_max": self.api_retry_max
         }
 
         # Write the config
@@ -293,6 +299,9 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             logger.error("Failed to save cache file: {0} {1}".format(type(ex), ex))
             return False
         return True
+
+    def _retry_wrapper(self, endpoint, *args, **kwargs):
+        return hawkenapi.client.retry_wrapper(endpoint, self.api_retry_max, self.api_retry_delay, *args, **kwargs)
 
     def send_chat_message(self, mto=None, mbody=None):
         # Fixes messages getting displayed as System Messages/Emergency Broadcasts
@@ -400,7 +409,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
             return self.cache["callsigns"][guid]
 
         # Fetch callsign
-        callsign = self.hawken_api.user_callsign(guid)
+        callsign = self._retry_wrapper(self.hawken_api.user_callsign, guid)
         if callsign is not None:
             # Cache callsign
             self.cache["callsigns"][guid] = callsign
@@ -417,7 +426,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
                 return guid
 
         # Fetch GUID
-        guid = self.hawken_api.user_guid(callsign)
+        guid = self._retry_wrapper(self.hawken_api.user_guid, callsign)
         # TODO: Do we want to cache a case-insensitive callsign here?
 
         return guid
@@ -527,7 +536,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         if self.reservation_has(owner) and advertisement in self.reservations[owner]["advertisements"]:
             # Delete the reservation
             self.reservations[owner]["advertisements"].remove(advertisement)
-            self.hawken_api.matchmaking_advertisement_delete(advertisement)
+            self._retry_wrapper(self.hawken_api.matchmaking_advertisement_delete, advertisement)
             return True
         return False
 
@@ -541,9 +550,9 @@ class ScrimBot(sleekxmpp.ClientXMPP):
 
         # Post the advertisement
         if party:
-            advertisement = self.hawken_api.matchmaking_advertisement_post_server(server["GameVersion"], server["Region"], server["Guid"], self.own_guid, users, owner)
+            advertisement = self._retry_wrapper(self.hawken_api.matchmaking_advertisement_post_server, server["GameVersion"], server["Region"], server["Guid"], self.own_guid, users, owner)
         else:
-            advertisement = self.hawken_api.matchmaking_advertisement_post_server(server["GameVersion"], server["Region"], server["Guid"], self.own_guid, users)
+            advertisement = self._retry_wrapper(self.hawken_api.matchmaking_advertisement_post_server, server["GameVersion"], server["Region"], server["Guid"], self.own_guid, users)
 
         # Record the advertisement
         self.reservation_add(owner, advertisement)
@@ -667,32 +676,37 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         timeout = True
         while (time.time() - start_time) < self.advertisement_poll_limit:
             # Check the advertisement
-            advertisement_info = self.hawken_api.matchmaking_advertisement(advertisement)
-            # Verify the advertisement still exists
-            if advertisement_info is None:
-                # Verify the advertisement hasn't been canceled
-                if not self.reservation_has(user):
-                    logger.debug("Reservation for user '{0}' has been canceled - stopped polling.".format(user))
-                    timeout = False
-                    break
-                else:
-                    # Couldn't find reservation
-                    self.send_chat_message(mto=target, mbody="Error: Could not retrieve advertisement - expired? Stopped polling for reservation.")
-                    timeout = False
-                    break
+            try:
+                advertisement_info = self._retry_wrapper(self.hawken_api.matchmaking_advertisement, advertisement)
+            except hawkenapi.exceptions.RetryLimitExceeded:
+                # Continue polling the advertisement
+                pass
             else:
-                # Check if the reservation has been completed
-                if advertisement_info["ReadyToDeliver"]:
-                    # Get the server name
-                    try:
-                        server_name = self.hawken_api.server_list(advertisement_info["AssignedServerGuid"])["ServerName"]
-                    except KeyError:
-                        server_name = "<unknown>"
+                # Verify the advertisement still exists
+                if advertisement_info is None:
+                    # Verify the advertisement hasn't been canceled
+                    if not self.reservation_has(user):
+                        logger.debug("Reservation for user '{0}' has been canceled - stopped polling.".format(user))
+                        timeout = False
+                        break
+                    else:
+                        # Couldn't find reservation
+                        self.send_chat_message(mto=target, mbody="Error: Could not retrieve advertisement - expired? Stopped polling for reservation.")
+                        timeout = False
+                        break
+                else:
+                    # Check if the reservation has been completed
+                    if advertisement_info["ReadyToDeliver"]:
+                        # Get the server name
+                        try:
+                            server_name = self._retry_wrapper(self.hawken_api.server_list, advertisement_info["AssignedServerGuid"])["ServerName"]
+                        except KeyError:
+                            server_name = "<unknown>"
 
-                    message = "\nReservation for server '{2}' complete.\nServer IP: {0}:{1}.\n\nUse '{3}spectate confirm' after joining the server, or '{3}spectate cancel' if you do not plan on joining the server."
-                    self.send_chat_message(mto=target, mbody=message.format(advertisement_info["AssignedServerIp"].strip(r"\n"), advertisement_info["AssignedServerPort"], server_name, self.command_prefix))
-                    timeout = False
-                    break
+                        message = "\nReservation for server '{2}' complete.\nServer IP: {0}:{1}.\n\nUse '{3}spectate confirm' after joining the server, or '{3}spectate cancel' if you do not plan on joining the server."
+                        self.send_chat_message(mto=target, mbody=message.format(advertisement_info["AssignedServerIp"].strip(r"\n"), advertisement_info["AssignedServerPort"], server_name, self.command_prefix))
+                        timeout = False
+                        break
 
             # Sleep a bit before requesting again.
             time.sleep(self.advertisement_poll_rate)
@@ -713,26 +727,31 @@ class ScrimBot(sleekxmpp.ClientXMPP):
         abort = True
         while (time.time() - start_time) < self.advertisement_poll_limit:
             # Check the advertisement
-            advertisement_info = self.hawken_api.matchmaking_advertisement(advertisement)
-            # Verify the advertisement still exists
-            if advertisement_info is None:
-                # Verify the advertisement hasn't been canceled
-                if not self.party_get(party).is_matchmaking():
-                    logger.debug("Reservation for party '{0}' has been canceled - stopped polling.".format(party))
-                    abort = True
-                    break
-                else:
-                    # Couldn't find reservation
-                    self.send_group_message(mto=target, mbody="Error: Could not retrieve advertisement - expired? Stopped deployment.")
-                    abort = True
-                    break
+            try:
+                advertisement_info = self._retry_wrapper(self.hawken_api.matchmaking_advertisement, advertisement)
+            except hawkenapi.exceptions.RetryLimitExceeded:
+                # Continue polling the advertisement
+                pass
             else:
-                # Check if the reservation has been completed
-                if advertisement_info["ReadyToDeliver"]:
-                    # Signal to deploy
-                    self.party_get(party).deploy_start(advertisement_info["AssignedServerGuid"], advertisement_info["AssignedServerIp"].strip(r"\n"), advertisement_info["AssignedServerPort"])
-                    abort = False
-                    break
+                # Verify the advertisement still exists
+                if advertisement_info is None:
+                    # Verify the advertisement hasn't been canceled
+                    if not self.party_get(party).is_matchmaking():
+                        logger.debug("Reservation for party '{0}' has been canceled - stopped polling.".format(party))
+                        abort = True
+                        break
+                    else:
+                        # Couldn't find reservation
+                        self.send_group_message(mto=target, mbody="Error: Could not retrieve advertisement - expired? Stopped deployment.")
+                        abort = True
+                        break
+                else:
+                    # Check if the reservation has been completed
+                    if advertisement_info["ReadyToDeliver"]:
+                        # Signal to deploy
+                        self.party_get(party).deploy_start(advertisement_info["AssignedServerGuid"], advertisement_info["AssignedServerIp"].strip(r"\n"), advertisement_info["AssignedServerPort"])
+                        abort = False
+                        break
 
             # Wait a bit before requesting again.
             time.sleep(self.advertisement_poll_rate)
@@ -752,7 +771,7 @@ class ScrimBot(sleekxmpp.ClientXMPP):
     def globals_update(self):
         logger.info("Updating globals.")
         # Get the global item, update settings
-        global_data = self.hawken_api.game_items("ff7aa68d-d450-44c3-86f0-a403e87b0f64")
+        global_data = self._retry_wrapper(self.hawken_api.game_items, "ff7aa68d-d450-44c3-86f0-a403e87b0f64")
         self.spec_rankrange = int(global_data["MMPilotLevelRange"])
         # Reschedule task
         self.globals_update_thread = threading.Timer(self.globals_period, self.globals_update)
@@ -939,7 +958,7 @@ Not every bit of information is required, but at the very least you need to send
             self.send_chat_message(mto=target, mbody="No such user.")
         else:
             # Get the user's stats
-            stats = self.hawken_api.user_stats(target_user)
+            stats = self._retry_wrapper(self.hawken_api.user_stats, target_user)
 
             if stats is None:
                 # Failed to load data
@@ -976,20 +995,20 @@ Not every bit of information is required, but at the very least you need to send
         if len(arguments) > 0:
             if self.sr_allow_arbitrary:
                 # Grab the given server name
-                server_info = self.hawken_api.server_by_name(arguments[0])
+                server_info = self._retry_wrapper(self.hawken_api.server_by_name, arguments[0])
             else:
                 self.send_chat_message(mto=target, mbody="Arbitrary server rankings have been disabled.")
                 return
         else:
             # Find the server the user is on
-            server = self.hawken_api.user_server(user)
+            server = self._retry_wrapper(self.hawken_api.user_server, user)
             # Check if they are actually on a server
             if server is None:
                 self.send_chat_message(mto=target, mbody="You are not on a server.")
                 return
             else:
                 # Load the server info
-                server_info = self.hawken_api.server_list(server[0])
+                server_info = self._retry_wrapper(self.hawken_api.server_list, server[0])
 
         if server_info is None:
             # Failed to load server info
@@ -1014,20 +1033,20 @@ Not every bit of information is required, but at the very least you need to send
         if len(arguments) > 0:
             if self.sr_allow_arbitrary:
                 # Grab the given server name
-                server_info = self.hawken_api.server_by_name(arguments[0])
+                server_info = self._retry_wrapper(self.hawken_api.server_by_name, arguments[0])
             else:
                 self.send_chat_message(mto=target, mbody="Arbitrary server rankings have been disabled.")
                 return
         else:
             # Find the server the user is on
-            server = self.hawken_api.user_server(user)
+            server = self._retry_wrapper(self.hawken_api.user_server, user)
             # Check if they are actually on a server
             if server is None:
                 self.send_chat_message(mto=target, mbody="You are not on a server.")
                 return
             else:
                 # Load the server info
-                server_info = self.hawken_api.server_list(server[0])
+                server_info = self._retry_wrapper(self.hawken_api.server_list, server[0])
 
         if server_info is None:
             # Failed to load server info
@@ -1046,7 +1065,7 @@ Not every bit of information is required, but at the very least you need to send
             else:
                 # Load the MMR for all the players on the server
                 try:
-                    data = self.hawken_api.user_stats(server_info["Users"])
+                    data = self._retry_wrapper(self.hawken_api.user_stats, server_info["Users"])
                 except hawkenapi.exceptions.InvalidBatch:
                     self.send_chat_message(mto=target, mbody="Error: Failed to load player data.")
                 else:
@@ -1094,7 +1113,7 @@ Not every bit of information is required, but at the very least you need to send
                 self.send_chat_message(mto=target, mbody="No reservation found to confirm.")
             else:
                 # Load the advertisement
-                advertisement = self.hawken_api.matchmaking_advertisement(reservation)
+                advertisement = self._retry_wrapper(self.hawken_api.matchmaking_advertisement, reservation)
 
                 if advertisement is None:
                     # Couldn't find the advertisement
@@ -1109,7 +1128,7 @@ Not every bit of information is required, but at the very least you need to send
         # Save current
         elif arguments[0] == "save":
             # Get the user's current server
-            server = self.hawken_api.user_server(user)
+            server = self._retry_wrapper(self.hawken_api.user_server, user)
 
             # Check if they are actually on a server
             if server is None:
@@ -1134,7 +1153,7 @@ Not every bit of information is required, but at the very least you need to send
                 self.send_chat_message(mto=target, mbody="No saved reservation on file.")
             else:
                 # Get the server info
-                server = self.hawken_api.server_list(self.reservation_get_saved(user))
+                server = self._retry_wrapper(self.hawken_api.server_list, self.reservation_get_saved(user))
                 # Check we got a server
                 if server is None:
                     self.send_chat_message(mto=target, mbody="Error: Could not find server from the last reservation.")
@@ -1155,17 +1174,17 @@ Not every bit of information is required, but at the very least you need to send
                     return
 
                 # Find the server the user is on
-                server_guid = self.hawken_api.user_server(guid)
+                server_guid = self._retry_wrapper(self.hawken_api.user_server, guid)
                 # Check if they are actually on a server
                 if server_guid is None:
                     self.send_chat_message(mto=target, mbody="'{0}' is not on a server.".format(arguments[1]))
                     return
 
                 # Get the server info
-                server = self.hawken_api.server_list(server_guid[0])
+                server = self._retry_wrapper(self.hawken_api.server_list, server_guid[0])
             else:
                 # Get the server info
-                server = self.hawken_api.server_by_name(arguments[0])
+                server = self._retry_wrapper(self.hawken_api.server_by_name, arguments[0])
 
             # Verify the info
             if server is False:
@@ -1181,7 +1200,7 @@ Not every bit of information is required, but at the very least you need to send
                 # Server outside user's rank
                 server_level = int(server["DeveloperData"]["AveragePilotLevel"])
                 if server_level != 0:
-                    user_stats = self.hawken_api.user_stats(user)
+                    user_stats = self._retry_wrapper(self.hawken_api.user_stats, user)
                     if user_stats is not None:
                         user_level = int(user_stats["Progress.Pilot.Level"])
                         if user_level + self.spec_rankrange <= server_level or \
@@ -1491,7 +1510,7 @@ Not every bit of information is required, but at the very least you need to send
                 self.send_chat_message(mto=target, mbody="Missing target server name and/or party.")
             else:
                 # Get the server info
-                server = self.hawken_api.server_by_name(arguments[0])
+                server = self._retry_wrapper(self.hawken_api.server_by_name, arguments[0])
 
                 if room is None:
                     party = self.party_get(arguments[1])
@@ -1531,7 +1550,7 @@ Not every bit of information is required, but at the very least you need to send
                         self.send_group_message(mto=target, mbody="Deploying party to server... '{0}cancel' to abort.".format(self.command_prefix))
 
                     # Place the reservation
-                    advertisement = self.hawken_api.matchmaking_advertisement_post_server(server["GameVersion"], server["Region"], server["Guid"], self.own_guid, list(party.players))
+                    advertisement = self._retry_wrapper(self.hawken_api.matchmaking_advertisement_post_server, server["GameVersion"], server["Region"], server["Guid"], self.own_guid, list(party.players))
                     party.matchmaking_start(advertisement)
                     self.poll_party_reservation(party.guid)
 
