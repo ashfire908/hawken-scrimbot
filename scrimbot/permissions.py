@@ -29,7 +29,7 @@ class PermissionHandler:
     def _update_groups(self):
         for group in self._groups:
             if group not in self._permissions.keys():
-                self._permissions.add(group, [])
+                self._permissions[group] = []
 
     def load(self):
         # Filter through the config to normalize group names
@@ -55,7 +55,7 @@ class PermissionHandler:
     def unregister_group(self, group):
         self._groups.discard(group)
         if group in self._permissions.keys():
-            del self._permissions.remove[group]
+            del self._permissions[group]
 
         self.save()
 

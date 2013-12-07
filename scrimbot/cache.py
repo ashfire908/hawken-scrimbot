@@ -120,7 +120,7 @@ class Cache:
 
             # Purge any temp cache we had for the GUID
             try:
-                del self["guids"][callsign.lower()]
+                del self["guid"][callsign.lower()]
             except KeyError:
                 pass
         else:

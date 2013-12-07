@@ -222,6 +222,8 @@ class ScrimBot:
                         identifier = "a pm"
                     elif _cmdtype == CommandType.PARTY:
                         identifier = "a party"
+                    else:
+                        identifier = "<unknown>"
 
                     self.xmpp.send_message(cmdtype, target, "This command can only be run from {0}.".format(identifier))
 
