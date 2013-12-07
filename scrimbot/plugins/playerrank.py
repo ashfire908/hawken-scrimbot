@@ -10,28 +10,26 @@ logger = logging.getLogger(__name__)
 
 class PlayerRankPlugin(BasePlugin):
     def init_plugin(self):
-        # Setup tracking
-        self.mmr_usage = {}
+        # Register config
+        self.register_config("plugins.playerrank.mmr_limit", -1)
+        self.register_config("plugins.playerrank.mmr_period", 60 * 60 * 6)
+        self.register_config("plugins.playerrank.mmr_restricted", False)
 
         # Register group
         self.register_group("mmr")
-
-        # Register config
-        self.config.register_config("plugins.playerrank.mmr_limit", -1)
-        self.config.register_config("plugins.playerrank.mmr_period", 60 * 60 * 6)
-        self.config.register_config("plugins.playerrank.mmr_restricted", False)
 
         # Register commands
         self.register_command(Command("mmr", CommandType.PM, self.mmr))
         self.register_command(Command("rawmmr", CommandType.PM, self.rawmmr))
         self.register_command(Command("elo", CommandType.PM, self.elo, flags=["hidden", "safe"]))
 
-        # Setup reset thread
+        # Setup usage tracking
+        self.mmr_usage = {}
         self.reset_thread = threading.Timer(self.config.plugins.playerrank.mmr_period, self.reset_mmr)
 
     def start_plugin(self):
         if self.config.plugins.playerrank.mmr_limit > 0:
-            # Start the reset thread
+            # Start the usage reset thread
             self.reset_thread.start()
 
     def reset_mmr(self):

@@ -11,15 +11,9 @@ logger = logging.getLogger(__name__)
 
 class ScrimPlugin(BasePlugin):
     def init_plugin(self):
-        # Init party lists
-        self.parties = {}
-        self.aliases = {}
-
-        self.config.register_config("plugins.scrim.cleanup_period", 60 * 15)
-        self.config.register_config("plugins.scrim.poll_limit", 30)
-
-        # Setup cleanup thread
-        self.cleanup_thread = threading.Timer(self.config.plugins.scrim.cleanup_period, self.cleanup)
+        # Register config
+        self.register_config("plugins.scrim.cleanup_period", 60 * 15)
+        self.register_config("plugins.scrim.poll_limit", 30)
 
         # Register group
         self.register_group("party")
@@ -47,6 +41,11 @@ class ScrimPlugin(BasePlugin):
         self.register_command(Command("cancel", CommandType.PARTY, self.party_cancel, flags=["permsreq"], metadata={"permsreq": ["admin", "party"]}))
         self.register_command(Command("leave", CommandType.PARTY, self.party_leave, flags=["permsreq"], metadata={"permsreq": ["admin", "party"]}))
         self.register_command(Command("transfer", CommandType.PARTY, self.party_transfer, flags=["permsreq"], metadata={"permsreq": ["admin", "party"]}))
+
+        # Setup party tracking
+        self.parties = {}
+        self.aliases = {}
+        self.cleanup_thread = threading.Timer(self.config.plugins.scrim.cleanup_period, self.cleanup)
 
     def start_plugin(self):
         # Start cleanup thread

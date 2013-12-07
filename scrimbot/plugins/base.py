@@ -33,11 +33,14 @@ class BasePlugin(metaclass=ABCMeta):
     def start_plugin(self):
         pass
 
-    def register_command(self, handler):
-        self.client.register_command(handler)
+    def register_config(self, path, default):
+        self.config.register_config(path, default)
 
     def register_group(self, group):
         self.permissions.register_group(group)
+
+    def register_command(self, handler):
+        self.client.register_command(handler)
 
 
 class Command:

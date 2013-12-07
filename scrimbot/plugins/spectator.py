@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 class SpectatorPlugin(BasePlugin):
     def init_plugin(self):
-        # Reservations
-        self.reservations = {}
+        # Register config
+        self.register_config("plugins.spectator.polling_limit", 30)
 
         # Register group
         self.register_group("spectator")
@@ -21,8 +21,8 @@ class SpectatorPlugin(BasePlugin):
         self.register_command(Command("spectate", CommandType.PM, self.spectate, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]}))
         self.register_command(Command("spec", CommandType.PM, self.spectate, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "spectator"]}))
 
-        # Register config
-        self.config.register_config("plugins.spectator.polling_limit", 30)
+        # Setup reservation tracking
+        self.reservations = {}
 
     def start_plugin(self):
         pass
