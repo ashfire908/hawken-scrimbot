@@ -18,6 +18,7 @@ class ApiClient(hawkenapi.client.Client):
         self.config.register_config("api.advertisement.polling_rate", 0.5)
         self.config.register_config("api.advertisement.polling_limit", 30.0)
 
+    def setup(self):
         # Get the parameters and init the underlying client
         kwargs = {}
         if self.config.api.stack is not None:
@@ -27,7 +28,7 @@ class ApiClient(hawkenapi.client.Client):
 
         super().__init__(**kwargs)
 
-    def setup(self):
+        # Configure the automatic authentication and get the user details
         self.auto_auth(self.config.api.username, self.config.api.password)
         self.guid = self.wrapper(self.user_account, self.config.api.username)["Guid"]
         self.callsign = self.wrapper(self.user_callsign, self.guid)

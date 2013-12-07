@@ -16,12 +16,13 @@ class PermissionHandler:
 
         # Register config
         self.config.register_config("bot.permissions", dict())
+        self.config.register_config("bot.offline", False)
         self.config.register_config("bot.roster_update_rate", 0.05)
 
-        # Load permissions
+        # Load the permissions before we register the groups
         self.load()
 
-        # Register main groups
+        # Register core groups
         self.register_group("admin")
         self.register_group("whitelist")
 

@@ -21,12 +21,20 @@ logger = logging.getLogger(__name__)
 
 # XMPP Client
 class ScrimBotClient(sleekxmpp.ClientXMPP):
-    def __init__(self, jid, password, party_server, **kwargs):
-        # Set the party server
-        self.party_server = party_server
+    def __init__(self):
+        pass
+
+    def setup(self, api, **kwargs):
+        # Get the XMPP servers
+        server = api.wrapper(api.presence_domain, api.guid)
+        self.party_server = "party.{}".format(server)
+
+        # Get the login info
+        jid = "{}@{}/HawkenScrimBot".format(api.guid, server)
+        auth = api.wrapper(api.presence_access, api.guid)
 
         # Init the client
-        super().__init__(jid, password, **kwargs)
+        super().__init__(jid, auth, **kwargs)
 
         # Register the plugins that we will need
         self.register_plugin("xep_0030")  # Service Discovery
@@ -47,62 +55,45 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
 # Main Bot
 class ScrimBot:
     def __init__(self, config_filename="config.json"):
-        # Setup plugin/command data
+        # Init plugin/command data
         self.plugins = {}
         self.commands = {}
 
-        # Setup the config
+        # Init the config
         self.config = Config(config_filename)
 
-        # Core config
-        self.config.register_config("bot.offline", False)
-        self.config.register_config("log.level", "DEBUG")
-        self.config.register_config("bot.command_prefix", "!")
-        self.config.register_config("bot.plugins", ["admin", "info"])
-
         # Load config
-        result = self.config.load()
-        if result is False:
+        config_loaded = self.config.load()
+        if config_loaded is False:
             raise RuntimeError("Failed to load config.")
-        elif result is None:
-            # Save new config file
-            if not self.config.save():
-                raise RuntimeError("Could not save config file.")
 
-        # Set the log level
-        logging.getLogger().setLevel(self.config.log.level)
-
-        # Set up the API client
+        # Init the API client, XMPP client, permissions, and cache
         self.api = ApiClient(self.config)
-        self.api.setup()
-
-        # Setup the XMPP client
-        server = self.api.wrapper(self.api.presence_domain, self.api.guid)
-        party_server = "party.{}".format(server)
-
-        jid = "{}@{}/HawkenScrimBot".format(self.api.guid, server)
-        auth = self.api.wrapper(self.api.presence_access, self.api.guid)
-        
-        self.xmpp = ScrimBotClient(jid, auth, party_server)
-
-        # Set up permissions
+        self.xmpp = ScrimBotClient()
         self.permissions = PermissionHandler(self.xmpp, self.config)
-
-        # Set up the cache
         self.cache = Cache(self.config, self.api)
 
+        # Load plugins
+        for plugin in self.config.bot.plugins:
+            self.load_plugin(plugin)
+
+        # Load the cache
         if self.cache.load() is None:
             # Save new cache file
             self.cache.save()
+
+        # Save the config before we setup the bot
+        if not self.config.save():
+            raise RuntimeError("Could not save config file.")
+
+        # Setup the API and XMPP clients
+        self.api.setup()
+        self.xmpp.setup(self.api)
 
         # Register event handlers
         self.xmpp.add_event_handler("session_start", self.handle_session_start)
         self.xmpp.add_event_handler("message", self.handle_message, threaded=True)
         self.xmpp.add_event_handler("groupchat_message", self.handle_groupchat_message, threaded=True)
-
-        # Load plugins
-        for plugin in self.config.bot.plugins:
-            self.load_plugin(plugin)
 
     def load_plugin(self, name):
         # Load the module

@@ -13,6 +13,11 @@ class Config:
         self.filename = filename
         self._config = DotDict()
 
+        # Register core config
+        self.register_config("bot.log_level", "INFO")
+        self.register_config("bot.command_prefix", "!")
+        self.register_config("bot.plugins", ["admin", "info"])
+
     def __getitem__(self, key):
         return self._config[key]
 
@@ -60,6 +65,9 @@ class Config:
 
         # Load in the config
         self._load_config(config)
+
+        # Update the logging settings
+        logging.getLogger().setLevel(self.bot.log_level)
 
         return True
 
