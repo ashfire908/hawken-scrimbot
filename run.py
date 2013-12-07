@@ -13,9 +13,8 @@ if __name__ == "__main__":
     logging.info("Starting the bot...")
     if hawkenbot.connect():
         try:
-            hawkenbot.process(block=True)
+            hawkenbot.process(block=False)
         except KeyboardInterrupt:
-            hawkenbot.disconnect(wait=True)
-        logging.info("Bot shutting down.")
+            hawkenbot.shutdown()
     else:
         logging.critical("Unable to connect.")
