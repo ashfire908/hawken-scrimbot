@@ -234,6 +234,11 @@ class ScrimBot:
                 # No handler
                 self.xmpp.send_message(cmdtype, target, "Error: No such command. See {0}commands for a list of commands.".format(self.config.bot.command_prefix))
 
+            if user is None:
+                logger.warn("Unknown command {0} called by unidentified user via {1} - target was {2}.".format(command, cmdtype, target))
+            else:
+                logger.info("Unknown command {0} called by {2} via {1}.".format(command, cmdtype, user))
+
     def command_wrapper(self, handler, cmdtype, cmdname, arguments, target, user, room):
         # Check if command is marked 'safe'
         if handler.flags.b.safe:
@@ -246,7 +251,7 @@ class ScrimBot:
         if dochecks:
             if user is None:
                 # Can't identify user!
-                logger.warn("Command {0} called by unidentified user - target was {1}. Rejecting!".format(cmdname, target))
+                logger.warn("Command {0} called by unidentified user via {1} - target was {2}. Rejecting!".format(cmdname, cmdtype, target))
                 self.xmpp.send_message(cmdtype, target, "Error: Failed to identify the user calling the command. Please report your callsign and the command you were using (see {0}foundabug). This error has been logged.".format(self.config.bot.command_prefix))
                 return
 
