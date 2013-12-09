@@ -48,11 +48,13 @@ class Party:
         self.advertisement = None
 
         self.state = DeploymentState.IDLE
+        self.create_time = None
         self._thread_timer = None
         self._thread_deploy = None
 
     def _init_party(self, party):
         self.guid = party
+        self.create_time = time.time()
 
     def _clear_party(self):
         self.guid = None
@@ -64,6 +66,7 @@ class Party:
         self._thread_deploy = None
         self.joined = False
         self.advertisement = None
+        self.create_time = None
 
     def _room_jid(self):
         return "{0}@{1}".format(self.guid, self.xmpp.party_server)
