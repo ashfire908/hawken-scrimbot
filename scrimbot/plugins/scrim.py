@@ -330,6 +330,8 @@ class ScrimPlugin(BasePlugin):
             # Check that there are users to deploy
             if len(party.players) < 1:
                 self.xmpp.send_message(cmdtype, target, "Error: There are no users in the party to deploy.")
+            elif len(party.players) > server["MaxUsers"]:
+                self.xmpp.send_message(cmdtype, target, "Error: The party is too large to fit on the server.")
             else:
                 # Check for possible issues with the reservation
                 # Server full
