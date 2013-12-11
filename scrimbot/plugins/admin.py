@@ -4,7 +4,7 @@ from scrimbot.plugins.base import BasePlugin, Command, CommandType
 
 
 class AdminPlugin(BasePlugin):
-    def init_plugin(self):
+    def init(self):
         # Register commands
         self.register_command(Command("authorize", CommandType.PM, self.authorize, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
         self.register_command(Command("auth", CommandType.PM, self.authorize, flags=["permsreq", "alias"], metadata={"permsreq": ["admin"]}))
@@ -19,7 +19,10 @@ class AdminPlugin(BasePlugin):
         self.register_command(Command("load", CommandType.PM, self.plugin_load, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
         self.register_command(Command("plugins", CommandType.PM, self.plugin_list, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
 
-    def start_plugin(self):
+    def connected(self):
+        pass
+
+    def disconnected(self):
         pass
 
     def check_authorize_args(self, args, user):
@@ -181,7 +184,7 @@ class AdminPlugin(BasePlugin):
                 success, message = self.client.load_plugin(name)
                 if success:
                     # Start the plugin, enable it in the config
-                    self.client.plugins[name].start_plugin()
+                    self.client.plugins[name].connected()
                     self.config.bot.plugins.append(name)
 
                     self.xmpp.send_message(cmdtype, target, "Loaded plugin.")

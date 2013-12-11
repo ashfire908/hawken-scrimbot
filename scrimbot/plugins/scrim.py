@@ -47,11 +47,27 @@ class ScrimPlugin(BasePlugin):
         # Setup party tracking
         self.scrims = {}
         self.scrim_count = 1
-        self.cleanup_thread = threading.Timer(self.config.plugins.scrim.cleanup_period, self.cleanup)
+        self.cleanup_thread = None
 
-    def start_plugin(self):
+    def connected(self):
+        # Rejoin parties
+        for party in self.scrims:
+            if party.guid is not None:
+                party.join(party.guid)
+
         # Start cleanup thread
+        self.cleanup_thread = threading.Timer(self.config.plugins.scrim.cleanup_period, self.cleanup)
         self.cleanup_thread.start()
+
+    def disconnected(self):
+        # Stop cleanup thread
+        if self.cleanup_thread is not None:
+            self.cleanup_thread.cancel()
+
+        # Leave the parties
+        for party in self.scrims:
+            if party.guid is not None and party.joined:
+                party.leave()
 
     def _generate_name(self):
         name = "Scrim-{0}".format(self.scrim_count)

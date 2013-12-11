@@ -26,11 +26,15 @@ class BasePlugin(metaclass=ABCMeta):
         self._handler_mapping = {}
 
     @abstractmethod
-    def init_plugin(self):
+    def init(self):
         pass
 
     @abstractmethod
-    def start_plugin(self):
+    def connected(self):
+        pass
+
+    @abstractmethod
+    def disconnected(self):
         pass
 
     def register_config(self, path, default):

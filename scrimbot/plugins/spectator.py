@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class SpectatorPlugin(BasePlugin):
-    def init_plugin(self):
+    def init(self):
         # Register config
         self.register_config("plugins.spectator.polling_limit", 30)
 
@@ -24,8 +24,14 @@ class SpectatorPlugin(BasePlugin):
         # Setup reservation tracking
         self.reservations = {}
 
-    def start_plugin(self):
+    def connected(self):
         pass
+
+    def disconnected(self):
+        # Delete all pending reservations
+        for user in self.reservations.keys():
+            if self.reservation_has(user):
+                self.reservation_delete(user)
 
     def reservation_init(self, user):
         template = {

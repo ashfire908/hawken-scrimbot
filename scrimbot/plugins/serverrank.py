@@ -7,7 +7,7 @@ from scrimbot.plugins.base import BasePlugin, Command, CommandType
 
 
 class ServerRankPlugin(BasePlugin):
-    def init_plugin(self):
+    def init(self):
         # Register config
         self.register_config("plugins.serverrank.arbitrary_servers", True)
         self.register_config("plugins.serverrank.min_users", 2)
@@ -18,7 +18,10 @@ class ServerRankPlugin(BasePlugin):
         self.register_command(Command("sr", CommandType.ALL, self.server_rank, flags=["alias"]))
         self.register_command(Command("srd", CommandType.ALL, self.server_rank_detailed, flags=["alias"]))
 
-    def start_plugin(self):
+    def connected(self):
+        pass
+
+    def disconnected(self):
         pass
 
     def mmr_stats(self, users):

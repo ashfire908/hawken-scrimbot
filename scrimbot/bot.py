@@ -108,7 +108,7 @@ class ScrimBot:
 
         # Init the plugin
         self.plugins[name] = module.plugin(self, self.xmpp, self.config, self.cache, self.permissions, self.api)
-        self.plugins[name].init_plugin()
+        self.plugins[name].init()
 
         return True, None
 
@@ -131,9 +131,9 @@ class ScrimBot:
         self.disconnect(wait=True)
 
     def handle_session_start(self, event):
-        # Start the plugins
+        # Signal the plugins that we are connected
         for plugin in self.plugins.values():
-            plugin.start_plugin()
+            plugin.connected()
 
         # Check for offline mode
         if self.config.bot.offline:
@@ -150,6 +150,11 @@ class ScrimBot:
 
         # CROWBAR IS READY
         logger.info("Bot connected and ready.")
+
+    def handle_session_stop(self, event):
+        # Signal the plugins that we are not connected anymore
+        for plugin in self.plugins.values():
+            plugin.disconnected()
 
     def handle_message(self, message):
         # Check if the user is allowed to send messages to the bot
