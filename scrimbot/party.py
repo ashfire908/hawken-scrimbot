@@ -33,6 +33,15 @@ def notjoined(f):
     return notjoin_required
 
 
+def requireleader(f):
+    def leader_required(self, *args, **kwargs):
+        if not self.is_leader():
+            raise ValueError("Not the leader of the party.")
+
+        return f(self, *args, **kwargs)
+    return leader_required
+
+
 class Party:
     _deploy_time = 12
 
@@ -42,46 +51,47 @@ class Party:
         self.cache = cache
         self.api = api
 
-        self.joined = False
         self.guid = None
+        self._init_party()
+
+    def _init_party(self):
+        self.joined = False
         self.players = set()
         self.advertisement = None
 
         self.state = DeploymentState.IDLE
         self.create_time = None
+        try:
+            if self._thread_timer is not None:
+                self._thread_timer.cancel()
+        except AttributeError:
+            pass
         self._thread_timer = None
         self._thread_deploy = None
 
-    def _init_party(self, party):
+    def _setup_party(self, party):
         self.guid = party
         self.create_time = time.time()
-
-    def _clear_party(self):
-        self.guid = None
-        self.players = set()
-        self.state = DeploymentState.IDLE
-        if self._thread_timer is not None:
-            self._thread_timer.cancel()
-        self._thread_timer = None
-        self._thread_deploy = None
-        self.joined = False
-        self.advertisement = None
-        self.create_time = None
 
     def _room_jid(self):
         return "{0}@{1}".format(self.guid, self.xmpp.party_server)
 
+    def _get_callsign(self):
+        return self.xmpp.plugin["hawken_party"].our_callsign(self._room_jid())
+
     def _register_events(self):
         self.xmpp.add_event_handler("muc::%s::got_online" % self._room_jid(), self._handle_online)
         self.xmpp.add_event_handler("muc::%s::got_offline" % self._room_jid(), self._handle_offline)
+        self.xmpp.add_event_handler("muc::%s::message" % self._room_jid(), self._handle_message)
 
     def _unregister_events(self):
         self.xmpp.del_event_handler("muc::%s::got_online" % self._room_jid(), self._handle_online)
         self.xmpp.del_event_handler("muc::%s::got_offline" % self._room_jid(), self._handle_offline)
+        self.xmpp.del_event_handler("muc::%s::message" % self._room_jid(), self._handle_message)
 
     def _handle_online(self, presence):
         # Ignore the bot
-        if presence["muc"]["nick"] == self.api.callsign:
+        if presence["muc"]["nick"] == self._get_callsign():
             return
 
         # Add the player to the list
@@ -92,7 +102,7 @@ class Party:
 
     def _handle_offline(self, presence):
         # Ignore ourselves
-        if presence["muc"]["nick"] == self.api.callsign:
+        if presence["muc"]["nick"] == self._get_callsign():
             return
 
         # Remove the player to the list
@@ -100,6 +110,24 @@ class Party:
 
         # Stop any active deployment
         self.abort(CancelCode.MEMBERLEFT)
+
+    def _handle_message(self, message):
+        # Check if we sent this message
+        if message["from"].resource != self._get_callsign():
+            # Check if there is party data attached to this message
+            if "partymemberdata" in message:
+                # Update the party state
+                if message["partymemberdata"]["infoName"] == "PartyMatchmakingStart":
+                    self.state = DeploymentState.MATCHMAKING
+                    if not self.is_leader():
+                        self.message("Leaving the party to avoid issues with matchmaking the bot.")
+                        self.leave()
+                elif message["partymemberdata"]["infoName"] == "PartyMatchmakingCancel":
+                    self.state = DeploymentState.IDLE
+                elif message["partymemberdata"]["infoName"] == "DeployPartyData":
+                    self.state = DeploymentState.DEPLOYING
+                elif message["partymemberdata"]["infoName"] == "DeployCancelData":
+                    self.state = DeploymentState.IDLE
 
     def _thread_timer_start(self):
         self._thread_timer = threading.Timer(Party._deploy_time, self._complete_deployment)
@@ -224,7 +252,7 @@ class Party:
     @notjoined
     def create(self, party):
         # Init the party
-        self._init_party(party)
+        self._setup_party(party)
 
         # Register events with the bot
         self._register_events()
@@ -238,7 +266,7 @@ class Party:
     @notjoined
     def join(self, party):
         # Init the party
-        self._init_party(party)
+        self._setup_party(party)
 
         # Register events with the bot
         self._register_events()
@@ -255,10 +283,10 @@ class Party:
         self.abort(CancelCode.LEADERCANCEL)
 
         # Leave the party
-        self.xmpp.plugin["hawken_party"].leave(self._room_jid(), self.api.callsign)
+        self.xmpp.plugin["hawken_party"].leave(self._room_jid())
 
         # Reset the state
-        self._clear_party()
+        self._init_party()
 
     @joined
     def message(self, message):
@@ -272,12 +300,17 @@ class Party:
         callsign = self.cache.get_callsign(user)
 
         # Send the invite
-        self.xmpp.plugin["hawken_party"].invite(self._room_jid(), self.xmpp.boundjid, self.api.callsign, target, callsign)
+        self.xmpp.plugin["hawken_party"].invite(self._room_jid(), self.xmpp.boundjid, target, callsign)
 
     @joined
+    @requireleader
     def kick(self, user):
         # Get the callsign
         callsign = self.cache.get_callsign(user)
+
+        # Make sure we aren't kicking ourselves
+        if callsign == self._get_callsign():
+            raise ValueError("Cannot kick ourself from a party")
 
         # Stop any active deployment
         self.abort(CancelCode.MEMBERKICK)
@@ -286,6 +319,15 @@ class Party:
         self.xmpp.plugin["hawken_party"].kick(self._room_jid(), callsign)
 
     @joined
+    def is_leader(self):
+        return self.xmpp.plugin["hawken_party"].leader_get(self._room_jid()) == self._get_callsign()
+
+    @joined
+    def get_leader(self):
+        return self.xmpp.plugin["hawken_party"].leader_get(self._room_jid())
+
+    @joined
+    @requireleader
     def set_leader(self, user):
         # Get the callsign
         callsign = self.cache.get_callsign(user)
@@ -297,6 +339,7 @@ class Party:
         self.xmpp.plugin["hawken_party"].leader_set(self._room_jid(), callsign)
 
     @joined
+    @requireleader
     def deploy(self, advertisement, poll_limit=None):
         if self.state != DeploymentState.IDLE:
             raise ValueError("A deployment cannot be started while one is in progress.")
@@ -308,8 +351,11 @@ class Party:
         self._start_matchmaking(advertisement, poll_limit)
 
     @joined
+    @requireleader
     def abort(self, code=CancelCode.PARTYCANCEL):
-        if self.state == DeploymentState.MATCHMAKING:
+        if not self.is_leader():
+            return False
+        elif self.state == DeploymentState.MATCHMAKING:
             self._cancel_matchmaking(code)
         elif self.state == DeploymentState.DEPLOYING:
             self._cancel_deployment(code)
@@ -324,3 +370,7 @@ class Party:
     @staticmethod
     def generate_guid():
         return str(uuid.uuid4())
+
+    @staticmethod
+    def our_callsign(xmpp, room):
+        return xmpp.plugin["hawken_party"].our_callsign(room)

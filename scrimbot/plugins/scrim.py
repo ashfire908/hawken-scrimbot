@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class ScrimPlugin(BasePlugin):
-    def init_plugin(self):
+    def init(self):
         # Register config
         self.register_config("plugins.scrim.cleanup_period", 60 * 15)
         self.register_config("plugins.scrim.poll_limit", 30)
@@ -54,6 +54,7 @@ class ScrimPlugin(BasePlugin):
         for party in self.scrims:
             if party.guid is not None:
                 party.join(party.guid)
+                party.messaage("Rejoined after getting disconnected, please restore leader status or tell me to leave.")
 
         # Start cleanup thread
         self.cleanup_thread = threading.Timer(self.config.plugins.scrim.cleanup_period, self.cleanup)
@@ -211,22 +212,6 @@ class ScrimPlugin(BasePlugin):
 
         return name
 
-    def join_party(self, guid, name=None):
-        # Generate the name, if needed
-        if name is None:
-            name = self._generate_name()
-
-        # Check if the party already exists
-        if self._guid_exists(guid) or self._name_exists(name):
-            return False
-
-        # Join the party
-        party = Party(self.xmpp, self.config, self.cache, self.api)
-        party.join(guid)
-
-        # Add the party to the list
-        self.scrims[name] = party
-
     def get_party(self, identifier):
         # Get the party's guid
         name = self._get_party_id(identifier)
@@ -307,7 +292,7 @@ class ScrimPlugin(BasePlugin):
 
             # Check party state
             if party.state == DeploymentState.DEPLOYED:
-                self.xmpp.send_message(cmdtype, target, "Players cannot be invited after the party has been deployed.")
+                self.xmpp.send_message(cmdtype, target, "Error: Players cannot be invited after the party has been deployed.")
             else:
                 if party.state != DeploymentState.IDLE:
                     self.xmpp.send_message(cmdtype, target, "Warning: Party is currently matchmaking.")
@@ -324,9 +309,12 @@ class ScrimPlugin(BasePlugin):
         if result[0]:
             target_user, party = result[1:]
 
+            # Check if we are the leader
+            if not party.is_leader():
+                self.xmpp.send_message(cmdtype, target, "Error: I am not the leader of the party.")
             # Check if we are kicking ourselves
-            if target_user == self.api.guid:
-                self.xmpp.send_message(cmdtype, target, "Refusing to kick myself.")
+            elif target_user == self.api.guid:
+                self.xmpp.send_message(cmdtype, target, "Error: Refusing to kick myself.")
             # Check if the user is in the party
             elif target_user not in party.players:
                 self.xmpp.send_message(cmdtype, target, "{0} is not in the party.".format(self.cache.get_callsign(target_user)))
@@ -343,8 +331,11 @@ class ScrimPlugin(BasePlugin):
         if result[0]:
             server, party = result[1:]
 
+            # Check if we are the leader
+            if not party.is_leader():
+                self.xmpp.send_message(cmdtype, target, "Error: I am not the leader of the party.")
             # Check that there are users to deploy
-            if len(party.players) < 1:
+            elif len(party.players) < 1:
                 self.xmpp.send_message(cmdtype, target, "Error: There are no users in the party to deploy.")
             elif len(party.players) > server["MaxUsers"]:
                 self.xmpp.send_message(cmdtype, target, "Error: The party is too large to fit on the server.")
@@ -368,7 +359,12 @@ class ScrimPlugin(BasePlugin):
         result = self._handle_args_party(cmdtype, args, target, room)
 
         if result[0]:
-            if result[1].abort(CancelCode.LEADERCANCEL):
+            party = result[1]
+
+            # Check if we are the leader
+            if not party.is_leader():
+                self.xmpp.send_message(cmdtype, target, "Error: I am not the leader of the party.")
+            elif party.abort(CancelCode.LEADERCANCEL):
                 if cmdtype == CommandType.PM:
                     self.xmpp.send_message(cmdtype, target, "Canceled party deployment.")
             else:
@@ -381,8 +377,11 @@ class ScrimPlugin(BasePlugin):
         if result[0]:
             target_user, party = result[1:]
 
+            # Check if we are the leader
+            if not party.is_leader():
+                self.xmpp.send_message(cmdtype, target, "Error: I am not the leader of the party.")
             # Check if the user is in the party
-            if target_user not in party.players:
+            elif target_user not in party.players:
                 self.xmpp.send_message(cmdtype, target, "{0} is not in the party.".format(self.cache.get_callsign(target_user)))
             else:
                 if cmdtype == CommandType.PM:

@@ -12,6 +12,7 @@ import hawkenapi.sleekxmpp
 from scrimbot.api import ApiClient
 from scrimbot.cache import Cache
 from scrimbot.config import Config
+from scrimbot.party import Party
 from scrimbot.permissions import PermissionHandler
 from scrimbot.plugins.base import CommandType, format_command_id, parse_command_id
 
@@ -181,7 +182,7 @@ class ScrimBot:
     def handle_groupchat_message(self, message):
         if message["type"] == "groupchat":
             # Refuse to process chat from the bot itself
-            if message["from"].resource == self.api.callsign:
+            if message["from"].resource == Party.our_callsign(self.xmpp, message["from"].bare):
                 pass
             # Check if this is a command
             elif message["body"].startswith(self.config.bot.command_prefix):
