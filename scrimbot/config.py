@@ -96,4 +96,5 @@ class Config:
             self._config[path] = value
 
     def unregister_config(self, path):
-        raise NotImplementedError("Underlying config does not support unregistering config.")
+        # Since we wish to preserve the old config, we need not do anything
+        pass

@@ -4,12 +4,19 @@ from scrimbot.plugins.base import BasePlugin, Command, CommandType
 
 
 class TestPlugin(BasePlugin):
-    def init(self):
+    def enable(self):
         # Register commands
-        self.register_command(Command("testexception", CommandType.PM, self.test_exception, flags=["hidden", "safe"]))
-        self.register_command(Command("hammertime", CommandType.PM, self.hammertime, flags=["hidden", "safe"]))
-        self.register_command(Command("whoami", CommandType.ALL, self.whoami))
-        self.register_command(Command("tell", CommandType.PM, self.tell, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
+        self.register_command(Command(CommandType.PM, "testexception", self.test_exception, flags=["hidden", "safe"]))
+        self.register_command(Command(CommandType.PM, "hammertime", self.hammertime, flags=["hidden", "safe"]))
+        self.register_command(Command(CommandType.ALL, "whoami", self.whoami))
+        self.register_command(Command(CommandType.PM, "tell", self.tell, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
+
+    def disable(self):
+        # Unregister commands
+        self.unregister_command(Command.format_id(CommandType.PM, "testexception"))
+        self.unregister_command(Command.format_id(CommandType.PM, "hammertime"))
+        self.unregister_command(Command.format_id(CommandType.ALL, "whoami"))
+        self.unregister_command(Command.format_id(CommandType.PM, "tell"))
 
     def connected(self):
         pass

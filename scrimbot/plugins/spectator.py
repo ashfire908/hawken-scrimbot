@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class SpectatorPlugin(BasePlugin):
-    def init(self):
+    def enable(self):
         # Register config
         self.register_config("plugins.spectator.polling_limit", 30)
 
@@ -18,11 +18,27 @@ class SpectatorPlugin(BasePlugin):
         self.register_group("spectator")
 
         # Register commands
-        self.register_command(Command("spectate", CommandType.PM, self.spectate, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]}))
-        self.register_command(Command("spec", CommandType.PM, self.spectate, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "spectator"]}))
+        self.register_command(Command(CommandType.PM, "spectate", self.spectate, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]}))
+        self.register_command(Command(CommandType.PM, "spec", self.spectate, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "spectator"]}))
 
         # Setup reservation tracking
         self.reservations = {}
+
+    def disable(self):
+        # Unregister config
+        self.unregister_config("plugins.spectator.polling_limit")
+
+        # Unregister group
+        self.unregister_group("spectator")
+
+        # Unregister commands
+        self.unregister_command(Command.format_id(CommandType.PM, "spectate"))
+        self.unregister_command(Command.format_id(CommandType.PM, "spec"))
+
+        # Delete all pending reservations
+        for user in self.reservations.keys():
+            if self.reservation_has(user):
+                self.reservation_delete(user)
 
     def connected(self):
         pass

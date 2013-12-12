@@ -7,16 +7,27 @@ from scrimbot.plugins.base import BasePlugin, Command, CommandType
 
 
 class ServerRankPlugin(BasePlugin):
-    def init(self):
+    def enable(self):
         # Register config
         self.register_config("plugins.serverrank.arbitrary_servers", True)
         self.register_config("plugins.serverrank.min_users", 2)
 
         # Register commands
-        self.register_command(Command("serverrank", CommandType.ALL, self.server_rank))
-        self.register_command(Command("serverrankdetailed", CommandType.ALL, self.server_rank_detailed))
-        self.register_command(Command("sr", CommandType.ALL, self.server_rank, flags=["alias"]))
-        self.register_command(Command("srd", CommandType.ALL, self.server_rank_detailed, flags=["alias"]))
+        self.register_command(Command(CommandType.ALL, "serverrank", self.server_rank))
+        self.register_command(Command(CommandType.ALL, "serverrankdetailed", self.server_rank_detailed))
+        self.register_command(Command(CommandType.ALL, "sr", self.server_rank, flags=["alias"]))
+        self.register_command(Command(CommandType.ALL, "srd", self.server_rank_detailed, flags=["alias"]))
+
+    def disable(self):
+        # Unregister config
+        self.unregister_config("plugins.serverrank.arbitrary_servers")
+        self.unregister_config("plugins.serverrank.min_users")
+
+        # Unregister commands
+        self.unregister_command(Command.format_id(CommandType.ALL, "serverrank"))
+        self.unregister_command(Command.format_id(CommandType.ALL, "serverrankdetailed"))
+        self.unregister_command(Command.format_id(CommandType.ALL, "sr"))
+        self.unregister_command(Command.format_id(CommandType.ALL, "srd"))
 
     def connected(self):
         pass

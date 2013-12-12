@@ -54,8 +54,7 @@ class PermissionHandler:
 
     def unregister_group(self, group):
         self._groups.discard(group)
-        if group in self._permissions.keys():
-            del self._permissions[group]
+        # Preserve old config, don't purge group
 
         self.save()
 

@@ -4,20 +4,37 @@ from scrimbot.plugins.base import BasePlugin, Command, CommandType
 
 
 class AdminPlugin(BasePlugin):
-    def init(self):
+    def enable(self):
         # Register commands
-        self.register_command(Command("authorize", CommandType.PM, self.authorize, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command("auth", CommandType.PM, self.authorize, flags=["permsreq", "alias"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command("deauthorize", CommandType.PM, self.deauthorize, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command("deauth", CommandType.PM, self.deauthorize, flags=["permsreq", "alias"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command("group", CommandType.PM, self.group, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command("usergroup", CommandType.PM, self.user_group))
-        self.register_command(Command("save", CommandType.PM, self.save_data, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command("friends", CommandType.PM, self.friends, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command("friendsnamed", CommandType.PM, self.friends_named, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command("friendscount", CommandType.PM, self.friends_count, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command("load", CommandType.PM, self.plugin_load, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command("plugins", CommandType.PM, self.plugin_list, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
+        self.register_command(Command(CommandType.PM, "authorize", self.authorize, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
+        self.register_command(Command(CommandType.PM, "auth", self.authorize, flags=["permsreq", "alias"], metadata={"permsreq": ["admin"]}))
+        self.register_command(Command(CommandType.PM, "deauthorize", self.deauthorize, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
+        self.register_command(Command(CommandType.PM, "deauth", self.deauthorize, flags=["permsreq", "alias"], metadata={"permsreq": ["admin"]}))
+        self.register_command(Command(CommandType.PM, "group", self.group, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
+        self.register_command(Command(CommandType.PM, "usergroup", self.user_group))
+        self.register_command(Command(CommandType.PM, "save", self.save_data, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
+        self.register_command(Command(CommandType.PM, "friends", self.friends, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
+        self.register_command(Command(CommandType.PM, "friendsnamed", self.friends_named, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
+        self.register_command(Command(CommandType.PM, "friendscount", self.friends_count, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
+        self.register_command(Command(CommandType.PM, "load", self.plugin_load, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
+        self.register_command(Command(CommandType.PM, "unload", self.plugin_unload, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
+        self.register_command(Command(CommandType.PM, "plugins", self.plugin_list, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
+
+    def disable(self):
+        # Unregister commands
+        self.unregister_command(Command.format_id(CommandType.PM, "authorize"))
+        self.unregister_command(Command.format_id(CommandType.PM, "auth"))
+        self.unregister_command(Command.format_id(CommandType.PM, "deauthorize"))
+        self.unregister_command(Command.format_id(CommandType.PM, "deauth"))
+        self.unregister_command(Command.format_id(CommandType.PM, "group"))
+        self.unregister_command(Command.format_id(CommandType.PM, "usergroup"))
+        self.unregister_command(Command.format_id(CommandType.PM, "save"))
+        self.unregister_command(Command.format_id(CommandType.PM, "friends"))
+        self.unregister_command(Command.format_id(CommandType.PM, "friendsnamed"))
+        self.unregister_command(Command.format_id(CommandType.PM, "friendscount"))
+        self.unregister_command(Command.format_id(CommandType.PM, "load"))
+        self.unregister_command(Command.format_id(CommandType.PM, "unload"))
+        self.unregister_command(Command.format_id(CommandType.PM, "plugins"))
 
     def connected(self):
         pass
@@ -181,15 +198,33 @@ class AdminPlugin(BasePlugin):
             if name in self.client.plugins.keys():
                 self.xmpp.send_message(cmdtype, target, "Plugin is already loaded.")
             else:
-                success, message = self.client.load_plugin(name)
-                if success:
+                if self.client.load_plugin(name):
                     # Start the plugin, enable it in the config
                     self.client.plugins[name].connected()
                     self.config.bot.plugins.append(name)
 
                     self.xmpp.send_message(cmdtype, target, "Loaded plugin.")
                 else:
-                    self.xmpp.send_message(cmdtype, target, "Error: Failed to load plugin. {0}".format(message))
+                    self.xmpp.send_message(cmdtype, target, "Error: Failed to load plugin.")
+
+    def plugin_unload(self, cmdtype, cmdname, args, target, user, room):
+        # Check arguments
+        if len(args) < 1:
+            self.xmpp.send_message(cmdtype, target, "Missing plugin name.")
+        else:
+            # Load the given plugin
+            name = args[0].lower()
+
+            if name not in self.client.plugins.keys():
+                self.xmpp.send_message(cmdtype, target, "Plugin is not loaded.")
+            else:
+                if self.client.unload_plugin(name):
+                    # Disable the plugin in the config
+                    self.config.bot.plugins.remove(name)
+
+                    self.xmpp.send_message(cmdtype, target, "Unloaded plugin.")
+                else:
+                    self.xmpp.send_message(cmdtype, target, "Error: Failed to unload plugin.")
 
     def plugin_list(self, cmdtype, cmdname, args, target, user, room):
         self.xmpp.send_message(cmdtype, target, "Loaded plugins: {0}".format(", ".join(self.config.bot.plugins)))

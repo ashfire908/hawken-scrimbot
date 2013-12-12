@@ -14,7 +14,7 @@ from scrimbot.cache import Cache
 from scrimbot.config import Config
 from scrimbot.party import Party
 from scrimbot.permissions import PermissionHandler
-from scrimbot.plugins.base import CommandType, format_command_id, parse_command_id
+from scrimbot.plugins.base import CommandType, Command
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -101,20 +101,38 @@ class ScrimBot:
         target = "scrimbot.plugins.{0}".format(name)
         try:
             module = importlib.import_module(target)
-        except ImportError as e:
+        except ImportError:
             logger.info("Failed to load plugin: {0}\n{1}".format(target, traceback.format_exc()))
-            return False, "{0} {1}".format(type(e), e)
+            return False
         else:
-            logger.info("Loaded plugin: {0}".format(target))
+            # Init the plugin
+            self.plugins[name] = module.plugin(self, self.xmpp, self.config, self.cache, self.permissions, self.api)
+            self.plugins[name].enable()
 
-        # Init the plugin
-        self.plugins[name] = module.plugin(self, self.xmpp, self.config, self.cache, self.permissions, self.api)
-        self.plugins[name].init()
+            logger.info("Loaded plugin: {0}".format(name))
 
-        return True, None
+            return True
+
+    def unload_plugin(self, name):
+        if not name in self.plugins.keys():
+            return False
+
+        # Disable plugin and remove
+        self.plugins[name].disable()
+        del self.plugins[name]
+
+        logger.info("Unloaded plugin: {0}".format(name))
+
+        return True
 
     def register_command(self, handler):
+        if handler.id in self.commands:
+            raise ValueError("Handler already exists for {0}".format(handler.id))
+
         self.commands[handler.id] = handler
+
+    def unregister_command(self, handler_id):
+        del self.commands[handler_id]
 
     def connect(self, *args, **kwargs):
         return self.xmpp.connect(*args, **kwargs)
@@ -209,8 +227,8 @@ class ScrimBot:
             raise NotImplementedError("Unsupported message type.")
 
         # Get the command ids
-        command_target = format_command_id(cmdtype, command)
-        command_all = format_command_id(CommandType.ALL, command)
+        command_target = Command.format_id(cmdtype, command)
+        command_all = Command.format_id(CommandType.ALL, command)
 
         # Check for a direct match
         if command_target in self.commands.keys():
@@ -222,7 +240,7 @@ class ScrimBot:
             # Check for alternates
             found = False
             for cmdid in self.commands.keys():
-                _cmdtype, _cmdname = parse_command_id(cmdid)
+                _cmdtype, _cmdname = Command.parse_id(cmdid)
                 if _cmdname == command:
                     if _cmdtype == CommandType.PM:
                         identifier = "a pm"

@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class PlayerRankPlugin(BasePlugin):
-    def init(self):
+    def enable(self):
         # Register config
         self.register_config("plugins.playerrank.mmr_limit", -1)
         self.register_config("plugins.playerrank.mmr_period", 60 * 60 * 6)
@@ -19,13 +19,32 @@ class PlayerRankPlugin(BasePlugin):
         self.register_group("mmr")
 
         # Register commands
-        self.register_command(Command("mmr", CommandType.PM, self.mmr))
-        self.register_command(Command("rawmmr", CommandType.PM, self.rawmmr))
-        self.register_command(Command("elo", CommandType.PM, self.elo, flags=["hidden", "safe"]))
+        self.register_command(Command(CommandType.PM, "mmr", self.mmr))
+        self.register_command(Command(CommandType.PM, "rawmmr", self.rawmmr))
+        self.register_command(Command(CommandType.PM, "elo", self.elo, flags=["hidden", "safe"]))
 
         # Setup usage tracking
         self.mmr_usage = {}
         self.reset_thread = None
+
+    def disable(self):
+        # Unregister config
+        self.unregister_config("plugins.playerrank.mmr_limit")
+        self.unregister_config("plugins.playerrank.mmr_period")
+        self.unregister_config("plugins.playerrank.mmr_restricted")
+
+        # Unregister group
+        self.unregister_group("mmr")
+
+        # Unregister commands
+        self.unregister_command(Command.format_id(CommandType.PM, "mmr"))
+        self.unregister_command(Command.format_id(CommandType.PM, "rawmmr"))
+        self.unregister_command(Command.format_id(CommandType.PM, "elo"))
+
+        # Stop usage tracking
+        if self.reset_thread is not None:
+            # Stop the reset thread
+            self.reset_thread.cancel()
 
     def connected(self):
         if self.config.plugins.playerrank.mmr_limit > 0:

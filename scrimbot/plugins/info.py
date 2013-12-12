@@ -4,11 +4,17 @@ from scrimbot.plugins.base import BasePlugin, Command, CommandType
 
 
 class InfoPlugin(BasePlugin):
-    def init(self):
+    def enable(self):
         # Register commands
-        self.register_command(Command("botinfo", CommandType.PM, self.botinfo, flags=["safe"]))
-        self.register_command(Command("foundabug", CommandType.PM, self.foundabug, flags=["safe"]))
-        self.register_command(Command("commands", CommandType.ALL, self.commands))
+        self.register_command(Command(CommandType.PM, "botinfo", self.botinfo, flags=["safe"]))
+        self.register_command(Command(CommandType.PM, "foundabug", self.foundabug, flags=["safe"]))
+        self.register_command(Command(CommandType.ALL, "commands", self.commands))
+
+    def disable(self):
+        # Unregister commands
+        self.unregister_command(Command.format_id(CommandType.PM, "botinfo"))
+        self.unregister_command(Command.format_id(CommandType.PM, "foundabug"))
+        self.unregister_command(Command.format_id(CommandType.ALL, "commands"))
 
     def connected(self):
         pass
