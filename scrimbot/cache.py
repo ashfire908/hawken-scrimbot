@@ -25,12 +25,6 @@ class Cache:
         self.register_cache("guid")
         self.register_cache("globals")
 
-        # Setup update threads
-        self.globals_update_thread = threading.Timer(self.config.cache.globals.update_period, self.globals_update)
-        self.globals_update_thread.start()
-        self.cache_save_thread = threading.Timer(self.config.cache.save_period, self.cache_save)
-        self.cache_save_thread.start()
-
     def __getitem__(self, key):
         return self._cache[key]
 
@@ -47,6 +41,12 @@ class Cache:
         for name in self._registered_cache:
             if name not in self._cache.keys():
                 self._cache[name] = {}
+
+    def setup(self):
+        # Setup update threads
+        self.globals_update()
+        self.cache_save_thread = threading.Timer(self.config.cache.save_period, self.cache_save)
+        self.cache_save_thread.start()
 
     def load(self):
         logger.info("Loading cache.")
@@ -100,7 +100,7 @@ class Cache:
 
     def cache_save(self):
         # Save the cache
-        #self.cache.save()
+        self.save()
 
         # Reschedule task
         self.cache_save_thread = threading.Timer(self.config.cache.save_period, self.cache_save)
@@ -143,7 +143,7 @@ class Cache:
 
         # Fetch GUID
         guid = self.api.wrapper(self.api.user_guid, callsign)
-        
+
         if guid is not None:
             # Cache the GUID
             self["guid"][callsign] = guid

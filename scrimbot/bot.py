@@ -87,9 +87,10 @@ class ScrimBot:
         if not self.config.save():
             raise RuntimeError("Could not save config file.")
 
-        # Setup the API and XMPP clients
+        # Setup the API, XMPP and cache
         self.api.setup()
         self.xmpp.setup(self.api)
+        self.cache.setup()
 
         # Register event handlers
         self.xmpp.add_event_handler("session_start", self.handle_session_start)
