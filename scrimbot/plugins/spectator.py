@@ -4,12 +4,16 @@ import logging
 import threading
 import time
 import hawkenapi.exceptions
-from scrimbot.plugins.base import BasePlugin, Command, CommandType
+from scrimbot.plugins.base import BasePlugin, CommandType
 
 logger = logging.getLogger(__name__)
 
 
 class SpectatorPlugin(BasePlugin):
+    @property
+    def name(self):
+        return "spectator"
+
     def enable(self):
         # Register config
         self.register_config("plugins.spectator.polling_limit", 30)
@@ -18,8 +22,8 @@ class SpectatorPlugin(BasePlugin):
         self.register_group("spectator")
 
         # Register commands
-        self.register_command(Command(CommandType.PM, "spectate", self.spectate, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]}))
-        self.register_command(Command(CommandType.PM, "spec", self.spectate, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "spectator"]}))
+        self.register_command(CommandType.PM, "spectate", self.spectate, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
+        self.register_command(CommandType.PM, "spec", self.spectate, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "spectator"]})
 
         # Setup reservation tracking
         self.reservations = {}
@@ -32,8 +36,8 @@ class SpectatorPlugin(BasePlugin):
         self.unregister_group("spectator")
 
         # Unregister commands
-        self.unregister_command(Command.format_id(CommandType.PM, "spectate"))
-        self.unregister_command(Command.format_id(CommandType.PM, "spec"))
+        self.unregister_command(CommandType.PM, "spectate")
+        self.unregister_command(CommandType.PM, "spec")
 
         # Delete all pending reservations
         for user in self.reservations.keys():

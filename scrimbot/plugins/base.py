@@ -15,7 +15,12 @@ class BasePlugin(metaclass=ABCMeta):
         self.cache = cache
         self.permissions = permissions
         self.api = api
-        self._handler_mapping = {}
+        self.registered_commands = {}
+
+    @property
+    @abstractmethod
+    def name(self):
+        pass
 
     @abstractmethod
     def enable(self):
@@ -45,18 +50,28 @@ class BasePlugin(metaclass=ABCMeta):
     def unregister_group(self, group):
         self.permissions.unregister_group(group)
 
-    def register_command(self, handler):
-        self.client.register_command(handler)
+    def register_command(self, cmdtype, cmdname, handler, **kwargs):
+        command_handler = Command(self, cmdtype, cmdname, handler, **kwargs)
 
-    def unregister_command(self, handler_id):
-        self.client.unregister_command(handler_id)
+        # Register command
+        if command_handler.id in self.registered_commands:
+            raise ValueError("Handler {0} already registered.".format(command_handler.id))
+        else:
+            self.registered_commands[command_handler.id] = command_handler
+            self.client.register_command(command_handler)
+
+    def unregister_command(self, cmdtype, cmdname):
+        del self.registered_commands[Command.format_id(cmdtype, cmdname)]
+        self.client.unregister_command(Command.format_id(cmdtype, cmdname), Command.format_fullid(self.name, cmdtype, cmdname))
 
 
 class Command:
-    def __init__(self, cmdtype, cmdname, handler, flags=None, metadata={}):
+    def __init__(self, plugin, cmdtype, cmdname, handler, flags=None, metadata={}):
+        self.plugin = plugin
         self.cmdtype = cmdtype
         self.cmdname = cmdname
         self.id = Command.format_id(cmdtype, cmdname)
+        self.fullid = Command.format_fullid(plugin, cmdtype, cmdname)
         self.handler = handler
 
         self.flags = CommandFlags()
@@ -81,5 +96,15 @@ class Command:
         return "{0}::{1}".format(cmdtype, cmdname.lower())
 
     @staticmethod
+    def format_fullid(plugin, cmdtype, cmdname):
+        return "{0}:{1}::{2}".format(plugin, cmdtype, cmdname.lower())
+
+    @staticmethod
     def parse_id(cmdid):
-        return cmdid.split("::")
+        return cmdid.split("::", 1)
+
+    @staticmethod
+    def parse_fullid(fullid):
+        plugin, cmdid = fullid.split(":", 1)
+        cmdtype, cmdname = Command.parse_id(cmdid)
+        return plugin, cmdtype, cmdname

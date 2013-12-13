@@ -5,13 +5,17 @@ import logging
 import threading
 from hawkenapi.sleekxmpp.party import CancelCode
 from scrimbot.party import Party, DeploymentState
-from scrimbot.plugins.base import BasePlugin, Command, CommandType
+from scrimbot.plugins.base import BasePlugin, CommandType
 from scrimbot.util import jid_user
 
 logger = logging.getLogger(__name__)
 
 
 class ScrimPlugin(BasePlugin):
+    @property
+    def name(self):
+        return "scrim"
+
     def enable(self):
         # Register config
         self.register_config("plugins.scrim.cleanup_period", 60 * 15)
@@ -21,28 +25,20 @@ class ScrimPlugin(BasePlugin):
         self.register_group("scrim")
 
         # Register commands
-        self.register_command(Command(CommandType.PM, "createscrim", self.party_create, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PM, "listscrim", self.party_list, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PM, "invitescrim", self.party_invite, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PM, "kickscrim", self.party_kick, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PM, "deployscrim", self.party_deploy, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PM, "cancelscrim", self.party_cancel, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PM, "leavescrim", self.party_leave, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PM, "transferscrim", self.party_transfer, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PM, "screate", self.party_create, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PM, "slist", self.party_list, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PM, "sinvite", self.party_invite, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PM, "skick", self.party_kick, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PM, "sdeploy", self.party_deploy, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PM, "scancel", self.party_cancel, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PM, "sleave", self.party_leave, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PM, "stransfer", self.party_transfer, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PARTY, "invite", self.party_invite, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PARTY, "kick", self.party_kick, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PARTY, "deploy", self.party_deploy, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PARTY, "cancel", self.party_cancel, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PARTY, "leave", self.party_leave, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]}))
-        self.register_command(Command(CommandType.PARTY, "transfer", self.party_transfer, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]}))
+        self.register_command(CommandType.PM, "create", self.party_create, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]})
+        self.register_command(CommandType.PM, "list", self.party_list, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]})
+        self.register_command(CommandType.PM, "invite", self.party_invite, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]})
+        self.register_command(CommandType.PM, "kick", self.party_kick, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]})
+        self.register_command(CommandType.PM, "deploy", self.party_deploy, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]})
+        self.register_command(CommandType.PM, "cancel", self.party_cancel, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]})
+        self.register_command(CommandType.PM, "leave", self.party_leave, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]})
+        self.register_command(CommandType.PM, "transfer", self.party_transfer, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]})
+        self.register_command(CommandType.PARTY, "invite", self.party_invite, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]})
+        self.register_command(CommandType.PARTY, "kick", self.party_kick, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]})
+        self.register_command(CommandType.PARTY, "deploy", self.party_deploy, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]})
+        self.register_command(CommandType.PARTY, "cancel", self.party_cancel, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]})
+        self.register_command(CommandType.PARTY, "leave", self.party_leave, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]})
+        self.register_command(CommandType.PARTY, "transfer", self.party_transfer, flags=["permsreq"], metadata={"permsreq": ["admin", "scrim"]})
 
         # Setup party tracking
         self.scrims = {}
@@ -58,28 +54,28 @@ class ScrimPlugin(BasePlugin):
         self.unregister_group("scrim")
 
         # Unregister commands
-        self.unregister_command(Command.format_id(CommandType.PM, "createscrim"))
-        self.unregister_command(Command.format_id(CommandType.PM, "listscrim"))
-        self.unregister_command(Command.format_id(CommandType.PM, "invitescrim"))
-        self.unregister_command(Command.format_id(CommandType.PM, "kickscrim"))
-        self.unregister_command(Command.format_id(CommandType.PM, "deployscrim"))
-        self.unregister_command(Command.format_id(CommandType.PM, "cancelscrim"))
-        self.unregister_command(Command.format_id(CommandType.PM, "leavescrim"))
-        self.unregister_command(Command.format_id(CommandType.PM, "transferscrim"))
-        self.unregister_command(Command.format_id(CommandType.PM, "screate"))
-        self.unregister_command(Command.format_id(CommandType.PM, "slist"))
-        self.unregister_command(Command.format_id(CommandType.PM, "sinvite"))
-        self.unregister_command(Command.format_id(CommandType.PM, "skick"))
-        self.unregister_command(Command.format_id(CommandType.PM, "sdeploy"))
-        self.unregister_command(Command.format_id(CommandType.PM, "scancel"))
-        self.unregister_command(Command.format_id(CommandType.PM, "sleave"))
-        self.unregister_command(Command.format_id(CommandType.PM, "stransfer"))
-        self.unregister_command(Command.format_id(CommandType.PARTY, "invite"))
-        self.unregister_command(Command.format_id(CommandType.PARTY, "kick"))
-        self.unregister_command(Command.format_id(CommandType.PARTY, "deploy"))
-        self.unregister_command(Command.format_id(CommandType.PARTY, "cancel"))
-        self.unregister_command(Command.format_id(CommandType.PARTY, "leave"))
-        self.unregister_command(Command.format_id(CommandType.PARTY, "transfer"))
+        self.unregister_command(CommandType.PM, "createscrim")
+        self.unregister_command(CommandType.PM, "listscrim")
+        self.unregister_command(CommandType.PM, "invitescrim")
+        self.unregister_command(CommandType.PM, "kickscrim")
+        self.unregister_command(CommandType.PM, "deployscrim")
+        self.unregister_command(CommandType.PM, "cancelscrim")
+        self.unregister_command(CommandType.PM, "leavescrim")
+        self.unregister_command(CommandType.PM, "transferscrim")
+        self.unregister_command(CommandType.PM, "screate")
+        self.unregister_command(CommandType.PM, "slist")
+        self.unregister_command(CommandType.PM, "sinvite")
+        self.unregister_command(CommandType.PM, "skick")
+        self.unregister_command(CommandType.PM, "sdeploy")
+        self.unregister_command(CommandType.PM, "scancel")
+        self.unregister_command(CommandType.PM, "sleave")
+        self.unregister_command(CommandType.PM, "stransfer")
+        self.unregister_command(CommandType.PARTY, "invite")
+        self.unregister_command(CommandType.PARTY, "kick")
+        self.unregister_command(CommandType.PARTY, "deploy")
+        self.unregister_command(CommandType.PARTY, "cancel")
+        self.unregister_command(CommandType.PARTY, "leave")
+        self.unregister_command(CommandType.PARTY, "transfer")
 
         # Stop cleanup thread
         if self.cleanup_thread is not None:

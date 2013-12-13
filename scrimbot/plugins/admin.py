@@ -1,40 +1,42 @@
 # -*- coding: utf-8 -*-
 
-from scrimbot.plugins.base import BasePlugin, Command, CommandType
+from scrimbot.plugins.base import BasePlugin, CommandType
 
 
 class AdminPlugin(BasePlugin):
+    @property
+    def name(self):
+        return "admin"
+
     def enable(self):
         # Register commands
-        self.register_command(Command(CommandType.PM, "authorize", self.authorize, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command(CommandType.PM, "auth", self.authorize, flags=["permsreq", "alias"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command(CommandType.PM, "deauthorize", self.deauthorize, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command(CommandType.PM, "deauth", self.deauthorize, flags=["permsreq", "alias"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command(CommandType.PM, "group", self.group, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command(CommandType.PM, "usergroup", self.user_group))
-        self.register_command(Command(CommandType.PM, "save", self.save_data, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command(CommandType.PM, "friends", self.friends, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command(CommandType.PM, "friendsnamed", self.friends_named, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command(CommandType.PM, "friendscount", self.friends_count, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command(CommandType.PM, "load", self.plugin_load, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command(CommandType.PM, "unload", self.plugin_unload, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
-        self.register_command(Command(CommandType.PM, "plugins", self.plugin_list, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
+        self.register_command(CommandType.PM, "authorize", self.authorize, flags=["permsreq"], metadata={"permsreq": ["admin"]})
+        self.register_command(CommandType.PM, "auth", self.authorize, flags=["permsreq", "alias"], metadata={"permsreq": ["admin"]})
+        self.register_command(CommandType.PM, "deauthorize", self.deauthorize, flags=["permsreq"], metadata={"permsreq": ["admin"]})
+        self.register_command(CommandType.PM, "deauth", self.deauthorize, flags=["permsreq", "alias"], metadata={"permsreq": ["admin"]})
+        self.register_command(CommandType.PM, "group", self.group, flags=["permsreq"], metadata={"permsreq": ["admin"]})
+        self.register_command(CommandType.PM, "usergroup", self.user_group)
+        self.register_command(CommandType.PM, "save", self.save_data, flags=["permsreq"], metadata={"permsreq": ["admin"]})
+        self.register_command(CommandType.PM, "friends", self.friends, flags=["permsreq"], metadata={"permsreq": ["admin"]})
+        self.register_command(CommandType.PM, "friendsnamed", self.friends_named, flags=["permsreq"], metadata={"permsreq": ["admin"]})
+        self.register_command(CommandType.PM, "friendscount", self.friends_count, flags=["permsreq"], metadata={"permsreq": ["admin"]})
+        self.register_command(CommandType.PM, "load", self.plugin_load, flags=["permsreq"], metadata={"permsreq": ["admin"]})
+        self.register_command(CommandType.PM, "unload", self.plugin_unload, flags=["permsreq"], metadata={"permsreq": ["admin"]})
 
     def disable(self):
         # Unregister commands
-        self.unregister_command(Command.format_id(CommandType.PM, "authorize"))
-        self.unregister_command(Command.format_id(CommandType.PM, "auth"))
-        self.unregister_command(Command.format_id(CommandType.PM, "deauthorize"))
-        self.unregister_command(Command.format_id(CommandType.PM, "deauth"))
-        self.unregister_command(Command.format_id(CommandType.PM, "group"))
-        self.unregister_command(Command.format_id(CommandType.PM, "usergroup"))
-        self.unregister_command(Command.format_id(CommandType.PM, "save"))
-        self.unregister_command(Command.format_id(CommandType.PM, "friends"))
-        self.unregister_command(Command.format_id(CommandType.PM, "friendsnamed"))
-        self.unregister_command(Command.format_id(CommandType.PM, "friendscount"))
-        self.unregister_command(Command.format_id(CommandType.PM, "load"))
-        self.unregister_command(Command.format_id(CommandType.PM, "unload"))
-        self.unregister_command(Command.format_id(CommandType.PM, "plugins"))
+        self.unregister_command(CommandType.PM, "authorize")
+        self.unregister_command(CommandType.PM, "auth")
+        self.unregister_command(CommandType.PM, "deauthorize")
+        self.unregister_command(CommandType.PM, "deauth")
+        self.unregister_command(CommandType.PM, "group")
+        self.unregister_command(CommandType.PM, "usergroup")
+        self.unregister_command(CommandType.PM, "save")
+        self.unregister_command(CommandType.PM, "friends")
+        self.unregister_command(CommandType.PM, "friendsnamed")
+        self.unregister_command(CommandType.PM, "friendscount")
+        self.unregister_command(CommandType.PM, "load")
+        self.unregister_command(CommandType.PM, "unload")
 
     def connected(self):
         pass
@@ -225,9 +227,6 @@ class AdminPlugin(BasePlugin):
                     self.xmpp.send_message(cmdtype, target, "Unloaded plugin.")
                 else:
                     self.xmpp.send_message(cmdtype, target, "Error: Failed to unload plugin.")
-
-    def plugin_list(self, cmdtype, cmdname, args, target, user, room):
-        self.xmpp.send_message(cmdtype, target, "Loaded plugins: {0}".format(", ".join(self.config.bot.plugins)))
 
 
 plugin = AdminPlugin

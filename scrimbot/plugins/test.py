@@ -1,22 +1,26 @@
 # -*- coding: utf-8 -*-
 
-from scrimbot.plugins.base import BasePlugin, Command, CommandType
+from scrimbot.plugins.base import BasePlugin, CommandType
 
 
 class TestPlugin(BasePlugin):
+    @property
+    def name(self):
+        return "test"
+
     def enable(self):
         # Register commands
-        self.register_command(Command(CommandType.PM, "testexception", self.test_exception, flags=["hidden", "safe"]))
-        self.register_command(Command(CommandType.PM, "hammertime", self.hammertime, flags=["hidden", "safe"]))
-        self.register_command(Command(CommandType.ALL, "whoami", self.whoami))
-        self.register_command(Command(CommandType.PM, "tell", self.tell, flags=["permsreq"], metadata={"permsreq": ["admin"]}))
+        self.register_command(CommandType.PM, "testexception", self.test_exception, flags=["hidden", "safe"])
+        self.register_command(CommandType.PM, "hammertime", self.hammertime, flags=["hidden", "safe"])
+        self.register_command(CommandType.ALL, "whoami", self.whoami)
+        self.register_command(CommandType.PM, "tell", self.tell, flags=["permsreq"], metadata={"permsreq": ["admin"]})
 
     def disable(self):
         # Unregister commands
-        self.unregister_command(Command.format_id(CommandType.PM, "testexception"))
-        self.unregister_command(Command.format_id(CommandType.PM, "hammertime"))
-        self.unregister_command(Command.format_id(CommandType.ALL, "whoami"))
-        self.unregister_command(Command.format_id(CommandType.PM, "tell"))
+        self.unregister_command(CommandType.PM, "testexception")
+        self.unregister_command(CommandType.PM, "hammertime")
+        self.unregister_command(CommandType.ALL, "whoami")
+        self.unregister_command(CommandType.PM, "tell")
 
     def connected(self):
         pass

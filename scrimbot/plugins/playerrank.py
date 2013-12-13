@@ -2,13 +2,17 @@
 
 import logging
 import threading
-from scrimbot.plugins.base import BasePlugin, Command, CommandType
+from scrimbot.plugins.base import BasePlugin, CommandType
 from scrimbot.util import format_dhms
 
 logger = logging.getLogger(__name__)
 
 
 class PlayerRankPlugin(BasePlugin):
+    @property
+    def name(self):
+        return "playerrank"
+
     def enable(self):
         # Register config
         self.register_config("plugins.playerrank.mmr_limit", -1)
@@ -19,9 +23,9 @@ class PlayerRankPlugin(BasePlugin):
         self.register_group("mmr")
 
         # Register commands
-        self.register_command(Command(CommandType.PM, "mmr", self.mmr))
-        self.register_command(Command(CommandType.PM, "rawmmr", self.rawmmr))
-        self.register_command(Command(CommandType.PM, "elo", self.elo, flags=["hidden", "safe"]))
+        self.register_command(CommandType.PM, "mmr", self.mmr)
+        self.register_command(CommandType.PM, "rawmmr", self.rawmmr)
+        self.register_command(CommandType.PM, "elo", self.elo, flags=["hidden", "safe"])
 
         # Setup usage tracking
         self.mmr_usage = {}
@@ -37,9 +41,9 @@ class PlayerRankPlugin(BasePlugin):
         self.unregister_group("mmr")
 
         # Unregister commands
-        self.unregister_command(Command.format_id(CommandType.PM, "mmr"))
-        self.unregister_command(Command.format_id(CommandType.PM, "rawmmr"))
-        self.unregister_command(Command.format_id(CommandType.PM, "elo"))
+        self.unregister_command(CommandType.PM, "mmr")
+        self.unregister_command(CommandType.PM, "rawmmr")
+        self.unregister_command(CommandType.PM, "elo")
 
         # Stop usage tracking
         if self.reset_thread is not None:

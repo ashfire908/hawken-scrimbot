@@ -1,20 +1,27 @@
 # -*- coding: utf-8 -*-
 
-from scrimbot.plugins.base import BasePlugin, Command, CommandType
+import itertools
+from scrimbot.plugins.base import BasePlugin, CommandType
 
 
 class InfoPlugin(BasePlugin):
+    @property
+    def name(self):
+        return "info"
+
     def enable(self):
         # Register commands
-        self.register_command(Command(CommandType.PM, "botinfo", self.botinfo, flags=["safe"]))
-        self.register_command(Command(CommandType.PM, "foundabug", self.foundabug, flags=["safe"]))
-        self.register_command(Command(CommandType.ALL, "commands", self.commands))
+        self.register_command(CommandType.PM, "botinfo", self.botinfo, flags=["safe"])
+        self.register_command(CommandType.PM, "foundabug", self.foundabug, flags=["safe"])
+        self.register_command(CommandType.ALL, "commands", self.commands)
+        self.register_command(CommandType.ALL, "plugins", self.plugin_list, flags=["safe"])
 
     def disable(self):
         # Unregister commands
-        self.unregister_command(Command.format_id(CommandType.PM, "botinfo"))
-        self.unregister_command(Command.format_id(CommandType.PM, "foundabug"))
-        self.unregister_command(Command.format_id(CommandType.ALL, "commands"))
+        self.unregister_command(CommandType.PM, "botinfo")
+        self.unregister_command(CommandType.PM, "foundabug")
+        self.unregister_command(CommandType.ALL, "commands")
+        self.unregister_command(CommandType.ALL, "plugins")
 
     def connected(self):
         pass
@@ -41,9 +48,19 @@ Not every bit of information is required, but at the very least you need to send
         self.xmpp.send_message(cmdtype, target, message)
 
     def commands(self, cmdtype, cmdname, args, target, user, room):
+        if len(args) > 0:
+            plugin = args[0].lower()
+            if plugin in self.client.plugins.keys():
+                targets = self.client.plugins[plugin].registered_commands.values()
+            else:
+                self.xmpp.send_message(cmdtype, target, "Error: No such plugin.")
+                return
+        else:
+            targets = itertools.chain(*self.client.commands.values())
+
         # Build command list
-        handler_list = []
-        for handler in self.client.commands.values():
+        handler_list = set()
+        for handler in targets:
             # Filter out commands by type
             if handler.cmdtype not in (cmdtype, CommandType.ALL):
                 continue
@@ -58,11 +75,14 @@ Not every bit of information is required, but at the very least you need to send
                 continue
 
             # Add it to the display list
-            handler_list.append(handler)
+            handler_list.add(handler)
 
         # Display the list
         commands = [self.config.bot.command_prefix + x.cmdname for x in handler_list]
         self.xmpp.send_message(cmdtype, target, "Available commands: {0}".format(" ".join(sorted(commands))))
+
+    def plugin_list(self, cmdtype, cmdname, args, target, user, room):
+        self.xmpp.send_message(cmdtype, target, "Loaded plugins: {0}".format(", ".join(self.client.plugins.keys())))
 
 
 plugin = InfoPlugin

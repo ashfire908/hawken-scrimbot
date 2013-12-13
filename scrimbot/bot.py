@@ -103,14 +103,15 @@ class ScrimBot:
         try:
             module = importlib.import_module(target)
         except ImportError:
-            logger.info("Failed to load plugin: {0}\n{1}".format(target, traceback.format_exc()))
+            logger.info("Failed to load plugin: {0}\n{1}".format(name, traceback.format_exc()))
             return False
         else:
             # Init the plugin
-            self.plugins[name] = module.plugin(self, self.xmpp, self.config, self.cache, self.permissions, self.api)
-            self.plugins[name].enable()
+            plugin = module.plugin(self, self.xmpp, self.config, self.cache, self.permissions, self.api)
+            self.plugins[plugin.name] = plugin
+            self.plugins[plugin.name].enable()
 
-            logger.info("Loaded plugin: {0}".format(name))
+            logger.info("Loaded plugin: {0}".format(plugin.name))
 
             return True
 
@@ -127,13 +128,24 @@ class ScrimBot:
         return True
 
     def register_command(self, handler):
-        if handler.id in self.commands:
-            raise ValueError("Handler already exists for {0}".format(handler.id))
+        # Add the handler for the command
+        if handler.id not in self.commands:
+            self.commands[handler.id] = [handler]
+        else:
+            # Check if the handler isn't already registered
+            for registered_handler in self.commands[handler.id]:
+                if registered_handler.fullid == handler.fullid:
+                    raise ValueError("Handler {0} is already registered".format(handler.fullid))
 
-        self.commands[handler.id] = handler
+            self.commands[handler.id].append(handler)
 
-    def unregister_command(self, handler_id):
-        del self.commands[handler_id]
+    def unregister_command(self, handler_id, full_id):
+        # Remove the command from the registered commands list
+        self.commands[handler_id][:] = [handler for handler in self.commands[handler_id] if handler.fullid == full_id]
+
+        # Cleanup the list if it's empty
+        if len(self.commands[handler_id]) == 0:
+            del self.commands[handler_id]
 
     def connect(self, *args, **kwargs):
         return self.xmpp.connect(*args, **kwargs)
@@ -211,10 +223,6 @@ class ScrimBot:
                 self.handle_command(CommandType.PARTY, body, message)
 
     def handle_command(self, cmdtype, body, message):
-        # Split the arguments, normalize command
-        command, *arguments = shlex.split(body)
-        command = command.lower()
-
         # Get the parameters for the message
         target = message["from"].bare
         if cmdtype == CommandType.PM:
@@ -227,44 +235,138 @@ class ScrimBot:
             # O_o
             raise NotImplementedError("Unsupported message type.")
 
-        # Get the command ids
-        command_target = Command.format_id(cmdtype, command)
-        command_all = Command.format_id(CommandType.ALL, command)
+        # Split the arguments
+        try:
+            arguments = shlex.split(body)
+        except ValueError:
+            self.xmpp.send_message(cmdtype, target, "Error: Invalid command given. Please check your syntax.")
+            logger.info("Bad command line given by {2} via {1}: {0}".format(body, cmdtype, user))
+            return
 
-        # Check for a direct match
-        if command_target in self.commands.keys():
-            self.command_wrapper(self.commands[command_target], cmdtype, command, arguments, target, user, room)
-        # Check for a generic match
-        elif command_all in self.commands.keys():
-            self.command_wrapper(self.commands[command_all], cmdtype, command, arguments, target, user, room)
-        else:
-            # Check for alternates
-            found = False
-            for cmdid in self.commands.keys():
-                _cmdtype, _cmdname = Command.parse_id(cmdid)
-                if _cmdname == command:
-                    if _cmdtype == CommandType.PM:
-                        identifier = "a pm"
-                    elif _cmdtype == CommandType.PARTY:
-                        identifier = "a party"
-                    else:
-                        identifier = "<unknown>"
+        # Verify we have at least one argument
+        if len(arguments) < 1:
+            self.handle_command_none_given(cmdtype, target, user)
+        # Check if the first argument is a plugin, (matches a plugin and has a argument for a command)
+        elif arguments[0].lower() in self.plugins and len(arguments) > 1:
+            plugin = arguments[0].lower()
+            command = arguments[1].lower()
 
-                    self.xmpp.send_message(cmdtype, target, "This command can only be run from {0}.".format(identifier))
+            # Get command ids
+            cmdid = Command.format_id(cmdtype, command)
+            cmdid_all = Command.format_id(CommandType.ALL, command)
 
-                    found = True
-                    break
-
-            if not found:
-                # No handler
-                self.xmpp.send_message(cmdtype, target, "Error: No such command. See {0}commands for a list of commands.".format(self.config.bot.command_prefix))
-
-            if user is None:
-                logger.warn("Unknown command {0} called by unidentified user via {1} - target was {2}.".format(command, cmdtype, target))
+            # Check for the command (same type)
+            if cmdid in self.plugins[plugin].registered_commands:
+                self.handle_command_wrapper(self.plugins[plugin].registered_commands[cmdid], cmdtype, command, arguments[2:], target, user, room)
+            # Check for the command (all type)
+            elif cmdid_all in self.plugins[plugin].registered_commands:
+                self.handle_command_wrapper(self.plugins[plugin].registered_commands[cmdid_all], cmdtype, command, arguments[2:], target, user, room)
             else:
-                logger.info("Unknown command {0} called by {2} via {1}.".format(command, cmdtype, user))
+                # Check for the commmand (by name)
+                for registered_command in self.plugins[plugin].registered_commands.values():
+                    if registered_command.cmdname == command:
+                        self.handle_command_wrong_usage(cmdtype, command, registered_command.cmdtype, target, user)
+                        return
 
-    def command_wrapper(self, handler, cmdtype, cmdname, arguments, target, user, room):
+                # No such command
+                self.handle_command_plugin_no_match(cmdtype, plugin, command, target, user)
+        else:
+            # Handle command without specified plugin
+            command = arguments[0].lower()
+
+            # Get command ids
+            cmdid = Command.format_id(cmdtype, command)
+            cmdid_all = Command.format_id(CommandType.ALL, command)
+
+            # Check for mixed same type and all type handlers
+            if cmdid in self.commands and cmdid_all in self.commands:
+                self.handle_command_ambiguous(cmdtype, command, target, user)
+            # Check for the command (same type)
+            elif cmdid in self.commands:
+                if len(self.commands[cmdid]) > 1:
+                    self.handle_command_ambiguous(cmdtype, command, target, user)
+                else:
+                    self.handle_command_wrapper(self.commands[cmdid][0], cmdtype, command, arguments[1:], target, user, room)
+            # Check for the command (all type)
+            elif cmdid_all in self.commands:
+                if len(self.commands[cmdid_all]) > 1:
+                    self.handle_command_ambiguous(cmdtype, command, target, user)
+                else:
+                    self.handle_command_wrapper(self.commands[cmdid_all][0], cmdtype, command, arguments[1:], target, user, room)
+            else:
+                # Check for the commmand (by name)
+                types = set()
+                for registered_commands in self.commands.values():
+                    if registered_commands[0].cmdname == command:
+                        for registered_command in registered_commands:
+                            types.add(registered_command.cmdtype)
+
+                if len(types) > 0:
+                    # Wrong message type
+                    self.handle_command_wrong_usage(cmdtype, command, types, target, user)
+                else:
+                    # No such command
+                    self.handle_command_no_match(cmdtype, command, target, user)
+
+    def handle_command_none_given(self, cmdtype, target, user):
+        self.xmpp.send_message(cmdtype, target, "Error: No command given. See {0}commands for a list of commands.".format(self.config.bot.command_prefix))
+
+    def handle_command_no_match(self, cmdtype, command, target, user):
+        self.xmpp.send_message(cmdtype, target, "Error: No such command. See {0}commands for a list of commands.".format(self.config.bot.command_prefix))
+
+        if user is None:
+            logger.warn("Unknown command {0} called by unidentified user via {1} - target was {2}.".format(command, cmdtype, target))
+        else:
+            logger.info("Unknown command {0} called by {2} via {1}.".format(command, cmdtype, user))
+
+    def handle_command_ambiguous(self, cmdtype, command, target, user):
+        plugins = []
+        for handlers in self.commands.values():
+            for handler in handlers:
+                if handler.cmdname == command:
+                    plugins.append(handler.plugin.name)
+        self.xmpp.send_message(cmdtype, target, "Error: Command '{0}' available in multiple plugins: {1}".format(command, ", ".join(plugins)))
+
+        if user is None:
+            logger.info("Ambiguous command {0} called by unidentified user via {1} - target was {2}.".format(command, cmdtype, target))
+        else:
+            logger.info("Ambiguous command {0} called by {2} via {1}.".format(command, cmdtype, user))
+
+    def handle_command_wrong_usage(self, cmdtype, command, requiredtype, target, user):
+        if isinstance(requiredtype, str):
+            requiredtype = [requiredtype]
+
+        # Format the output
+        identifier = ""
+        count = 0
+        for reqtype in requiredtype:
+            if count > 0:
+                identifier += " or "
+
+            if reqtype == CommandType.PM:
+                identifier += "a pm"
+            elif reqtype == CommandType.PARTY:
+                identifier += "a party"
+            else:
+                identifier += "<unknown>"
+
+            count += 1
+
+        self.xmpp.send_message(cmdtype, target, "This command can only be run from {0}.".format(identifier))
+        if user is None:
+            logger.info("Unknown command {0} called by unidentified user via {1} - target was {2}.".format(command, cmdtype, target))
+        else:
+            logger.info("Unknown command {0} called by {2} via {1}.".format(command, cmdtype, user))
+
+    def handle_command_plugin_no_match(self, cmdtype, plugin, command, target, user):
+        self.xmpp.send_message(cmdtype, target, "Error: No such command in plugin {0}. See {1}commands for a list of commands.".format(plugin, self.config.bot.command_prefix))
+
+        if user is None:
+            logger.warn("Unknown command {0} for plugin {1} called by unidentified user via {2} - target was {3}.".format(command, plugin, cmdtype, target))
+        else:
+            logger.info("Unknown command {0} for plugin {1} called by {3} via {2}.".format(command, plugin, cmdtype, user))
+
+    def handle_command_wrapper(self, handler, cmdtype, cmdname, arguments, target, user, room):
         # Check if command is marked 'safe'
         if handler.flags.b.safe:
             assert not handler.flags.b.permsreq
