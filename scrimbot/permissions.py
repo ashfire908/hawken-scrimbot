@@ -166,8 +166,8 @@ class PermissionHandler:
                     self.xmpp.client_roster[jid]["whitelisted"] = False
                 else:
                     # Unwhitelist the user and remove them
-                    self.xmpp.client_roster[jid].remove()
-                    self.xmpp.client_roster.update(jid, subscription="remove", block=False)
+                    # TODO: Properly remove users
+                    self.xmpp.client_roster.update(jid, subscription="none", block=False)
                 break
 
     def update_whitelist(self):
