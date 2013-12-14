@@ -72,7 +72,7 @@ class PlayerRankPlugin(BasePlugin):
         self.reset_thread.start()
 
     def limit_active(self, user):
-        return self.config.plugins.playerrank.mmr_limit != -1
+        return self.config.plugins.playerrank.mmr_limit != -1 and not self.permissions.user_check_group(user, "admin")
 
     def lookup_allowed(self, user):
         if self.config.plugins.playerrank.mmr_restricted and not self.permissions.user_check_groups(user, ("admin", "mmr")):
@@ -92,7 +92,7 @@ class PlayerRankPlugin(BasePlugin):
             self.mmr_usage[user] += 1
 
     def user_overlimit(self, user):
-        if not self.limit_active(user) or self.permissions.user_check_group(user, "admin"):
+        if not self.limit_active(user):
             return False
 
         try:
