@@ -36,7 +36,10 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
         auth = api.wrapper(api.presence_access, api.guid)
 
         # Init the client
-        super().__init__(jid, auth, **kwargs)
+        super().__init__(jid, auth, sasl_mech="DIGEST-MD5", **kwargs)
+
+        # Disable whitespace keepalives
+        self.whitespace_keepalive = False
 
         # Register the plugins that we will need
         self.register_plugin("xep_0030")  # Service Discovery
