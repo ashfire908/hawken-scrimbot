@@ -22,8 +22,15 @@ class SpectatorPlugin(BasePlugin):
         self.register_group("spectator")
 
         # Register commands
-        self.register_command(CommandType.PM, "spectate", self.spectate, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
-        self.register_command(CommandType.PM, "spec", self.spectate, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "spectator"]})
+        self.register_command(CommandType.PM, "server", self.server, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
+        self.register_command(CommandType.PM, "spectate", self.server, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "spectator"]})
+        self.register_command(CommandType.PM, "spec", self.server, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "spectator"]})
+        self.register_command(CommandType.PM, "user", self.user, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
+        self.register_command(CommandType.PM, "cancel", self.cancel, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
+        self.register_command(CommandType.PM, "confirm", self.confirm, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
+        self.register_command(CommandType.PM, "save", self.save, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
+        self.register_command(CommandType.PM, "renew", self.renew, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
+        self.register_command(CommandType.PM, "clear", self.clear, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
 
         # Setup reservation tracking
         self.reservations = {}
@@ -36,8 +43,15 @@ class SpectatorPlugin(BasePlugin):
         self.unregister_group("spectator")
 
         # Unregister commands
+        self.unregister_command(CommandType.PM, "server")
         self.unregister_command(CommandType.PM, "spectate")
         self.unregister_command(CommandType.PM, "spec")
+        self.unregister_command(CommandType.PM, "user")
+        self.unregister_command(CommandType.PM, "cancel")
+        self.unregister_command(CommandType.PM, "confirm")
+        self.unregister_command(CommandType.PM, "save")
+        self.unregister_command(CommandType.PM, "renew")
+        self.unregister_command(CommandType.PM, "clear")
 
         # Delete all pending reservations
         for user in self.reservations.keys():
@@ -206,14 +220,14 @@ class SpectatorPlugin(BasePlugin):
             self.reservation_delete(user)
             self.xmpp.send_message(cmdtype, target, "Time limit reached - reservation canceled.")
 
-    def sub_cancel(self, cmdtype, cmdname, args, target, user, room):
+    def cancel(self, cmdtype, cmdname, args, target, user, room):
         # Delete the user's server reservation
         if self.reservation_delete(user):
             self.xmpp.send_message(cmdtype, target, "Canceled server reservation.")
         else:
             self.xmpp.send_message(cmdtype, target, "No reservation found to cancel.")
 
-    def sub_confirm(self, cmdtype, cmdname, args, target, user, room):
+    def confirm(self, cmdtype, cmdname, args, target, user, room):
         # Grab the reservation for the user
         reservation = self.reservation_get(user)
 
@@ -235,7 +249,7 @@ class SpectatorPlugin(BasePlugin):
             # Delete the server reservation (as it's fulfilled now)
             self.reservation_delete(user)
 
-    def sub_save(self, cmdtype, cmdname, args, target, user, room):
+    def save(self, cmdtype, cmdname, args, target, user, room):
         # Check that the user isn't already joining a server
         if self.reservation_get(user):
             self.xmpp.send_message(cmdtype, target, "Error: You cannot save a server while joining another.")
@@ -250,14 +264,14 @@ class SpectatorPlugin(BasePlugin):
                 self.saved_server_set(user, server[0])
                 self.xmpp.send_message(cmdtype, target, "Current server saved for future use.")
 
-    def sub_clear(self, cmdtype, cmdname, args, target, user, room):
+    def clear(self, cmdtype, cmdname, args, target, user, room):
         # Clear data for user
         self.reservation_delete(user)
         self.saved_server_delete(user)
 
         self.xmpp.send_message(cmdtype, target, "Cleared stored spectator data for your user.")
 
-    def sub_renew(self, cmdtype, cmdname, args, target, user, room):
+    def renew(self, cmdtype, cmdname, args, target, user, room):
         # Check if the user has a saved advertisement
         if not self.saved_server_has(user):
             self.xmpp.send_message(cmdtype, target, "No saved server on file.")
@@ -273,7 +287,7 @@ class SpectatorPlugin(BasePlugin):
                 self.xmpp.send_message(cmdtype, target, "Renewing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.config.bot.command_prefix, cmdname))
                 self.place_reservation(cmdtype, target, user, server)
 
-    def sub_user(self, cmdtype, cmdname, args, target, user, room):
+    def user(self, cmdtype, cmdname, args, target, user, room):
         # Check permissions and arguments
         if not self.permissions.user_check_group(user, "admin"):
             self.xmpp.send_message(cmdtype, target, "Access to this command is restricted.")
@@ -304,7 +318,7 @@ class SpectatorPlugin(BasePlugin):
                         self.xmpp.send_message(cmdtype, target, "Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.config.bot.command_prefix, cmdname))
                         self.place_reservation(cmdtype, target, user, server)
 
-    def sub_server(self, cmdtype, cmdname, args, target, user, room):
+    def server(self, cmdtype, cmdname, args, target, user, room):
         # Check arguments
         if len(args) < 1:
             self.xmpp.send_message(cmdtype, target, "Missing target server.")
@@ -321,32 +335,6 @@ class SpectatorPlugin(BasePlugin):
                 # Place the reservation
                 self.xmpp.send_message(cmdtype, target, "Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.config.bot.command_prefix, cmdname))
                 self.place_reservation(cmdtype, target, user, server)
-
-    def spectate(self, cmdtype, cmdname, args, target, user, room):
-        # Check arguments
-        if len(args) < 1:
-            self.xmpp.send_message(cmdtype, target, "Missing target server or subcommand.")
-        # Pass off the command to the subcommand handler
-        else:
-            command = args[0].lower()
-
-            if command == "cancel":
-                self.sub_cancel(cmdtype, cmdname, args[1:], target, user, room)
-            elif command == "confirm":
-                self.sub_confirm(cmdtype, cmdname, args[1:], target, user, room)
-            elif command == "save":
-                self.sub_save(cmdtype, cmdname, args[1:], target, user, room)
-            elif command == "clear":
-                self.sub_clear(cmdtype, cmdname, args[1:], target, user, room)
-            elif command == "renew":
-                self.sub_renew(cmdtype, cmdname, args[1:], target, user, room)
-            elif command == "user":
-                self.sub_user(cmdtype, cmdname, args[1:], target, user, room)
-            elif command == "server":
-                self.sub_server(cmdtype, cmdname, args[1:], target, user, room)
-            else:
-                # Default to the server command
-                self.sub_server(cmdtype, cmdname, args, target, user, room)
 
 
 plugin = SpectatorPlugin
