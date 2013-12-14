@@ -333,7 +333,7 @@ class ScrimBot:
         self.xmpp.send_message(cmdtype, target, "Error: Command '{0}' available in multiple plugins: {1}".format(command, ", ".join(plugins)))
 
         if user is None:
-            logger.info("Ambiguous command {0} called by unidentified user via {1} - target was {2}.".format(command, cmdtype, target))
+            logger.warn("Ambiguous command {0} called by unidentified user via {1} - target was {2}.".format(command, cmdtype, target))
         else:
             logger.info("Ambiguous command {0} called by {2} via {1}.".format(command, cmdtype, user))
 
@@ -359,7 +359,7 @@ class ScrimBot:
 
         self.xmpp.send_message(cmdtype, target, "This command can only be run from {0}.".format(identifier))
         if user is None:
-            logger.info("Unknown command {0} called by unidentified user via {1} - target was {2}.".format(command, cmdtype, target))
+            logger.warn("Unknown command {0} called by unidentified user via {1} - target was {2}.".format(command, cmdtype, target))
         else:
             logger.info("Unknown command {0} called by {2} via {1}.".format(command, cmdtype, user))
 
@@ -367,9 +367,9 @@ class ScrimBot:
         self.xmpp.send_message(cmdtype, target, "Error: No such command in plugin {0}. See {1}commands for a list of commands.".format(plugin, self.config.bot.command_prefix))
 
         if user is None:
-            logger.warn("Unknown command {0} for plugin {1} called by unidentified user via {2} - target was {3}.".format(command, plugin, cmdtype, target))
+            logger.warn("Unknown command {1} {0} called by unidentified user via {2} - target was {3}.".format(command, plugin, cmdtype, target))
         else:
-            logger.info("Unknown command {0} for plugin {1} called by {3} via {2}.".format(command, plugin, cmdtype, user))
+            logger.info("Unknown command {1} {0} called by {3} via {2}.".format(command, plugin, cmdtype, user))
 
     def handle_command_wrapper(self, handler, cmdtype, cmdname, arguments, target, user, room):
         # Check if command is marked 'safe'
@@ -383,7 +383,7 @@ class ScrimBot:
         if dochecks:
             if user is None:
                 # Can't identify user!
-                logger.warn("Command {0} called by unidentified user via {1} - target was {2}. Rejecting!".format(cmdname, cmdtype, target))
+                logger.warn("Command {1} {0} called by unidentified user via {2} - target was {3}. Rejecting!".format(cmdname, handler.plugin.name, cmdtype, target))
                 self.xmpp.send_message(cmdtype, target, "Error: Failed to identify the user calling the command. Please report your callsign and the command you were using (see {0}foundabug). This error has been logged.".format(self.config.bot.command_prefix))
                 return
 
@@ -391,12 +391,12 @@ class ScrimBot:
             if handler.flags.b.permsreq:
                 # Check if the user has the required perms
                 if not self.permissions.user_check_groups(user, handler.metadata["permsreq"]):
-                    logger.info("Command {0} called by {1} - lacking required permissions [{2}]. Rejecting!".format(cmdname, user, ", ".join(handler.metadata["permsreq"])))
+                    logger.info("Command {1} {0} called by {2} - lacking required permissions [{3}]. Rejecting!".format(cmdname, handler.plugin.name, user, ", ".join(handler.metadata["permsreq"])))
                     self.xmpp.send_message(cmdtype, target, "Error: You are not authorized to access this command.")
                     return
 
         # Log command usage
-        logger.info("Command {0} called by {2} via {1}.".format(cmdname, cmdtype, user))
+        logger.info("Command {1} {0} called by {3} via {2}.".format(cmdname, handler.plugin.name, cmdtype, user))
 
         try:
             handler.call(cmdtype, cmdname, arguments, target, user, room)
@@ -405,9 +405,9 @@ class ScrimBot:
             exception = traceback.format_exc()
 
             # Log the error
-            logger.error("""Command {0} (called via {1}) has failed due to an exception: {2} {3}
-Handler: {4} Arguments: {5} Target: {6} User: {7} Room: {8}
-{9}""".format(cmdname, cmdtype, type(e), e, handler.id, arguments, target, user, room, exception))
+            logger.error("""Command {1} {0} (called via {2}) has failed due to an exception: {3} {4}
+Handler: {5} Arguments: {6} Target: {7} User: {8} Room: {9}
+{10}""".format(cmdname, handler.plugin.name, cmdtype, type(e), e, handler.fullid, arguments, target, user, room, exception))
 
             # Report back to the user
             if isinstance(e, hawkenapi.exceptions.RetryLimitExceeded):
