@@ -133,6 +133,7 @@ class AdminPlugin(BasePlugin):
                 self.xmpp.send_message(cmdtype, target, "No such user exists.")
                 return
         else:
+            callsign = None
             guid = user
 
         # Get the groups

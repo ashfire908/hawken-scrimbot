@@ -53,7 +53,7 @@ class Cache:
 
         # Read the cache file
         try:
-            cache_file = open(self.config.cache.filename, "r")
+            cache_file = open(self.config.cache.filename)
             try:
                 cache = json.load(cache_file)
             finally:

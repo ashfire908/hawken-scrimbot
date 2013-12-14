@@ -30,7 +30,10 @@ class Config:
     def __getattr__(self, key):
         return self.__getitem__(key)
 
-    def _load_config(self, data, path=[]):
+    def _load_config(self, data, path=None):
+        if path is None:
+            path = []
+
         # Merge and store config
         for k, v in data.items():
             if len(path) < 1:
@@ -48,7 +51,7 @@ class Config:
 
         # Read the config file
         try:
-            config_file = open(self.filename, "r")
+            config_file = open(self.filename)
             try:
                 config = json.load(config_file)
             finally:

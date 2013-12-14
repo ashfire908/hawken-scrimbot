@@ -49,9 +49,9 @@ Not every bit of information is required, but at the very least you need to send
 
     def commands(self, cmdtype, cmdname, args, target, user, room):
         if len(args) > 0:
-            plugin = args[0].lower()
-            if plugin in self.client.plugins.keys():
-                targets = self.client.plugins[plugin].registered_commands.values()
+            plugin_name = args[0].lower()
+            if plugin_name in self.client.plugins.keys():
+                targets = self.client.plugins[plugin_name].registered_commands.values()
             else:
                 self.xmpp.send_message(cmdtype, target, "Error: No such plugin.")
                 return
@@ -64,12 +64,15 @@ Not every bit of information is required, but at the very least you need to send
             # Filter out commands by type
             if handler.cmdtype not in (cmdtype, CommandType.ALL):
                 continue
+
             # Filter out hidden commands
             if handler.flags.b.hidden:
                 continue
+
             # Filter out commands by required permission
             if handler.flags.b.permsreq and not self.permissions.user_check_groups(user, handler.metadata["permsreq"]):
-                    continue
+                continue
+
             # Filter out aliases
             if handler.flags.b.alias:
                 continue

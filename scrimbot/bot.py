@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
 # Hawken Scrim Bot
 
-import importlib
 import logging
 import shlex
 import traceback
+import importlib
 import sleekxmpp
+
 import hawkenapi.client
 import hawkenapi.exceptions
 import hawkenapi.sleekxmpp
+
 from scrimbot.api import ApiClient
 from scrimbot.cache import Cache
 from scrimbot.config import Config
@@ -16,7 +18,6 @@ from scrimbot.party import Party
 from scrimbot.permissions import PermissionHandler
 from scrimbot.plugins.base import CommandType, Command
 
-# Setup logging
 logger = logging.getLogger(__name__)
 
 

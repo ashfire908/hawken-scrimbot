@@ -429,4 +429,5 @@ class ScrimPlugin(BasePlugin):
                 party.set_leader(target_user)
                 self.leave_party(party.guid)
 
+
 plugin = ScrimPlugin

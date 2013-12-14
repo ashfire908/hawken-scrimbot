@@ -11,7 +11,6 @@ from scrimbot.util import enum
 
 DeploymentState = enum(IDLE=0, MATCHMAKING=1, DEPLOYING=2, DEPLOYED=3)
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -21,6 +20,7 @@ def joined(f):
             raise ValueError("Party has not been joined yet.")
 
         return f(self, *args, **kwargs)
+
     return join_required
 
 
@@ -30,6 +30,7 @@ def notjoined(f):
             raise ValueError("Party has already been joined.")
 
         return f(self, *args, **kwargs)
+
     return notjoin_required
 
 
@@ -39,6 +40,7 @@ def requireleader(f):
             raise ValueError("Not the leader of the party.")
 
         return f(self, *args, **kwargs)
+
     return leader_required
 
 
