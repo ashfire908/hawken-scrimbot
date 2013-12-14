@@ -101,7 +101,10 @@ class Party:
         self.players.add(presence["muc"]["jid"].user)
 
         # Stop any active deployment
-        self.abort(CancelCode.MEMBERJOIN)
+        try:
+            self.abort(CancelCode.MEMBERJOIN)
+        except ValueError:
+            pass
 
     def _handle_offline(self, presence):
         # Ignore ourselves
@@ -112,7 +115,10 @@ class Party:
         self.players.remove(presence["muc"]["jid"].user)
 
         # Stop any active deployment
-        self.abort(CancelCode.MEMBERLEFT)
+        try:
+            self.abort(CancelCode.MEMBERLEFT)
+        except ValueError:
+            pass
 
     def _handle_message(self, message):
         # Check if we sent this message
@@ -142,6 +148,7 @@ class Party:
 
     def _start_matchmaking(self, advertisement, poll_limit):
         assert self.state == DeploymentState.IDLE
+        assert self.is_leader()
 
         # Set the advertisement
         self.advertisement = advertisement
@@ -157,6 +164,7 @@ class Party:
 
     def _cancel_matchmaking(self, code):
         assert self.state == DeploymentState.MATCHMAKING
+        assert self.is_leader()
 
         # Send the notice
         self.xmpp.plugin["hawken_party"].matchmaking_cancel(self._room_jid(), self.xmpp.boundjid, code)
@@ -166,6 +174,7 @@ class Party:
 
     def _start_deployment(self, advertisement_info):
         assert self.state == DeploymentState.MATCHMAKING
+        assert self.is_leader()
 
         # Format the server info
         server_string = ";".join((advertisement_info["AssignedServerGuid"], advertisement_info["AssignedServerIp"],
@@ -182,6 +191,7 @@ class Party:
 
     def _cancel_deployment(self, code):
         assert self.state == DeploymentState.DEPLOYING
+        assert self.is_leader()
 
         # Cancel the deployment timer
         if self._thread_timer is not None:
@@ -195,6 +205,7 @@ class Party:
 
     def _complete_deployment(self):
         assert self.state == DeploymentState.DEPLOYING
+        assert self.is_leader()
 
         # Set the party as deployed
         self.xmpp.plugin["hawken_party"].game_start(self._room_jid())
@@ -204,6 +215,7 @@ class Party:
 
     def _undo_deployment(self):
         assert self.state == DeploymentState.DEPLOYED
+        assert self.is_leader()
 
         # Set the party as deployed
         self.xmpp.plugin["hawken_party"].game_end(self._room_jid())
