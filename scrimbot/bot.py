@@ -57,9 +57,10 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
 # Main Bot
 class ScrimBot:
     def __init__(self, config_filename="config.json"):
-        # Init plugin/command data
+        # Init plugin/command/party data
         self.plugins = {}
         self.commands = {}
+        self.active_parties = {}
 
         # Init the config
         self.config = Config(config_filename)

@@ -241,7 +241,7 @@ class ScrimPlugin(BasePlugin):
             return False
 
         # Create the party
-        party = Party(self.xmpp, self.config, self.cache, self.api)
+        party = Party(self.client, self.xmpp, self.config, self.cache, self.api)
         party.create(guid)
 
         # Add the party to the list

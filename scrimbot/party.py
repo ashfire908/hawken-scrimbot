@@ -47,7 +47,8 @@ def requireleader(f):
 class Party:
     _deploy_time = 12
 
-    def __init__(self, xmpp, config, cache, api):
+    def __init__(self, client, xmpp, config, cache, api):
+        self.client = client
         self.xmpp = xmpp
         self.config = config
         self.cache = cache
@@ -262,6 +263,9 @@ class Party:
         # Create the party
         self.xmpp.plugin["hawken_party"].create(self._room_jid(), self.api.callsign)
 
+        # Register with active parties
+        self.client.active_parties[party] = self
+
         # Mark as joined
         self.joined = True
 
@@ -276,6 +280,9 @@ class Party:
         # Join the party
         self.xmpp.plugin["hawken_party"].join(self._room_jid(), self.api.callsign)
 
+        # Register with active parties
+        self.client.active_parties[party] = self
+
         # Mark as joined
         self.joined = True
 
@@ -283,6 +290,12 @@ class Party:
     def leave(self):
         # Stop the matchmaking
         self.abort(CancelCode.LEADERCANCEL)
+
+        # Remove from active parties
+        try:
+            del self.client.active_parties[self.guid]
+        except KeyError:
+            pass
 
         # Leave the party
         self.xmpp.plugin["hawken_party"].leave(self._room_jid())
