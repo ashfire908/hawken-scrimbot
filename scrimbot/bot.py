@@ -26,16 +26,10 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
     def __init__(self):
         pass
 
-    def setup(self, api, **kwargs):
-        # Get the XMPP servers
-        server = api.wrapper(api.presence_domain, api.guid)
-        self.party_server = "party.{}".format(server)
-
-        # Get the login info
-        jid = "{}@{}/HawkenScrimBot".format(api.guid, server)
-        auth = api.wrapper(api.presence_access, api.guid)
-
+    def setup(self, user, server, auth, **kwargs):
         # Init the client
+        self.party_server = "party.{}".format(server)
+        jid = "{}@{}/HawkenScrimBot".format(user, server)
         super().__init__(jid, auth, sasl_mech="DIGEST-MD5", **kwargs)
 
         # Disable whitespace keepalives
@@ -92,10 +86,13 @@ class ScrimBot:
         if not self.config.save():
             raise RuntimeError("Could not save config file.")
 
-        # Setup the API, XMPP and cache
+        # Setup the API and cache
         self.api.setup()
-        self.xmpp.setup(self.api)
         self.cache.setup()
+
+        # Setup the XMPP client
+        self.xmpp.setup(self.api.guid, self.api.wrapper(self.api.presence_domain, self.api.guid),
+                        self.api.wrapper(self.api.presence_access, self.api.guid))
 
         # Register event handlers
         self.xmpp.add_event_handler("session_start", self.handle_session_start)
