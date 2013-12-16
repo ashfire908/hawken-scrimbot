@@ -39,8 +39,12 @@ class PermissionHandler:
         # Update the perms base on the groups
         self._update_groups()
 
-    def save(self):
+    def save(self, commit=False):
         self.config.bot.permissions = self._permissions
+
+        if commit:
+            # Save the underlying config
+            self.config.save()
 
     def register_group(self, group):
         self._groups.add(group)
@@ -80,7 +84,7 @@ class PermissionHandler:
                 self.xmpp.add_jid(self.xmpp.format_jid(user))
 
             # Save perms
-            self.save()
+            self.save(commit=True)
             return True
 
     def user_group_remove(self, user, group):
@@ -97,7 +101,7 @@ class PermissionHandler:
                 self.xmpp.remove_jid(self.xmpp.format_jid(user))
 
             # Save perms
-            self.save()
+            self.save(commit=True)
             return True
 
     def user_check_group(self, user, group):

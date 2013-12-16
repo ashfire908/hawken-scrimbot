@@ -206,9 +206,10 @@ class AdminPlugin(BasePlugin):
                 self.xmpp.send_message(cmdtype, target, "Plugin is already loaded.")
             else:
                 if self.client.load_plugin(name):
-                    # Start the plugin, enable it in the config
+                    # Start the plugin, enable it in the config and save it
                     self.client.plugins[name].connected()
                     self.config.bot.plugins.append(name)
+                    self.config.save()
 
                     self.xmpp.send_message(cmdtype, target, "Loaded plugin.")
                 else:
@@ -226,8 +227,9 @@ class AdminPlugin(BasePlugin):
                 self.xmpp.send_message(cmdtype, target, "Plugin is not loaded.")
             else:
                 if self.client.unload_plugin(name):
-                    # Disable the plugin in the config
+                    # Disable the plugin in the config and save it
                     self.config.bot.plugins.remove(name)
+                    self.config.save()
 
                     self.xmpp.send_message(cmdtype, target, "Unloaded plugin.")
                 else:
