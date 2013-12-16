@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import time
-from scrimbot.util import jid_user
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +14,6 @@ class PermissionHandler:
 
         # Register config
         self.config.register_config("bot.permissions", dict())
-        self.config.register_config("bot.offline", False)
-        self.config.register_config("bot.roster_update_rate", 0.05)
 
         # Load the permissions before we register the groups
         self.load()
@@ -25,6 +21,7 @@ class PermissionHandler:
         # Register core groups
         self.register_group("admin")
         self.register_group("whitelist")
+        self.register_group("blacklist")
 
     def _update_groups(self):
         for group in self._groups:
@@ -67,15 +64,6 @@ class PermissionHandler:
         except KeyError:
             return None
 
-    def has_user(self, user):
-        # Generate the JID
-        jid = "{0}@{1}".format(user, self.xmpp.boundjid.host)
-
-        return jid in self.xmpp.client_roster.keys()
-
-    def user_list(self):
-        return [jid_user(jid) for jid in self.xmpp.client_roster.keys() if jid_user(jid) != self.xmpp.boundjid.user]
-
     def user_group_add(self, user, group):
         # Check if the user is already in the group
         if self.user_check_group(user, group):
@@ -84,9 +72,12 @@ class PermissionHandler:
             # Add the user to the group
             self._permissions[group].append(user)
 
-            if group in ("admin", "whitelist"):
-                # Whitelist the user
-                self.user_whitelist(user)
+            if group == "blacklist":
+                # Remove the user
+                self.xmpp.remove_jid(self.xmpp.format_jid(user))
+            elif group in ("admin", "whitelist"):
+                # Add the user
+                self.xmpp.add_jid(self.xmpp.format_jid(user))
 
             # Save perms
             self.save()
@@ -100,9 +91,10 @@ class PermissionHandler:
             # Remove the user from the group
             self._permissions[group].remove(user)
 
-            if group in ("admin", "whitelist") and not self.user_check_groups(user, ("admin", "whitelist")):
-                # Dewhitelist the user
-                self.user_dewhitelist(user)
+            if self.config.bot.offline and group in ("admin", "whitelist") and \
+               not self.user_check_groups(user, ("admin", "whitelist")):
+                # Remove the user
+                self.xmpp.remove_jid(self.xmpp.format_jid(user))
 
             # Save perms
             self.save()
@@ -139,72 +131,3 @@ class PermissionHandler:
                 groups.append(group)
 
         return groups
-
-    def user_whitelist(self, user):
-        found = False
-        # Check the roster for the user
-        for jid in self.xmpp.client_roster.keys():
-            if user == jid_user(jid):
-                # Set the user as whitelisted
-                self.xmpp.client_roster[jid]["whitelisted"] = True
-
-                found = True
-                break
-
-        if not found:
-            jid = "{0}@{1}".format(user, self.xmpp.boundjid.host)
-
-            # Add the user as whitelisted
-            self.xmpp.client_roster.add(jid, whitelisted=True)
-
-    def user_dewhitelist(self, user):
-        # Check the roster for the user
-        for jid in self.xmpp.client_roster.keys():
-            if user == jid_user(jid):
-                if not self.config.bot.offline:
-                    # Unwhitelist the user
-                    self.xmpp.client_roster[jid]["whitelisted"] = False
-                else:
-                    # Unwhitelist the user and remove them
-                    # TODO: Properly remove users
-                    self.xmpp.client_roster.update(jid, subscription="none", block=False)
-                break
-
-    def update_whitelist(self):
-        logger.info("Updating roster.")
-
-        # Generate the whitelist
-        whitelist = set(self.group_users("admin") + self.group_users("whitelist"))
-
-        # Update the existing roster entries
-        for jid in self.xmpp.client_roster.keys():
-            user = jid_user(jid)
-
-            # Ignore the bot
-            if user == self.xmpp.boundjid.user:
-                continue
-
-            # Check if the user is on the list
-            if user in whitelist:
-                # Make sure the user is whitelisted
-                self.user_whitelist(user)
-
-                # Remove user so we don't try to add them later
-                whitelist.remove(user)
-
-            elif self.config.bot.offline:
-                # Remove unwhitelisted user
-                self.user_dewhitelist(user)
-            else:
-                # Continue without delay
-                continue
-
-            # Add a delay between removals so we don't spam the server
-            time.sleep(self.config.bot.roster_update_rate)
-
-        # Whitelist any users we didn't see
-        for user in whitelist:
-            self.user_whitelist(user)
-
-            # Add a delay between removals so we don't spam the server
-            time.sleep(self.config.bot.roster_update_rate)

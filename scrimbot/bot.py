@@ -2,6 +2,7 @@
 # Hawken Scrim Bot
 
 import logging
+import time
 import shlex
 import traceback
 import importlib
@@ -17,14 +18,15 @@ from scrimbot.config import Config
 from scrimbot.party import Party
 from scrimbot.permissions import PermissionHandler
 from scrimbot.plugins.base import CommandType, Command
+from scrimbot.util import jid_user
 
 logger = logging.getLogger(__name__)
 
 
 # XMPP Client
 class ScrimBotClient(sleekxmpp.ClientXMPP):
-    def __init__(self):
-        pass
+    def __init__(self, cache):
+        self.cache = cache
 
     def setup(self, user, server, auth, **kwargs):
         # Init the client
@@ -50,6 +52,59 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
         else:
             raise NotImplementedError("Unsupported message type.")
 
+    def roster_list(self):
+        return [jid for jid in self.client_roster.keys() if jid_user(jid) != self.boundjid.user]
+
+    def format_jid(self, user):
+        return "{0}@{1}".format(user, self.boundjid.host)
+
+    def has_jid(self, jid):
+        return jid in self.roster_list() and self.client_roster[jid]["subscription"] != "none"
+
+    def add_jid(self, jid):
+        # Check if the bot the user in the roster
+        if not jid in self.client_roster.keys():
+            # Subscribe to the user
+            self.client_roster[jid].subscribe()
+        elif not self.client_roster[jid]["subscription"] in ("both", "from"):
+            # Subscribe to the user
+            self.client_roster[jid].subscribe()
+        
+        self.update_jid(jid)
+
+    def remove_jid(self, jid):
+        self.client_roster[jid].remove()
+        self.client_roster.update(jid, subscription="remove", block=False)
+
+    def update_jid(self, jid):
+        updated = False
+
+        # Check if the jid has a blank name
+        if self.client_roster[jid]["name"] == "":
+            # Update the jid with the user's callsign
+            user = jid_user(jid)
+            callsign = self.cache.get_callsign(user) or ""
+
+            self.client_roster[jid]["name"] = callsign
+            updated = True
+
+        # Check if the jid is in the friends group
+        if not "Friends" in self.client_roster[jid]["groups"]:
+            # Add the jid to the Friends group
+            self.client_roster[jid]["groups"].append("Friends")
+            updated = True
+
+        # Check if any changes were made
+        if updated:
+            # Post updates to the server
+            iq = self.Iq()
+            iq["type"] = "set"
+            iq["roster"]["items"] = {jid: {"name": self.client_roster[jid]["name"],
+                                           "subscription": self.client_roster[jid]["subscription"],
+                                           "groups": self.client_roster[jid]["groups"]}}
+
+            iq.send()
+
 
 # Main Bot
 class ScrimBot:
@@ -62,16 +117,20 @@ class ScrimBot:
         # Init the config
         self.config = Config(config_filename)
 
+        # Register core config
+        self.config.register_config("bot.offline", False)
+        self.config.register_config("bot.roster_update_rate", 0.05)
+
         # Load config
         config_loaded = self.config.load()
         if config_loaded is False:
             raise RuntimeError("Failed to load config.")
 
-        # Init the API client, XMPP client, permissions, and cache
+        # Init the API, cache, XMPP, and permissions
         self.api = ApiClient(self.config)
-        self.xmpp = ScrimBotClient()
-        self.permissions = PermissionHandler(self.xmpp, self.config)
         self.cache = Cache(self.config, self.api)
+        self.xmpp = ScrimBotClient(self.cache)
+        self.permissions = PermissionHandler(self.xmpp, self.config)
 
         # Load plugins
         for plugin in self.config.bot.plugins:
@@ -97,6 +156,8 @@ class ScrimBot:
         # Register event handlers
         self.xmpp.add_event_handler("session_start", self.handle_session_start)
         self.xmpp.add_event_handler("session_end", self.handle_session_end)
+        self.xmpp.add_event_handler("roster_subscription_request", self.handle_subscription_request)
+        self.xmpp.add_event_handler("roster_subscription_remove", self.handle_subscription_remove)
         self.xmpp.add_event_handler("message", self.handle_message, threaded=True)
         self.xmpp.add_event_handler("groupchat_message", self.handle_groupchat_message, threaded=True)
 
@@ -165,23 +226,59 @@ class ScrimBot:
         self.cache.save()
         self.disconnect(wait=True)
 
+    def update_roster(self):
+        logger.info("Updating roster.")
+
+        # Generate the whitelist and blacklist
+        whitelist = set(self.permissions.group_users("admin") + self.permissions.group_users("whitelist"))
+        blacklist = self.permissions.group_users("blacklist")
+
+        # Update the existing roster entries
+        for jid in self.xmpp.roster_list():
+            user = jid_user(jid)
+
+            # Check if the user is on the blacklist
+            if user in blacklist:
+                # Remove the user from the roster
+                self.xmpp.remove_jid(jid)
+            # Check if the user is on the list
+            elif user in whitelist:
+                # Add/update the user to the roster
+                self.xmpp.add_jid(jid)
+
+                # Remove user so we don't try to add them later
+                whitelist.remove(user)
+            elif self.config.bot.offline or self.xmpp.client_roster[jid]["subscription"] == "none":
+                # Remove the user from the roster
+                self.xmpp.remove_jid(jid)
+            else:
+                # Make sure the jid is up to date
+                self.xmpp.update_jid(jid)
+
+            # Add a delay between removals so we don't spam the server
+            time.sleep(self.config.bot.roster_update_rate)
+
+        # Add any whitelisted users we didn't see
+        for user in whitelist:
+            self.xmpp.add_jid(self.xmpp.format_jid(user))
+
+            # Add a delay between removals so we don't spam the server
+            time.sleep(self.config.bot.roster_update_rate)
+
     def handle_session_start(self, event):
         # Signal the plugins that we are connected
         for plugin in self.plugins.values():
             plugin.connected()
 
-        # Check for offline mode
-        if self.config.bot.offline:
-            logger.warning("Offline mode enabled.")
-            self.xmpp.auto_authorize = False
-            self.xmpp.auto_subscribe = False
+        # Handle the presence ourselves
+        self.xmpp.auto_authorize = None
 
         # Send presence info, retrieve roster
         self.xmpp.send_presence()
         self.xmpp.get_roster()
 
-        # Update the whitelist
-        self.permissions.update_whitelist()
+        # Update the roster
+        self.update_roster()
 
         # CROWBAR IS READY
         logger.info("Bot connected and ready.")
@@ -191,15 +288,35 @@ class ScrimBot:
         for plugin in self.plugins.values():
             plugin.disconnected()
 
+    def handle_subscription_request(self, presence):
+        roster_item = self.xmpp.client_roster[presence["from"]]
+        user = presence["from"].user
+
+        # Check if we should accept the subscription from the user
+        if self.permissions.user_check_group(user, "blacklist") or \
+           (self.config.bot.offline and not self.permissions.user_check_groups(user, ("admin", "whitelist"))):
+            # Reject the subscription and remove the user
+            roster_item.unauthorize()
+            self.xmpp.remove_jid(presence["from"].bare)
+        else:
+            # Accept the subscription and add the jid
+            roster_item.authorize()
+            self.xmpp.add_jid(presence["from"].bare)
+
+    def handle_subscription_remove(self, presence):
+        # Remove the user from the roster
+        # This is to save space on the roster as the bot handles a bunch of different users
+        self.xmpp.remove_jid(presence["from"].bare)
+
     def handle_message(self, message):
         # Check if the user is allowed to send messages to the bot
-        if (self.config.bot.offline and not self.permissions.user_check_groups(message["from"].user, ("admin", "whitelist"))) or \
-           self.permissions.user_check_group(message["from"].user, "blacklist"):
+        if self.permissions.user_check_group(message["from"].user, "blacklist") or \
+           (self.config.bot.offline and not self.permissions.user_check_groups(message["from"].user, ("admin", "whitelist"))):
             # Ignore it
             pass
         elif message["type"] == "chat":
             # Drop messages from people not friends with
-            if not self.permissions.has_user(message["from"].user):
+            if not self.xmpp.has_jid(message["from"].bare):
                 pass
             # Refuse to process chat from the bot itself
             elif message["from"].user == self.xmpp.boundjid.user:
@@ -217,6 +334,9 @@ class ScrimBot:
         if message["type"] == "groupchat":
             # Refuse to process chat from the bot itself
             if message["from"].resource == Party.our_callsign(self.xmpp, message["from"].bare):
+                pass
+            # Check if the user is blacklisted
+            elif message["stormid"].id is not None and self.permissions.user_check_group(message["stormid"].id, "blacklist"):
                 pass
             # Check if this is a command
             elif message["body"].startswith(self.config.bot.command_prefix):

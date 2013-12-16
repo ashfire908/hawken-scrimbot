@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from scrimbot.plugins.base import BasePlugin, CommandType
+from scrimbot.util import jid_user
 
 
 class AdminPlugin(BasePlugin):
@@ -165,14 +166,17 @@ class AdminPlugin(BasePlugin):
         self.config.save()
         self.cache.save()
 
+    def get_friends(self):
+        return [jid_user(jid) for jid in self.xmpp.roster_list() if self.xmpp.client_roster[jid]["subscription"] != "none"]
+
     def friends(self, cmdtype, cmdname, args, target, user, room):
         # Get the friends list
-        friends = self.permissions.user_list()
+        friends = self.get_friends()
         self.xmpp.send_message(cmdtype, target, "Friends list ({1}): {0}".format(", ".join(friends), len(friends)))
 
     def friends_named(self, cmdtype, cmdname, args, target, user, room):
         # Get the friends list
-        friends = self.permissions.user_list()
+        friends = self.get_friends()
 
         # Grab all the callsigns
         names = []
@@ -187,7 +191,7 @@ class AdminPlugin(BasePlugin):
 
     def friends_count(self, cmdtype, cmdname, args, target, user, room):
         # Get the friends list total
-        count = len(self.permissions.user_list())
+        count = len(self.get_friends())
         self.xmpp.send_message(cmdtype, target, "Current number of friends: {0}".format(count))
 
     def plugin_load(self, cmdtype, cmdname, args, target, user, room):
