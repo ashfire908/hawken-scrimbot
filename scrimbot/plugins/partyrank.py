@@ -29,10 +29,10 @@ class PartyRankPlugin(BasePlugin):
         self.unregister_config("plugins.partyrank.min_users")
 
         # Unregister commands
-        self.register_command(CommandType.PARTY, "partyrank")
-        self.register_command(CommandType.PARTY, "partyrankdetailed")
-        self.register_command(CommandType.PARTY, "pr")
-        self.register_command(CommandType.PARTY, "prd")
+        self.unregister_command(CommandType.PARTY, "partyrank")
+        self.unregister_command(CommandType.PARTY, "partyrankdetailed")
+        self.unregister_command(CommandType.PARTY, "pr")
+        self.unregister_command(CommandType.PARTY, "prd")
 
     def connected(self):
         pass
