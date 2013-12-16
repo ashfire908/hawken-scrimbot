@@ -99,6 +99,7 @@ class ScrimBot:
 
         # Register event handlers
         self.xmpp.add_event_handler("session_start", self.handle_session_start)
+        self.xmpp.add_event_handler("session_end", self.handle_session_end)
         self.xmpp.add_event_handler("message", self.handle_message, threaded=True)
         self.xmpp.add_event_handler("groupchat_message", self.handle_groupchat_message, threaded=True)
 
@@ -188,7 +189,7 @@ class ScrimBot:
         # CROWBAR IS READY
         logger.info("Bot connected and ready.")
 
-    def handle_session_stop(self, event):
+    def handle_session_end(self, event):
         # Signal the plugins that we are not connected anymore
         for plugin in self.plugins.values():
             plugin.disconnected()
