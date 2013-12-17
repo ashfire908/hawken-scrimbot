@@ -184,6 +184,7 @@ class ScrimBot:
             return False
 
         # Disable plugin and remove
+        self.plugins[name].disconnected()
         self.plugins[name].disable()
         del self.plugins[name]
 

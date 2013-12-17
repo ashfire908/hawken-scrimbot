@@ -45,11 +45,6 @@ class PlayerRankPlugin(BasePlugin):
         self.unregister_command(CommandType.PM, "rawmmr")
         self.unregister_command(CommandType.PM, "elo")
 
-        # Stop usage tracking
-        if self.reset_thread is not None:
-            # Stop the reset thread
-            self.reset_thread.cancel()
-
     def connected(self):
         if self.config.plugins.playerrank.mmr_limit > 0:
             # Start the usage reset thread

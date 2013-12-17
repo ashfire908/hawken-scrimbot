@@ -53,11 +53,6 @@ class SpectatorPlugin(BasePlugin):
         self.unregister_command(CommandType.PM, "renew")
         self.unregister_command(CommandType.PM, "clear")
 
-        # Delete all pending reservations
-        for user in self.reservations.keys():
-            if self.reservation_has(user):
-                self.reservation_delete(user)
-
     def connected(self):
         pass
 

@@ -73,11 +73,6 @@ class ScrimPlugin(BasePlugin):
         if self.cleanup_thread is not None:
             self.cleanup_thread.cancel()
 
-        # Leave the parties
-        for party in self.scrims:
-            if party.guid is not None and party.joined:
-                party.leave()
-
     def connected(self):
         # Rejoin parties
         for party in self.scrims:
