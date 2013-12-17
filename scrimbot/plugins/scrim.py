@@ -2,7 +2,6 @@
 
 import time
 import logging
-import threading
 from hawkenapi.sleekxmpp.party import CancelCode
 from scrimbot.party import Party, DeploymentState
 from scrimbot.plugins.base import BasePlugin, CommandType
@@ -19,7 +18,7 @@ class ScrimPlugin(BasePlugin):
     def enable(self):
         # Register config
         self.register_config("plugins.scrim.cleanup_period", 60 * 15)
-        self.register_config("plugins.scrim.poll_limit", 30)
+        self.register_config("plugins.scrim.polling_limit", 30)
 
         # Register group
         self.register_group("scrim")
@@ -43,12 +42,11 @@ class ScrimPlugin(BasePlugin):
         # Setup party tracking
         self.scrims = {}
         self.scrim_count = 1
-        self.cleanup_thread = None
 
     def disable(self):
         # Unregister config
         self.unregister_config("plugins.scrim.cleanup_period")
-        self.unregister_config("plugins.scrim.poll_limit")
+        self.unregister_config("plugins.scrim.polling_limit")
 
         # Unregister group
         self.unregister_group("scrim")
@@ -69,9 +67,6 @@ class ScrimPlugin(BasePlugin):
         self.unregister_command(CommandType.PARTY, "leave")
         self.unregister_command(CommandType.PARTY, "transfer")
 
-        # Stop cleanup thread
-        if self.cleanup_thread is not None:
-            self.cleanup_thread.cancel()
 
     def connected(self):
         # Rejoin parties
@@ -81,13 +76,11 @@ class ScrimPlugin(BasePlugin):
                 party.messaage("Rejoined after getting disconnected, please restore leader status or tell me to leave.")
 
         # Start cleanup thread
-        self.cleanup_thread = threading.Timer(self.config.plugins.scrim.cleanup_period, self.cleanup)
-        self.cleanup_thread.start()
+        self.register_task("cleanup_thread", self.config.plugins.scrim.cleanup_period, self.cleanup, repeat=True)
 
     def disconnected(self):
         # Stop cleanup thread
-        if self.cleanup_thread is not None:
-            self.cleanup_thread.cancel()
+        self.unregister_task("cleanup_thread")
 
         # Leave the parties
         for party in self.scrims:
@@ -264,10 +257,6 @@ class ScrimPlugin(BasePlugin):
             logger.info("Purging {0} empty parties.".format(len(targets)))
             for name in targets:
                 self.leave_party(name)
-
-        # Reschedule task
-        self.cleanup_thread = threading.Timer(self.config.plugins.scrim.cleanup_period, self.cleanup)
-        self.cleanup_thread.start()
 
     def party_list(self, cmdtype, cmdname, args, target, user, room):
         if len(self.scrims) > 0:

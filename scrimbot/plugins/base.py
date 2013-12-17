@@ -17,6 +17,9 @@ class BasePlugin(metaclass=ABCMeta):
         self.api = api
         self.registered_commands = {}
 
+    def _thread_name(self, name):
+        return "{0}:{1}".format(self.name, name)
+
     @property
     @abstractmethod
     def name(self):
@@ -63,6 +66,12 @@ class BasePlugin(metaclass=ABCMeta):
     def unregister_command(self, cmdtype, cmdname):
         del self.registered_commands[Command.format_id(cmdtype, cmdname)]
         self.client.unregister_command(Command.format_id(cmdtype, cmdname), Command.format_fullid(self.name, cmdtype, cmdname))
+
+    def register_task(self, name, seconds, callback, **kwargs):
+        self.client.scheduler.add(self._thread_name(name), seconds, callback, **kwargs)
+
+    def unregister_task(self, name):
+        self.client.scheduler.remove(self._thread_name(name))
 
 
 class Command:

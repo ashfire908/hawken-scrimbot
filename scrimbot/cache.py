@@ -3,13 +3,13 @@
 import errno
 import json
 import logging
-import threading
 
 logger = logging.getLogger(__name__)
 
 
 class Cache:
-    def __init__(self, config, api):
+    def __init__(self, client, config, api):
+        self.client = client
         self.config = config
         self.api = api
         self._cache = {}
@@ -43,10 +43,12 @@ class Cache:
                 self._cache[name] = {}
 
     def setup(self):
-        # Setup update threads
+        # Do an initial globals update
         self.globals_update()
-        self.cache_save_thread = threading.Timer(self.config.cache.save_period, self.cache_save)
-        self.cache_save_thread.start()
+
+        # Setup update threads
+        self.client.scheduler.add("globals_update", self.config.cache.globals.update_period, self.globals_update, repeat=True)
+        self.client.scheduler.add("cache_save", self.config.cache.save_period, self.cache_save, repeat=True)
 
     def load(self):
         logger.info("Loading cache.")
@@ -102,10 +104,6 @@ class Cache:
         # Save the cache
         self.save()
 
-        # Reschedule task
-        self.cache_save_thread = threading.Timer(self.config.cache.save_period, self.cache_save)
-        self.cache_save_thread.start()
-
     def get_callsign(self, guid):
         # Check cache
         if guid in self["callsign"].keys():
@@ -155,7 +153,3 @@ class Cache:
 
         # Get the global item, update settings
         self["globals"] = self.api.wrapper(self.api.game_items, "ff7aa68d-d450-44c3-86f0-a403e87b0f64")
-
-        # Reschedule task
-        self.globals_update_thread = threading.Timer(self.config.cache.globals.update_period, self.globals_update)
-        self.globals_update_thread.start()

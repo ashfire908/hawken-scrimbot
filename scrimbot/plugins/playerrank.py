@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import threading
 from scrimbot.plugins.base import BasePlugin, CommandType
 from scrimbot.util import format_dhms
 
@@ -29,7 +28,6 @@ class PlayerRankPlugin(BasePlugin):
 
         # Setup usage tracking
         self.mmr_usage = {}
-        self.reset_thread = None
 
     def disable(self):
         # Unregister config
@@ -48,23 +46,17 @@ class PlayerRankPlugin(BasePlugin):
     def connected(self):
         if self.config.plugins.playerrank.mmr_limit > 0:
             # Start the usage reset thread
-            self.reset_thread = threading.Timer(self.config.plugins.playerrank.mmr_period, self.reset_mmr)
-            self.reset_thread.start()
+            self.register_task("mmr_reset", self.config.plugins.playerrank.mmr_period, self.reset_mmr, repeat=True)
 
     def disconnected(self):
-        if self.reset_thread is not None:
-            # Stop the reset thread
-            self.reset_thread.cancel()
+        # Stop the reset thread
+        self.unregister_task("mmr_reset")
 
     def reset_mmr(self):
         logger.info("Resetting MMR usage.")
 
         # A loop would probably be better here
         self.mmr_usage = dict.fromkeys(self.mmr_usage, 0)
-
-        # Reschedule task
-        self.reset_thread = threading.Timer(self.config.plugins.playerrank.mmr_period, self.reset_mmr)
-        self.reset_thread.start()
 
     def limit_active(self, user):
         return self.config.plugins.playerrank.mmr_limit != -1 and not self.permissions.user_check_group(user, "admin")

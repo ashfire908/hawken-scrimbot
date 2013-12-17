@@ -7,6 +7,7 @@ import shlex
 import traceback
 import importlib
 import sleekxmpp
+from sleekxmpp.xmlstream.scheduler import Scheduler
 
 import hawkenapi.client
 import hawkenapi.exceptions
@@ -109,10 +110,11 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
 # Main Bot
 class ScrimBot:
     def __init__(self, config_filename="config.json"):
-        # Init plugin/command/party data
+        # Init bot data
         self.plugins = {}
         self.commands = {}
         self.active_parties = {}
+        self.scheduler = Scheduler()
 
         # Init the config
         self.config = Config(config_filename)
@@ -128,7 +130,7 @@ class ScrimBot:
 
         # Init the API, cache, XMPP, and permissions
         self.api = ApiClient(self.config)
-        self.cache = Cache(self.config, self.api)
+        self.cache = Cache(self, self.config, self.api)
         self.xmpp = ScrimBotClient(self.cache)
         self.permissions = PermissionHandler(self.xmpp, self.config)
 
@@ -152,6 +154,10 @@ class ScrimBot:
         # Setup the XMPP client
         self.xmpp.setup(self.api.guid, self.api.wrapper(self.api.presence_domain, self.api.guid),
                         self.api.wrapper(self.api.presence_access, self.api.guid))
+
+        # Attach the scheduler to the xmpp stop event and start processing
+        self.scheduler.stop = self.xmpp.stop
+        self.scheduler.process()
 
         # Register event handlers
         self.xmpp.add_event_handler("session_start", self.handle_session_start)
