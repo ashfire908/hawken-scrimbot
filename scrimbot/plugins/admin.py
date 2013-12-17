@@ -204,7 +204,7 @@ class AdminPlugin(BasePlugin):
             # Load the given plugin
             name = args[0].lower()
 
-            if name in self.client.plugins.keys():
+            if name in self.client.plugins:
                 self.xmpp.send_message(cmdtype, target, "Plugin is already loaded.")
             else:
                 if self.client.load_plugin(name):
@@ -225,7 +225,7 @@ class AdminPlugin(BasePlugin):
             # Load the given plugin
             name = args[0].lower()
 
-            if name not in self.client.plugins.keys():
+            if name not in self.client.plugins:
                 self.xmpp.send_message(cmdtype, target, "Plugin is not loaded.")
             else:
                 if self.client.unload_plugin(name):

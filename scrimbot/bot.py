@@ -58,7 +58,7 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
             raise NotImplementedError("Unsupported message type.")
 
     def roster_list(self):
-        return [jid for jid in self.client_roster.keys() if jid_user(jid) != self.boundjid.user]
+        return [jid for jid in self.client_roster if jid_user(jid) != self.boundjid.user]
 
     def format_jid(self, user):
         return "{0}@{1}".format(user, self.boundjid.host)
@@ -68,13 +68,13 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
 
     def add_jid(self, jid):
         # Check if the bot the user in the roster
-        if not jid in self.client_roster.keys():
+        if not jid in self.client_roster:
             # Subscribe to the user
             self.client_roster[jid].subscribe()
         elif not self.client_roster[jid]["subscription"] in ("both", "from"):
             # Subscribe to the user
             self.client_roster[jid].subscribe()
-        
+
         self.update_jid(jid)
 
     def remove_jid(self, jid):
@@ -169,7 +169,7 @@ class ScrimBot:
         self.xmpp.add_event_handler("killed", self.handle_killed)
         self.xmpp.add_event_handler("roster_subscription_request", self.handle_subscription_request)
         self.xmpp.add_event_handler("roster_subscription_remove", self.handle_subscription_remove)
-        self.xmpp.add_event_handler("message", self.handle_message, threaded=True)
+        self.xmpp.add_event_handler("message", self.handle_chat_message, threaded=True)
         self.xmpp.add_event_handler("groupchat_message", self.handle_groupchat_message, threaded=True)
 
     def load_plugin(self, name):
@@ -191,7 +191,7 @@ class ScrimBot:
             return True
 
     def unload_plugin(self, name):
-        if not name in self.plugins.keys():
+        if not name in self.plugins:
             return False
 
         # Disable plugin and remove
@@ -303,7 +303,7 @@ class ScrimBot:
         logger.info("Bot shutting down.")
 
         # Unload the plugins
-        for plugin in list(self.plugins.keys()):
+        for plugin in list(self.plugins):
             self.unload_plugin(plugin)
 
         # Save the config and cache
@@ -330,7 +330,7 @@ class ScrimBot:
         # This is to save space on the roster as the bot handles a bunch of different users
         self.xmpp.remove_jid(presence["from"].bare)
 
-    def handle_message(self, message):
+    def handle_chat_message(self, message):
         # Check if the user is allowed to send messages to the bot
         if self.permissions.user_check_group(message["from"].user, "blacklist") or \
            (self.config.bot.offline and not self.permissions.user_check_groups(message["from"].user, ("admin", "whitelist"))):

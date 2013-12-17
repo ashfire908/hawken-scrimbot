@@ -39,7 +39,7 @@ class Cache:
 
     def _verify_cache(self):
         for name in self._registered_cache:
-            if name not in self._cache.keys():
+            if name not in self._cache:
                 self._cache[name] = {}
 
     def setup(self):
@@ -97,7 +97,7 @@ class Cache:
     def register_cache(self, name):
         self._registered_cache.add(name)
 
-        if name not in self._cache.keys():
+        if name not in self._cache:
             self._cache[name] = {}
 
     def cache_save(self):
@@ -106,7 +106,7 @@ class Cache:
 
     def get_callsign(self, guid):
         # Check cache
-        if guid in self["callsign"].keys():
+        if guid in self["callsign"]:
             return self["callsign"][guid]
 
         # Fetch callsign
@@ -131,7 +131,7 @@ class Cache:
         callsign = callsign.lower()
 
         # Check GUID cache
-        if callsign in self["guid"].keys():
+        if callsign in self["guid"]:
             return self["guid"][callsign]
 
         # Check callsign cache

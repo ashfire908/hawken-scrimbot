@@ -18,7 +18,7 @@ def create_bitfield(*fields):
     class Flags(ctypes.Union):
         _fields_ = [("b", Bits), ("asbyte", ctypes.c_uint8)]
 
-        def __init__(self, bits=[]):
+        def __init__(self, bits=0):
             super().__init__()
 
             if isinstance(bits, int):
@@ -75,34 +75,34 @@ class DotDict(dict):
             raise TypeError("Expected dict")
 
     def __setitem__(self, key, value):
-        if '.' in key:
-            myKey, restOfKey = key.split('.', 1)
-            target = self.setdefault(myKey, DotDict())
+        if "." in key:
+            top, rest = key.split(".", 1)
+            target = self.setdefault(top, DotDict())
             if not isinstance(target, DotDict):
-                raise KeyError("Cannot set '{0}' in '{1}' ({2})".format(restOfKey, myKey, repr(target)))
-            target[restOfKey] = value
+                raise KeyError("Cannot set '{0}' in '{1}' ({2})".format(rest, top, repr(target)))
+            target[rest] = value
         else:
             if isinstance(value, dict) and not isinstance(value, DotDict):
                 value = DotDict(value)
             dict.__setitem__(self, key, value)
 
     def __getitem__(self, key):
-        if '.' not in key:
+        if "." not in key:
             return dict.__getitem__(self, key)
-        myKey, restOfKey = key.split('.', 1)
-        target = dict.__getitem__(self, myKey)
+        top, rest = key.split(".", 1)
+        target = dict.__getitem__(self, top)
         if not isinstance(target, DotDict):
-            raise KeyError("Cannot get '{0}' in '{1}' ({2})".format(restOfKey, myKey, repr(target)))
-        return target[restOfKey]
+            raise KeyError("Cannot get '{0}' in '{1}' ({2})".format(rest, top, repr(target)))
+        return target[rest]
 
     def __contains__(self, key):
-        if '.' not in key:
+        if "." not in key:
             return dict.__contains__(self, key)
-        myKey, restOfKey = key.split('.', 1)
-        target = dict.__getitem__(self, myKey)
+        top, rest = key.split(".", 1)
+        target = dict.__getitem__(self, top)
         if not isinstance(target, DotDict):
             return False
-        return restOfKey in target
+        return rest in target
 
     def setdefault(self, key, default):
         if key not in self:

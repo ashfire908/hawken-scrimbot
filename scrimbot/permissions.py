@@ -25,7 +25,7 @@ class PermissionHandler:
 
     def _update_groups(self):
         for group in self._groups:
-            if group not in self._permissions.keys():
+            if group not in self._permissions:
                 self._permissions[group] = []
 
     def load(self):
@@ -48,7 +48,7 @@ class PermissionHandler:
 
     def register_group(self, group):
         self._groups.add(group)
-        if group not in self._permissions.keys():
+        if group not in self._permissions:
             self._permissions[group] = []
 
         self.save()
@@ -60,7 +60,7 @@ class PermissionHandler:
         self.save()
 
     def group_list(self):
-        return self._permissions.keys()
+        return self._permissions
 
     def group_users(self, group):
         try:
@@ -118,7 +118,7 @@ class PermissionHandler:
         # Scan the groups for the user, stop on first match
         match = False
         for group in groups:
-            if group in self._permissions.keys():
+            if group in self._permissions:
                 if user in self._permissions[group]:
                     # Found user in group
                     match = True

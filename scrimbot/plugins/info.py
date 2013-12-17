@@ -50,7 +50,7 @@ Not every bit of information is required, but at the very least you need to send
     def commands(self, cmdtype, cmdname, args, target, user, room):
         if len(args) > 0:
             plugin_name = args[0].lower()
-            if plugin_name in self.client.plugins.keys():
+            if plugin_name in self.client.plugins:
                 targets = self.client.plugins[plugin_name].registered_commands.values()
             else:
                 self.xmpp.send_message(cmdtype, target, "Error: No such plugin.")
@@ -85,7 +85,7 @@ Not every bit of information is required, but at the very least you need to send
         self.xmpp.send_message(cmdtype, target, "Available commands: {0}".format(" ".join(sorted(commands))))
 
     def plugin_list(self, cmdtype, cmdname, args, target, user, room):
-        self.xmpp.send_message(cmdtype, target, "Loaded plugins: {0}".format(", ".join(self.client.plugins.keys())))
+        self.xmpp.send_message(cmdtype, target, "Loaded plugins: {0}".format(", ".join([plugin.name for plugin in self.client.plugins.values()])))
 
 
 plugin = InfoPlugin

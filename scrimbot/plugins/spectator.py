@@ -58,7 +58,7 @@ class SpectatorPlugin(BasePlugin):
 
     def disconnected(self):
         # Delete all pending reservations
-        for user in self.reservations.keys():
+        for user in self.reservations:
             if self.reservation_has(user):
                 self.reservation_delete(user)
 
@@ -161,7 +161,6 @@ class SpectatorPlugin(BasePlugin):
         self.reservation_set(user, advertisement)
 
         # Set up the polling in another thread
-
         reservation_thread = threading.Thread(target=self.poll_reservation, args=(cmdtype, target, user))
         reservation_thread.start()
 

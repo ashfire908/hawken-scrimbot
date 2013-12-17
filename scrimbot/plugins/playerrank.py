@@ -96,7 +96,7 @@ class PlayerRankPlugin(BasePlugin):
             return False, "Error: Failed to look up player stats."
 
         # Check for a MMR
-        if "MatchMaking.Rating" not in stats.keys():
+        if "MatchMaking.Rating" not in stats:
             return False, "Error: Player does not appear to have a MMR."
 
         return True, int(stats["MatchMaking.Rating"])
@@ -110,7 +110,7 @@ class PlayerRankPlugin(BasePlugin):
             return False, "Error: Failed to look up player stats."
 
         # Check for a MMR
-        if "MatchMaking.Rating" not in stats.keys():
+        if "MatchMaking.Rating" not in stats:
             return False, "Error: Player does not appear to have a MMR."
 
         return True, stats["MatchMaking.Rating"]

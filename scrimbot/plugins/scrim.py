@@ -96,7 +96,7 @@ class ScrimPlugin(BasePlugin):
         return False
 
     def _name_exists(self, name):
-        for _name in self.scrims.keys():
+        for _name in self.scrims:
             if _name.lower() == name:
                 return True
 
@@ -255,7 +255,7 @@ class ScrimPlugin(BasePlugin):
 
     def party_list(self, cmdtype, cmdname, args, target, user, room):
         if len(self.scrims) > 0:
-            self.xmpp.send_message(cmdtype, target, "Current parties: {0}".format(", ".join(self.scrims.keys())))
+            self.xmpp.send_message(cmdtype, target, "Current parties: {0}".format(", ".join(self.scrims)))
         else:
             self.xmpp.send_message(cmdtype, target, "There are no active parties.")
 
