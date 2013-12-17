@@ -86,11 +86,13 @@ class Party:
         self.xmpp.add_event_handler("muc::%s::got_online" % self._room_jid(), self._handle_online)
         self.xmpp.add_event_handler("muc::%s::got_offline" % self._room_jid(), self._handle_offline)
         self.xmpp.add_event_handler("muc::%s::message" % self._room_jid(), self._handle_message)
+        self.xmpp.add_event_handler("session_end", self._handle_session_end)
 
     def _unregister_events(self):
         self.xmpp.del_event_handler("muc::%s::got_online" % self._room_jid(), self._handle_online)
         self.xmpp.del_event_handler("muc::%s::got_offline" % self._room_jid(), self._handle_offline)
         self.xmpp.del_event_handler("muc::%s::message" % self._room_jid(), self._handle_message)
+        self.xmpp.del_event_handler("session_end", self._handle_session_end)
 
     def _handle_online(self, presence):
         # Ignore the bot
@@ -101,10 +103,7 @@ class Party:
         self.players.add(presence["muc"]["jid"].user)
 
         # Stop any active deployment
-        try:
-            self.abort(CancelCode.MEMBERJOIN)
-        except ValueError:
-            pass
+        self.abort(CancelCode.MEMBERJOIN)
 
     def _handle_offline(self, presence):
         # Ignore ourselves
@@ -115,10 +114,7 @@ class Party:
         self.players.remove(presence["muc"]["jid"].user)
 
         # Stop any active deployment
-        try:
-            self.abort(CancelCode.MEMBERLEFT)
-        except ValueError:
-            pass
+        self.abort(CancelCode.MEMBERLEFT)
 
     def _handle_message(self, message):
         # Check if we sent this message
@@ -137,6 +133,11 @@ class Party:
                     self.state = DeploymentState.DEPLOYING
                 elif message["partymemberdata"]["infoName"] == "DeployCancelData":
                     self.state = DeploymentState.IDLE
+
+    def _handle_session_end(self, event):
+        if self.joined:
+            # "Leave" the party
+            self.leave()
 
     def _thread_timer_start(self):
         self._thread_timer = threading.Timer(Party._deploy_time, self._complete_deployment)
@@ -378,7 +379,6 @@ class Party:
         self._start_matchmaking(advertisement, poll_limit)
 
     @joined
-    @requireleader
     def abort(self, code=CancelCode.PARTYCANCEL):
         if not self.is_leader():
             return False

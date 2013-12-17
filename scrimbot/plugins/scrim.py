@@ -70,7 +70,7 @@ class ScrimPlugin(BasePlugin):
 
     def connected(self):
         # Rejoin parties
-        for party in self.scrims:
+        for party in self.scrims.values():
             if party.guid is not None:
                 party.join(party.guid)
                 party.messaage("Rejoined after getting disconnected, please restore leader status or tell me to leave.")
@@ -81,11 +81,6 @@ class ScrimPlugin(BasePlugin):
     def disconnected(self):
         # Stop cleanup thread
         self.unregister_task("cleanup_thread")
-
-        # Leave the parties
-        for party in self.scrims:
-            if party.guid is not None and party.joined:
-                party.leave()
 
     def _generate_name(self):
         name = "Scrim-{0}".format(self.scrim_count)
