@@ -71,7 +71,7 @@ class Command:
         self.cmdtype = cmdtype
         self.cmdname = cmdname
         self.id = Command.format_id(cmdtype, cmdname)
-        self.fullid = Command.format_fullid(plugin, cmdtype, cmdname)
+        self.fullid = Command.format_fullid(plugin.name, cmdtype, cmdname)
         self.handler = handler
 
         self.flags = CommandFlags()

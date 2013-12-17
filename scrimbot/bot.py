@@ -205,7 +205,7 @@ class ScrimBot:
 
     def unregister_command(self, handler_id, full_id):
         # Remove the command from the registered commands list
-        self.commands[handler_id][:] = [handler for handler in self.commands[handler_id] if handler.fullid == full_id]
+        self.commands[handler_id][:] = [handler for handler in self.commands[handler_id] if handler.fullid != full_id]
 
         # Cleanup the list if it's empty
         if len(self.commands[handler_id]) == 0:
