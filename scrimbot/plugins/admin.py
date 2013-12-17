@@ -23,6 +23,7 @@ class AdminPlugin(BasePlugin):
         self.register_command(CommandType.PM, "friendscount", self.friends_count, flags=["permsreq"], metadata={"permsreq": ["admin"]})
         self.register_command(CommandType.PM, "load", self.plugin_load, flags=["permsreq"], metadata={"permsreq": ["admin"]})
         self.register_command(CommandType.PM, "unload", self.plugin_unload, flags=["permsreq"], metadata={"permsreq": ["admin"]})
+        self.register_command(CommandType.PM, "shutdown", self.shutdown, flags=["permsreq"], metadata={"permsreq": ["admin"]})
 
     def disable(self):
         # Unregister commands
@@ -38,6 +39,7 @@ class AdminPlugin(BasePlugin):
         self.unregister_command(CommandType.PM, "friendscount")
         self.unregister_command(CommandType.PM, "load")
         self.unregister_command(CommandType.PM, "unload")
+        self.unregister_command(CommandType.PM, "shutdown")
 
     def connected(self):
         pass
@@ -234,6 +236,11 @@ class AdminPlugin(BasePlugin):
                     self.xmpp.send_message(cmdtype, target, "Unloaded plugin.")
                 else:
                     self.xmpp.send_message(cmdtype, target, "Error: Failed to unload plugin.")
+
+    def shutdown(self, cmdtype, cmdname, args, target, user, room):
+        # Send out the confirm message immediately so it doesn't get lost in the shutdown
+        self.xmpp.send_message(cmdtype, target, "Shutting down the bot.", now=True)
+        self.client.shutdown()
 
 
 plugin = AdminPlugin

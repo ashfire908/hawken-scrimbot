@@ -38,16 +38,20 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
         # Disable whitespace keepalives
         self.whitespace_keepalive = False
 
+        # Register the signal handlers
+        self.use_signals()
+
         # Register the plugins that we will need
         self.register_plugin("xep_0030")  # Service Discovery
         self.register_plugin("xep_0045")  # Multi-User Chat
         self.register_plugin("xep_0199")  # XMPP Ping
         self.register_plugin("hawken_party")  # Hawken Party
 
-    def send_message(self, mtype, mto, mbody):
+    def send_message(self, mtype, mto, mbody, now=False):
         # Override the send_message function to support PMs and parties
         if mtype == CommandType.PM:
-            super().send_message(mto=mto, mbody=mbody, mtype="chat")
+            message = super().make_message(mto, mbody=mbody, mtype="chat")
+            message.send(now)
         elif mtype == CommandType.PARTY:
             self.plugin["hawken_party"].message(mto, self.boundjid, mbody)
         else:
@@ -162,6 +166,7 @@ class ScrimBot:
         # Register event handlers
         self.xmpp.add_event_handler("session_start", self.handle_session_start)
         self.xmpp.add_event_handler("session_end", self.handle_session_end)
+        self.xmpp.add_event_handler("killed", self.handle_killed)
         self.xmpp.add_event_handler("roster_subscription_request", self.handle_subscription_request)
         self.xmpp.add_event_handler("roster_subscription_remove", self.handle_subscription_remove)
         self.xmpp.add_event_handler("message", self.handle_message, threaded=True)
@@ -228,10 +233,7 @@ class ScrimBot:
         return self.xmpp.disconnect(*args, **kwargs)
 
     def shutdown(self):
-        logging.info("Shutting down.")
-        self.config.save()
-        self.cache.save()
-        self.disconnect(wait=True)
+        self.xmpp.abort()
 
     def update_roster(self):
         logger.info("Updating roster.")
@@ -291,9 +293,22 @@ class ScrimBot:
         logger.info("Bot connected and ready.")
 
     def handle_session_end(self, event):
+        logger.info("Bot disconnected.")
+
         # Signal the plugins that we are not connected anymore
         for plugin in self.plugins.values():
             plugin.disconnected()
+
+    def handle_killed(self, event):
+        logger.info("Bot shutting down.")
+
+        # Unload the plugins
+        for plugin in list(self.plugins.keys()):
+            self.unload_plugin(plugin)
+
+        # Save the config and cache
+        self.config.save()
+        self.cache.save()
 
     def handle_subscription_request(self, presence):
         roster_item = self.xmpp.client_roster[presence["from"]]
