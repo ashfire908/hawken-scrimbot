@@ -67,6 +67,8 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
         return jid in self.roster_list() and self.client_roster[jid]["subscription"] != "none"
 
     def add_jid(self, jid):
+        added = True
+
         # Check if the bot the user in the roster
         if not jid in self.client_roster:
             # Subscribe to the user
@@ -74,8 +76,11 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
         elif not self.client_roster[jid]["subscription"] in ("both", "from"):
             # Subscribe to the user
             self.client_roster[jid].subscribe()
+        else:
+            # We didn't add anything
+            added = False
 
-        self.update_jid(jid)
+        return self.update_jid(jid) or added
 
     def remove_jid(self, jid):
         self.client_roster[jid].remove()
@@ -109,6 +114,8 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
                                            "groups": self.client_roster[jid]["groups"]}}
 
             iq.send()
+
+        return updated
 
 
 # Main Bot
@@ -252,17 +259,20 @@ class ScrimBot:
                 self.xmpp.remove_jid(jid)
             # Check if the user is on the list
             elif user in whitelist:
-                # Add/update the user to the roster
-                self.xmpp.add_jid(jid)
-
-                # Remove user so we don't try to add them later
+                # Remove user from the list so we don't try to add them later
                 whitelist.remove(user)
+
+                # Add/update the user to the roster
+                if not self.xmpp.add_jid(jid):
+                    # No changes were made, do not delay
+                    continue
             elif self.config.bot.offline or self.xmpp.client_roster[jid]["subscription"] == "none":
                 # Remove the user from the roster
                 self.xmpp.remove_jid(jid)
-            else:
-                # Make sure the jid is up to date
-                self.xmpp.update_jid(jid)
+            # Make sure the jid is up to date
+            elif not self.xmpp.update_jid(jid):
+                # No update was made, do not delay
+                continue
 
             # Add a delay between removals so we don't spam the server
             time.sleep(self.config.bot.roster_update_rate)
