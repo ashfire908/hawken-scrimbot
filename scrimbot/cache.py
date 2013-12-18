@@ -42,6 +42,10 @@ class Cache:
             if name not in self._cache:
                 self._cache[name] = {}
 
+        for callsign in self._cache["callsign"].values():
+            if callsign.lower() in self._cache["guid"]:
+                del self._cache["guid"][callsign.lower()]
+
     def setup(self):
         # Do an initial globals update
         self.globals_update()
@@ -79,6 +83,9 @@ class Cache:
 
     def save(self):
         logger.info("Saving cache.")
+
+        # Verify the cache
+        self._verify_cache()
 
         # Write the cache to file
         try:
