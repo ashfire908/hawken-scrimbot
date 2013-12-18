@@ -18,7 +18,7 @@ class Cache:
         # Register settings
         self.config.register_config("cache.filename", "cache.json")
         self.config.register_config("cache.save_period", 60 * 30)
-        self.config.register_config("cache.globals.update_period", 60 * 60 * 12)
+        self.config.register_config("cache.globals_period", 60 * 60 * 12)
 
         # Register core cache variables
         self.register_cache("callsign")
@@ -47,7 +47,7 @@ class Cache:
         self.globals_update()
 
         # Setup update threads
-        self.client.scheduler.add("globals_update", self.config.cache.globals.update_period, self.globals_update, repeat=True)
+        self.client.scheduler.add("globals_update", self.config.cache.globals_period, self.globals_update, repeat=True)
         self.client.scheduler.add("cache_save", self.config.cache.save_period, self.cache_save, repeat=True)
 
     def load(self):
