@@ -11,14 +11,14 @@ class TestPlugin(BasePlugin):
     def enable(self):
         # Register commands
         self.register_command(CommandType.PM, "testexception", self.test_exception, flags=["hidden", "safe"])
-        self.register_command(CommandType.PM, "hammertime", self.hammertime, flags=["hidden", "safe"])
+        self.register_command(CommandType.ALL, "hammertime", self.hammertime, flags=["hidden", "safe"])
         self.register_command(CommandType.ALL, "whoami", self.whoami)
         self.register_command(CommandType.PM, "tell", self.tell, flags=["permsreq"], metadata={"permsreq": ["admin"]})
 
     def disable(self):
         # Unregister commands
         self.unregister_command(CommandType.PM, "testexception")
-        self.unregister_command(CommandType.PM, "hammertime")
+        self.unregister_command(CommandType.ALL, "hammertime")
         self.unregister_command(CommandType.ALL, "whoami")
         self.unregister_command(CommandType.PM, "tell")
 
