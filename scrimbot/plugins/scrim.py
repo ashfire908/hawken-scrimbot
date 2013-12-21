@@ -67,7 +67,6 @@ class ScrimPlugin(BasePlugin):
         self.unregister_command(CommandType.PARTY, "leave")
         self.unregister_command(CommandType.PARTY, "transfer")
 
-
     def connected(self):
         # Rejoin parties
         for party in self.scrims.values():
@@ -360,7 +359,7 @@ class ScrimPlugin(BasePlugin):
 
                 # Place the reservation
                 advertisement = self.api.wrapper(self.api.matchmaking_advertisement_post_server, server["GameVersion"], server["Region"], server["Guid"], self.api.guid, list(party.players))
-                party.deploy(advertisement, self.config.plugins.scrim.poll_limit)
+                party.deploy(advertisement, self.config.plugins.scrim.polling_limit)
 
     def party_cancel(self, cmdtype, cmdname, args, target, user, room):
         # Check the arguments
