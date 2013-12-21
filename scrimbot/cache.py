@@ -3,6 +3,7 @@
 import errno
 import json
 import logging
+from scrimbot.util import CommittableDict
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +13,7 @@ class Cache:
         self.client = client
         self.config = config
         self.api = api
-        self._cache = {}
+        self._cache = CommittableDict()
         self._registered_cache = set()
 
         # Register settings
@@ -39,12 +40,15 @@ class Cache:
 
     def _verify_cache(self):
         for name in self._registered_cache:
-            if name not in self._cache:
-                self._cache[name] = {}
+            if name not in self:
+                self[name] = CommittableDict()
 
-        for callsign in self._cache["callsign"].values():
-            if callsign.lower() in self._cache["guid"]:
-                del self._cache["guid"][callsign.lower()]
+        for callsign in self["callsign"].values():
+            if callsign.lower() in self["guid"]:
+                del self["guid"][callsign.lower()]
+
+    def _as_committable(self, dct):
+        return CommittableDict(dct)
 
     def setup(self):
         # Do an initial globals update
@@ -61,7 +65,7 @@ class Cache:
         try:
             cache_file = open(self.config.cache.filename)
             try:
-                cache = json.load(cache_file)
+                cache = json.load(cache_file, object_hook=self._as_committable)
             finally:
                 cache_file.close()
         except IOError as e:
@@ -74,7 +78,8 @@ class Cache:
                 logger.error("Failed to read cache file: {0}".format(e))
                 return False
 
-        self._cache = cache
+        self._cache.update(cache)
+        self._cache.commit()
 
         # Verify the new cache data
         self._verify_cache()
@@ -82,10 +87,14 @@ class Cache:
         return True
 
     def save(self):
-        logger.info("Saving cache.")
-
         # Verify the cache
         self._verify_cache()
+
+        # Check if there are any changes to commit
+        if self._cache.committed:
+            return True
+
+        logger.info("Saving cache.")
 
         # Write the cache to file
         try:
@@ -99,17 +108,14 @@ class Cache:
             logger.error("Failed to write cache file: {0}".format(e))
             return False
 
+        self._cache.commit()
         return True
 
     def register_cache(self, name):
         self._registered_cache.add(name)
 
-        if name not in self._cache:
-            self._cache[name] = {}
-
-    def cache_save(self):
-        # Save the cache
-        self.save()
+        if name not in self:
+            self[name] = CommittableDict()
 
     def get_callsign(self, guid):
         # Check cache
@@ -159,4 +165,8 @@ class Cache:
         logger.info("Updating globals.")
 
         # Get the global item, update settings
-        self["globals"] = self.api.wrapper(self.api.game_items, "ff7aa68d-d450-44c3-86f0-a403e87b0f64")
+        self["globals"].update(self.api.wrapper(self.api.game_items, "ff7aa68d-d450-44c3-86f0-a403e87b0f64"))
+
+    def cache_save(self):
+        # Save the cache
+        self.save()

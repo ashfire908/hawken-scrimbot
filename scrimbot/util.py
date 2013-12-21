@@ -111,3 +111,49 @@ class DotDict(dict):
 
     __setattr__ = __setitem__
     __getattr__ = __getitem__
+
+
+class CommittableDict(dict):
+    def __init__(self, value=None):
+        self._committed = True
+
+        if value is None:
+            pass
+        elif isinstance(value, dict):
+            for key in value:
+                self.__setitem__(key, value[key])
+        else:
+            raise TypeError("Expected dict")
+
+    @property
+    def committed(self):
+        if not self._committed:
+            return False
+
+        for subitem in self.values():
+            if isinstance(subitem, CommittableDict) and not subitem.committed:
+                return False
+
+        return True
+
+    def commit(self):
+        self._committed = True
+
+        for subitem in self.values():
+            if isinstance(subitem, CommittableDict):
+                subitem.commit()
+
+    def _do_commit(method):
+        def wrapper(self, *args, **kwargs):
+            result = method(self, *args, **kwargs)
+            self._committed = False
+            return result
+        return wrapper
+
+    __delitem__ = _do_commit(dict.__delitem__)
+    __setitem__ = _do_commit(dict.__setitem__)
+    clear = _do_commit(dict.clear)
+    pop = _do_commit(dict.pop)
+    popitem = _do_commit(dict.popitem)
+    setdefault = _do_commit(dict.setdefault)
+    update = _do_commit(dict.update)
