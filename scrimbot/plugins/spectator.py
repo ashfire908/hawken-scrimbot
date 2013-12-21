@@ -143,8 +143,7 @@ class SpectatorPlugin(BasePlugin):
             stats = self.api.wrapper(self.api.user_stats, user)
             if stats is not None:
                 pilot_level = int(stats["Progress.Pilot.Level"])
-                if pilot_level + int(self.cache["globals"]["MMPilotLevelRange"]) <= server_level or \
-                   pilot_level - int(self.cache["globals"]["MMPilotLevelRange"]) >= server_level:
+                if pilot_level - int(self.cache["globals"]["MMPilotLevelRange"]) > server_level:
                     issues.append("Warning: Server outside your skill level ({1} vs {0}) - reservation may fail!".format(pilot_level, server_level))
 
         return issues
