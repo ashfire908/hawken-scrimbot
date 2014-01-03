@@ -25,7 +25,7 @@ class SpectatorPlugin(BasePlugin):
         self.register_command(CommandType.PM, "server", self.server, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
         self.register_command(CommandType.PM, "spectate", self.server, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "spectator"]})
         self.register_command(CommandType.PM, "spec", self.server, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "spectator"]})
-        self.register_command(CommandType.PM, "user", self.user, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
+        self.register_command(CommandType.PM, "user", self.user, flags=["permsreq"], metadata={"permsreq": ["admin"]})
         self.register_command(CommandType.PM, "cancel", self.cancel, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
         self.register_command(CommandType.PM, "confirm", self.confirm, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
         self.register_command(CommandType.PM, "save", self.save, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
@@ -281,10 +281,8 @@ class SpectatorPlugin(BasePlugin):
                 self.place_reservation(cmdtype, target, user, server)
 
     def user(self, cmdtype, cmdname, args, target, user, room):
-        # Check permissions and arguments
-        if not self.permissions.user_check_group(user, "admin"):
-            self.xmpp.send_message(cmdtype, target, "Access to this command is restricted.")
-        elif len(args) < 1:
+        # Check arguments
+        if len(args) < 1:
             self.xmpp.send_message(cmdtype, target, "Missing target user")
         else:
             # Get the user
