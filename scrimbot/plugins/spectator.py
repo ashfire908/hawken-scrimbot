@@ -200,8 +200,8 @@ class SpectatorPlugin(BasePlugin):
                         except KeyError:
                             server_name = "<unknown>"
 
-                        message = "\nReservation for server '{2}' complete.\nServer IP: {0}:{1}.\n\nUse '{3}spectate confirm' after joining the server, or '{3}spectate cancel' if you do not plan on joining the server."
-                        self.xmpp.send_message(cmdtype, target, message.format(advertisement_info["AssignedServerIp"].strip(r"\n"), advertisement_info["AssignedServerPort"], server_name, self.config.bot.command_prefix))
+                        message = "\nReservation for server '{2}' complete.\nServer IP: {0}:{1}.\n\nUse '{3}{4} confirm' after joining the server, or '{3}{4} cancel' if you do not plan on joining the server."
+                        self.xmpp.send_message(cmdtype, target, message.format(advertisement_info["AssignedServerIp"], advertisement_info["AssignedServerPort"], server_name, self.config.bot.command_prefix, self.name))
                         timeout = False
                         break
 
@@ -265,7 +265,7 @@ class SpectatorPlugin(BasePlugin):
         self.xmpp.send_message(cmdtype, target, "Cleared stored spectator data for your user.")
 
     def renew(self, cmdtype, cmdname, args, target, user, room):
-        # Check if the user has a saved advertisement
+        # Check if the user has a saved server
         if not self.saved_server_has(user):
             self.xmpp.send_message(cmdtype, target, "No saved server on file.")
         else:
@@ -277,7 +277,7 @@ class SpectatorPlugin(BasePlugin):
                 self.xmpp.send_message(cmdtype, target, "Error: Could not find the server from your last reservation.")
             else:
                 # Place the reservation
-                self.xmpp.send_message(cmdtype, target, "Renewing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.config.bot.command_prefix, cmdname))
+                self.xmpp.send_message(cmdtype, target, "Renewing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.config.bot.command_prefix, self.name))
                 self.place_reservation(cmdtype, target, user, server)
 
     def user(self, cmdtype, cmdname, args, target, user, room):
@@ -306,7 +306,7 @@ class SpectatorPlugin(BasePlugin):
                         self.xmpp.send_message(cmdtype, target, "Error: Could not the find the server '{0}' is on.".format(self.cache.get_callsign(guid)))
                     else:
                         # Place the reservation
-                        self.xmpp.send_message(cmdtype, target, "Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.config.bot.command_prefix, cmdname))
+                        self.xmpp.send_message(cmdtype, target, "Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.config.bot.command_prefix, self.name))
                         self.place_reservation(cmdtype, target, user, server)
 
     def server(self, cmdtype, cmdname, args, target, user, room):
@@ -324,7 +324,7 @@ class SpectatorPlugin(BasePlugin):
                 self.xmpp.send_message(cmdtype, target, "Error: Could not find server '{0}'.".format(args[0]))
             else:
                 # Place the reservation
-                self.xmpp.send_message(cmdtype, target, "Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.config.bot.command_prefix, cmdname))
+                self.xmpp.send_message(cmdtype, target, "Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.config.bot.command_prefix, self.name))
                 self.place_reservation(cmdtype, target, user, server)
 
 

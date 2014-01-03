@@ -355,7 +355,7 @@ class ScrimPlugin(BasePlugin):
 
                 # Notify deployment
                 if cmdtype == CommandType.PM:
-                    self.xmpp.send_message(cmdtype, target, "Deploying to server... Deploying to server '{0}partycancel {1}' to abort.".format(self.config.bot.command_prefix, args[0]))
+                    self.xmpp.send_message(cmdtype, target, "Deploying to server... '{0}scrim cancel {1}' to abort.".format(self.config.bot.command_prefix, args[0]))
 
                 # Place the reservation
                 advertisement = self.api.wrapper(self.api.matchmaking_advertisement_post_server, server["GameVersion"], server["Region"], server["Guid"], self.api.guid, list(party.players))
