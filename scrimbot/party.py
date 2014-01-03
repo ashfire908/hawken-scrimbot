@@ -4,9 +4,9 @@ import logging
 import threading
 import time
 import uuid
-import hawkenapi.exceptions
 from hawkenapi.sleekxmpp.party import CancelCode
 from scrimbot.plugins.base import CommandType
+from scrimbot.reservations import ReservationResult
 from scrimbot.util import enum
 
 DeploymentState = enum(IDLE=0, MATCHMAKING=1, DEPLOYING=2, DEPLOYED=3)
@@ -60,7 +60,7 @@ class Party:
     def _init_party(self):
         self.joined = False
         self.players = set()
-        self.advertisement = None
+        self.reservation = None
 
         self.state = DeploymentState.IDLE
         self.create_time = None
@@ -143,16 +143,16 @@ class Party:
         self._thread_timer = threading.Timer(Party._deploy_time, self._complete_deployment)
         self._thread_timer.start()
 
-    def _thread_deploy_start(self, poll_limit):
-        self._thread_deploy = threading.Thread(target=self._handle_deployment, args=[poll_limit])
+    def _thread_deploy_start(self):
+        self._thread_deploy = threading.Thread(target=self._handle_deployment)
         self._thread_deploy.start()
 
-    def _start_matchmaking(self, advertisement, poll_limit):
+    def _start_matchmaking(self, reservation):
         assert self.state == DeploymentState.IDLE
         assert self.is_leader()
 
-        # Set the advertisement
-        self.advertisement = advertisement
+        # Set the reservation
+        self.reservation = reservation
 
         # Send the notice
         self.xmpp.plugin["hawken_party"].matchmaking_start(self._room_jid(), self.xmpp.boundjid)
@@ -161,7 +161,7 @@ class Party:
         self.state = DeploymentState.MATCHMAKING
 
         # Start the deployment thread
-        self._thread_deploy_start(poll_limit)
+        self._thread_deploy_start()
 
     def _cancel_matchmaking(self, code):
         assert self.state == DeploymentState.MATCHMAKING
@@ -173,13 +173,14 @@ class Party:
         # Set the state back to idle
         self.state = DeploymentState.IDLE
 
-    def _start_deployment(self, advertisement_info):
+    def _start_deployment(self):
         assert self.state == DeploymentState.MATCHMAKING
         assert self.is_leader()
 
         # Format the server info
-        server_string = ";".join((advertisement_info["AssignedServerGuid"], advertisement_info["AssignedServerIp"],
-                                  str(advertisement_info["AssignedServerPort"])))
+        server_string = ";".join((self.reservation.advertisement["AssignedServerGuid"],
+                                  self.reservation.advertisement["AssignedServerIp"],
+                                  str(self.reservation.advertisement["AssignedServerPort"])))
 
         # Send the notice
         self.xmpp.plugin["hawken_party"].deploy_start(self._room_jid(), self.xmpp.boundjid, server_string)
@@ -224,46 +225,20 @@ class Party:
         # Set the state to deployed
         self.state = DeploymentState.IDLE
 
-    def _handle_deployment(self, poll_limit):
-        # Start polling the advertisement
-        start_time = time.time()
-        timeout = True
-        while self.state == DeploymentState.MATCHMAKING and (time.time() - start_time) < poll_limit:
-            # Check the advertisement
-            try:
-                advertisement_info = self.api.wrapper(self.api.matchmaking_advertisement, self.advertisement)
-            except hawkenapi.exceptions.RetryLimitExceeded:
-                # Continue polling the advertisement
-                pass
-            else:
-                # Check if the advertisement still exists
-                if advertisement_info is None:
-                    # Check if the advertisement has been canceled
-                    if self.state == DeploymentState.MATCHMAKING:
-                        # Couldn't find reservation, cancel it.
-                        logger.warning("Reservation {0} for party {1} cannot be found! Stopped polling.".format(self.advertisement, self.guid))
-                        self.xmpp.send_message(CommandType.PARTY, self._room_jid(), "Error: Could not retrieve advertisement - expired? If you did not cancel it, this is a bug - please report it!")
-                        self.abort(CancelCode.PARTYCANCEL)
+    def _handle_deployment(self):
+        # Poll the reservation
+        result = self.reservation.poll()
 
-                    timeout = False
-                    break
-                else:
-                    # Check if the reservation has been completed
-                    if advertisement_info["ReadyToDeliver"]:
-                        # Deploy
-                        if self.state != DeploymentState.MATCHMAKING:
-                            # Last minute abort
-                            return
-                        self._start_deployment(advertisement_info)
-                        timeout = False
-                        break
-
-            if timeout:
-                # Sleep a bit before requesting again.
-                time.sleep(self.config.api.advertisement.polling_rate)
-
-        if timeout:
+        if result == ReservationResult.READY:
+            self._start_deployment()
+        elif result == ReservationResult.TIMEOUT:
             self.abort(CancelCode.NOMATCH)
+        elif result == ReservationResult.NOTFOUND:
+            self.xmpp.send_message(CommandType.PARTY, self._room_jid(), "Error: Could not retrieve advertisement - expired? This is a bug - please report it!")
+            self.abort(CancelCode.PARTYCANCEL)
+        elif result == ReservationResult.ERROR:
+            self.xmpp.send_message(CommandType.PARTY, self._room_jid(), "Error: Failed to poll for reservation. This is a bug - please report it!")
+            self.abort(CancelCode.PARTYCANCEL)
 
     @notjoined
     def create(self, party):
@@ -368,15 +343,12 @@ class Party:
 
     @joined
     @requireleader
-    def deploy(self, advertisement, poll_limit=None):
+    def deploy(self, reservation):
         if self.state != DeploymentState.IDLE:
             raise ValueError("A deployment cannot be started while one is in progress.")
 
-        if poll_limit is None:
-            poll_limit = self.config.api.advertisement.polling_limit
-
         # Start the deployment
-        self._start_matchmaking(advertisement, poll_limit)
+        self._start_matchmaking(reservation)
 
     @joined
     def abort(self, code=CancelCode.PARTYCANCEL):
@@ -389,8 +361,8 @@ class Party:
         else:
             return False
 
-        # Delete the advertisement
-        self.api.wrapper(self.api.matchmaking_advertisement_delete, self.advertisement)
+        # Cancel the reservation
+        self.reservation.cancel()
 
         return True
 

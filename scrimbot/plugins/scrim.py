@@ -5,6 +5,7 @@ import logging
 from hawkenapi.sleekxmpp.party import CancelCode
 from scrimbot.party import Party, DeploymentState
 from scrimbot.plugins.base import BasePlugin, CommandType
+from scrimbot.reservations import ServerReservation
 from scrimbot.util import jid_user
 
 logger = logging.getLogger(__name__)
@@ -347,19 +348,29 @@ class ScrimPlugin(BasePlugin):
             elif len(party.players) > server["MaxUsers"]:
                 self.xmpp.send_message(cmdtype, target, "Error: The party is too large to fit on the server.")
             else:
-                # Check for possible issues with the reservation
-                # Server full
-                user_count = len(server["Users"])
-                if user_count - len(party.players) >= server["MaxUsers"]:
-                    self.xmpp.send_message(cmdtype, target, "Warning: Server is full ({0}/{1}) - reservation may fail!".format(user_count, server["MaxUsers"]))
+                # Setup the reservation
+                reservation = ServerReservation(self.config, self.cache, self.api, server["Guid"], list(party.players), party=None)
+
+                # Check for issues
+                critical, issues = reservation.check()
+
+                for issue in issues:
+                    self.xmpp.send_message(cmdtype, target, issue)
+
+                if critical:
+                    return
 
                 # Notify deployment
                 if cmdtype == CommandType.PM:
                     self.xmpp.send_message(cmdtype, target, "Deploying to server... '{0}scrim cancel {1}' to abort.".format(self.config.bot.command_prefix, args[0]))
 
                 # Place the reservation
-                advertisement = self.api.wrapper(self.api.matchmaking_advertisement_post_server, server["GameVersion"], server["Region"], server["Guid"], self.api.guid, list(party.players))
-                party.deploy(advertisement, self.config.plugins.scrim.polling_limit)
+                reservation.reserve(limit=self.config.plugins.scrim.polling_limit)
+
+                try:
+                    party.deploy(reservation)
+                except ValueError:
+                    reservation.cancel()
 
     def party_cancel(self, cmdtype, cmdname, args, target, user, room):
         # Check the arguments

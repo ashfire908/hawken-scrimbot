@@ -2,9 +2,8 @@
 
 import logging
 import threading
-import time
-import hawkenapi.exceptions
 from scrimbot.plugins.base import BasePlugin, CommandType
+from scrimbot.reservations import ReservationResult, ServerReservation
 
 logger = logging.getLogger(__name__)
 
@@ -59,12 +58,11 @@ class SpectatorPlugin(BasePlugin):
     def disconnected(self):
         # Delete all pending reservations
         for user in self.reservations:
-            if self.reservation_has(user):
-                self.reservation_delete(user)
+            self.reservation_delete(user)
 
     def reservation_init(self, user):
         template = {
-            "advertisement": None,
+            "reservation": None,
             "saved": None
         }
         if not user in self.reservations:
@@ -72,30 +70,30 @@ class SpectatorPlugin(BasePlugin):
 
     def reservation_has(self, user):
         try:
-            return self.reservations[user]["advertisement"] is not None
+            return self.reservations[user]["reservation"] is not None
         except KeyError:
             return False
 
     def reservation_get(self, user):
-        if self.reservation_has(user):
-            return self.reservations[user]["advertisement"]
-        else:
+        try:
+            return self.reservations[user]["reservation"]
+        except KeyError:
             return False
 
-    def reservation_set(self, user, advertisement):
+    def reservation_set(self, user, reservation):
         # Initialize the user data
         self.reservation_init(user)
 
         # Clear the previous reservation
-        if self.reservation_has(user):
-            self.reservation_delete(user)
+        self.reservation_delete(user)
 
-        self.reservations[user]["advertisement"] = advertisement
+        self.reservations[user]["reservation"] = reservation
 
     def reservation_delete(self, user):
-        if self.reservation_has(user):
-            self.api.wrapper(self.api.matchmaking_advertisement_delete, self.reservations[user]["advertisement"])
-            self.reservations[user]["advertisement"] = None
+        reservation = self.reservation_get(user)
+        if reservation and reservation.created:
+            reservation.cancel()
+            self.reservations[user]["reservation"] = None
             return True
 
         return False
@@ -115,7 +113,10 @@ class SpectatorPlugin(BasePlugin):
             return False
 
     def saved_server_get(self, user):
-        return self.reservations[user]["saved"]
+        try:
+            return self.reservations[user]["saved"]
+        except KeyError:
+            return None
 
     def saved_server_set(self, user, server):
         # Initialize the user data
@@ -129,89 +130,45 @@ class SpectatorPlugin(BasePlugin):
         except KeyError:
             pass
 
-    def check_issues(self, user, server):
-        issues = []
-
-        # Server full
-        user_count = len(server["Users"])
-        if user_count >= server["MaxUsers"]:
-            issues.append("Warning: Server is full ({0}/{1}) - reservation may fail!".format(user_count, server["MaxUsers"]))
-
-        # Server outside user's rank
-        server_level = int(server["DeveloperData"]["AveragePilotLevel"])
-        if server_level != 0:
-            stats = self.api.wrapper(self.api.user_stats, user)
-            if stats is not None:
-                pilot_level = int(stats["Progress.Pilot.Level"])
-                if pilot_level - int(self.cache["globals"]["MMPilotLevelRange"]) > server_level:
-                    issues.append("Warning: Server outside your skill level ({1} vs {0}) - reservation may fail!".format(pilot_level, server_level))
-
-        return issues
-
     def place_reservation(self, cmdtype, target, user, server):
+        # Set up the reservation
+        reservation = ServerReservation(self.config, self.cache, self.api, server, [user])
+
         # Check for potential issues and report them
-        issues = self.check_issues(user, server)
+        critical, issues = reservation.check()
         for issue in issues:
             self.xmpp.send_message(cmdtype, target, issue)
 
-        # Place the reservation
-        advertisement = self.api.wrapper(self.api.matchmaking_advertisement_post_server, server["GameVersion"],
-                                         server["Region"], server["Guid"], self.api.guid, [user])
-        self.reservation_set(user, advertisement)
+        if critical:
+            return
+
+        # Submit the reservation
+        reservation.reserve(limit=self.config.plugins.spectator.polling_limit)
+        self.reservation_set(user, reservation)
 
         # Set up the polling in another thread
         reservation_thread = threading.Thread(target=self.poll_reservation, args=(cmdtype, target, user))
         reservation_thread.start()
 
     def poll_reservation(self, cmdtype, target, user):
-        # Get the advertisement
-        advertisement = self.reservation_get(user)
+        # Get the reservation
+        reservation = self.reservation_get(user)
 
-        # Start polling the advertisement
-        start_time = time.time()
-        timeout = True
-        while (time.time() - start_time) < self.config.plugins.spectator.polling_limit:
-            # Check the advertisement
-            try:
-                advertisement_info = self.api.wrapper(self.api.matchmaking_advertisement, advertisement)
-            except hawkenapi.exceptions.RetryLimitExceeded:
-                # Continue polling the advertisement
-                pass
-            else:
-                # Check if the advertisement still exists
-                if advertisement_info is None:
-                    # Check if the advertisement has been canceled
-                    if not self.reservation_has(user):
-                        logger.debug("Reservation {0} for user {1} has been canceled, stopped polling.".format(advertisement, user))
-                        timeout = False
-                        break
-                    else:
-                        # Couldn't find reservation
-                        logger.warning("Reservation {0} for user {1} cannot be found! Stopped polling.".format(advertisement, user))
-                        self.xmpp.send_message(cmdtype, target, "Error: Could not retrieve advertisement - expired? If you did not cancel it, this is a bug - please report it!")
-                        timeout = False
-                        break
-                else:
-                    # Check if the reservation has been completed
-                    if advertisement_info["ReadyToDeliver"]:
-                        # Get the server name
-                        try:
-                            server_name = self.api.wrapper(self.api.server_list, advertisement_info["AssignedServerGuid"])["ServerName"]
-                        except KeyError:
-                            server_name = "<unknown>"
+        # Poll the reservation
+        result = reservation.poll()
 
-                        message = "\nReservation for server '{2}' complete.\nServer IP: {0}:{1}.\n\nUse '{3}{4} confirm' after joining the server, or '{3}{4} cancel' if you do not plan on joining the server."
-                        self.xmpp.send_message(cmdtype, target, message.format(advertisement_info["AssignedServerIp"], advertisement_info["AssignedServerPort"], server_name, self.config.bot.command_prefix, self.name))
-                        timeout = False
-                        break
-
-            if timeout:
-                # Sleep a bit before requesting again.
-                time.sleep(self.config.api.advertisement.polling_rate)
-
-        if timeout:
+        # Handle the result
+        if result == ReservationResult.READY:
+            message = "\nReservation for server '{2}' complete.\nServer IP: {0}:{1}.\n\nUse '{3}{4} confirm' after joining the server, or '{3}{4} cancel' if you do not plan on joining the server."
+            self.xmpp.send_message(cmdtype, target, message.format(reservation.advertisement["AssignedServerIp"], reservation.advertisement["AssignedServerPort"], reservation.server["ServerName"], self.config.bot.command_prefix, self.name))
+        else:
             self.reservation_delete(user)
-            self.xmpp.send_message(cmdtype, target, "Time limit reached - reservation canceled.")
+            if result == ReservationResult.TIMEOUT:
+                self.xmpp.send_message(cmdtype, target, "Time limit reached - reservation canceled.")
+            elif result == ReservationResult.NOTFOUND:
+                self.xmpp.send_message(cmdtype, target, "Error: Could not retrieve advertisement - expired? This is a bug - please report it!")
+            elif result == ReservationResult.ERROR:
+                self.xmpp.send_message(cmdtype, target, "Error: Failed to poll for reservation. This is a bug - please report it!")
 
     def cancel(self, cmdtype, cmdname, args, target, user, room):
         # Delete the user's server reservation
@@ -228,16 +185,9 @@ class SpectatorPlugin(BasePlugin):
         if not reservation:
             self.xmpp.send_message(cmdtype, target, "No reservation found to confirm.")
         else:
-            # Load the advertisement
-            advertisement = self.api.wrapper(self.api.matchmaking_advertisement, reservation)
-
-            # Check if the advertisement exists
-            if advertisement is None:
-                self.xmpp.send_message(cmdtype, target, "Error: Failed to load reservation info (request probably expired).")
-            else:
-                # Save the advertisement server for later use
-                self.saved_server_set(user, advertisement["AssignedServerGuid"])
-                self.xmpp.send_message(cmdtype, target, "Reservation confirmed; saved for future use.")
+            # Save the assigned server for later use
+            self.saved_server_set(user, reservation.advertisement["AssignedServerGuid"])
+            self.xmpp.send_message(cmdtype, target, "Reservation confirmed; saved for future use.")
 
             # Delete the server reservation (as it's fulfilled now)
             self.reservation_delete(user)
@@ -325,7 +275,7 @@ class SpectatorPlugin(BasePlugin):
             else:
                 # Place the reservation
                 self.xmpp.send_message(cmdtype, target, "Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.config.bot.command_prefix, self.name))
-                self.place_reservation(cmdtype, target, user, server)
+                self.place_reservation(cmdtype, target, user, server["Guid"])
 
 
 plugin = SpectatorPlugin
