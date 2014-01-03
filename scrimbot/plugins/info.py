@@ -70,7 +70,7 @@ Not every bit of information is required, but at the very least you need to send
                 continue
 
             # Filter out commands by required permission
-            if handler.flags.b.permsreq and not self.permissions.user_check_groups(user, handler.metadata["permsreq"]):
+            if handler.flags.b.permsreq and not self.permissions.user_check_groups(user, handler.flags.data.permsreq):
                 continue
 
             # Filter out aliases

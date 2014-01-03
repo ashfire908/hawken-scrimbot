@@ -540,8 +540,8 @@ class ScrimBot:
             # Check if command is marked as requiring perms
             if handler.flags.b.permsreq:
                 # Check if the user has the required perms
-                if not self.permissions.user_check_groups(user, handler.metadata["permsreq"]):
-                    logger.info("Command {1} {0} called by {2} - lacking required permissions [{3}]. Rejecting!".format(cmdname, handler.plugin.name, user, ", ".join(handler.metadata["permsreq"])))
+                if not self.permissions.user_check_groups(user, handler.flags.data.permsreq):
+                    logger.info("Command {1} {0} called by {2} - lacking required permissions [{3}]. Rejecting!".format(cmdname, handler.plugin.name, user, ", ".join(handler.flags.data.permsreq)))
                     self.xmpp.send_message(cmdtype, target, "Error: You are not authorized to access this command.")
                     return
 

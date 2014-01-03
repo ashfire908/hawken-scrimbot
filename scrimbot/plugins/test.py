@@ -15,7 +15,7 @@ class TestPlugin(BasePlugin):
         self.register_command(CommandType.ALL, "whoami", self.whoami)
         self.register_command(CommandType.ALL, "callsign", self.callsign, flags=["hidden"])
         self.register_command(CommandType.ALL, "guid", self.guid, flags=["hidden"])
-        self.register_command(CommandType.PM, "tell", self.tell, flags=["permsreq"], metadata={"permsreq": ["admin"]})
+        self.register_command(CommandType.PM, "tell", self.tell, flags=["permsreq"], permsreq=["admin"])
 
     def disable(self):
         # Unregister commands

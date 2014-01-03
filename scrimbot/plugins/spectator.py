@@ -21,15 +21,15 @@ class SpectatorPlugin(BasePlugin):
         self.register_group("spectator")
 
         # Register commands
-        self.register_command(CommandType.PM, "server", self.server, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
-        self.register_command(CommandType.PM, "spectate", self.server, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "spectator"]})
-        self.register_command(CommandType.PM, "spec", self.server, flags=["permsreq", "alias"], metadata={"permsreq": ["admin", "spectator"]})
-        self.register_command(CommandType.PM, "user", self.user, flags=["permsreq"], metadata={"permsreq": ["admin"]})
-        self.register_command(CommandType.PM, "cancel", self.cancel, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
-        self.register_command(CommandType.PM, "confirm", self.confirm, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
-        self.register_command(CommandType.PM, "save", self.save, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
-        self.register_command(CommandType.PM, "renew", self.renew, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
-        self.register_command(CommandType.PM, "clear", self.clear, flags=["permsreq"], metadata={"permsreq": ["admin", "spectator"]})
+        self.register_command(CommandType.PM, "server", self.server, flags=["permsreq"], permsreq=["admin", "spectator"])
+        self.register_command(CommandType.PM, "spectate", self.server, flags=["permsreq", "alias"], permsreq=["admin", "spectator"])
+        self.register_command(CommandType.PM, "spec", self.server, flags=["permsreq", "alias"], permsreq=["admin", "spectator"])
+        self.register_command(CommandType.PM, "user", self.user, flags=["permsreq"], permsreq=["admin"])
+        self.register_command(CommandType.PM, "cancel", self.cancel, flags=["permsreq"], permsreq=["admin", "spectator"])
+        self.register_command(CommandType.PM, "confirm", self.confirm, flags=["permsreq"], permsreq=["admin", "spectator"])
+        self.register_command(CommandType.PM, "save", self.save, flags=["permsreq"], permsreq=["admin", "spectator"])
+        self.register_command(CommandType.PM, "renew", self.renew, flags=["permsreq"], permsreq=["admin", "spectator"])
+        self.register_command(CommandType.PM, "clear", self.clear, flags=["permsreq"], permsreq=["admin", "spectator"])
 
         # Setup reservation tracking
         self.reservations = {}

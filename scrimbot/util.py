@@ -15,6 +15,11 @@ def create_bitfield(*fields):
     class Bits(ctypes.LittleEndianStructure):
         _fields_ = field_list
 
+    class Data:
+        def __init__(self, fields):
+            for field in fields:
+                setattr(self, field, None)
+
     class Flags(ctypes.Union):
         _fields_ = [("b", Bits), ("asbyte", ctypes.c_uint8)]
 
@@ -28,6 +33,9 @@ def create_bitfield(*fields):
                 # Assume bits passed as list of bit names
                 for bit in list(bits):
                     setattr(self.b, bit, 1)
+
+            # Create data storage
+            self.data = Data(fields)
 
     return Flags
 

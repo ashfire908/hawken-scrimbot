@@ -75,7 +75,7 @@ class BasePlugin(metaclass=ABCMeta):
 
 
 class Command:
-    def __init__(self, plugin, cmdtype, cmdname, handler, flags=None, metadata=None):
+    def __init__(self, plugin, cmdtype, cmdname, handler, flags=None, **metadata):
         self.plugin = plugin
         self.cmdtype = cmdtype
         self.cmdname = cmdname
@@ -88,10 +88,8 @@ class Command:
             for flag in flags:
                 setattr(self.flags.b, flag, 1)
 
-        if metadata is None:
-            self.metadata = {}
-        else:
-            self.metadata = metadata
+        for name, value in metadata.items():
+            setattr(self.flags.data, name, value)
 
         self._verify_flags()
 
