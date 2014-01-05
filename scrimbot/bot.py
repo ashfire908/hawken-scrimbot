@@ -365,7 +365,7 @@ class ScrimBot:
     def handle_groupchat_message(self, message):
         if message["type"] == "groupchat":
             # Refuse to process chat from the bot itself
-            if message["from"].resource == Party.our_callsign(self.xmpp, message["from"].bare):
+            if message["from"].resource == Party.get_callsign(self.xmpp, message["from"].bare):
                 pass
             # Check if the user is blacklisted
             elif message["stormid"].id is not None and self.permissions.user_check_group(message["stormid"].id, "blacklist"):

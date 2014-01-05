@@ -89,7 +89,7 @@ class ScrimPlugin(BasePlugin):
         return name
 
     def _guid_exists(self, guid):
-        for jid in self.xmpp.plugin["xep_0045"].getJoinedRooms():
+        for jid in Party.get_joined_rooms(self.xmpp):
             if jid_user(jid) == guid:
                 return True
 

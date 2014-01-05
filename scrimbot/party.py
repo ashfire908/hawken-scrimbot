@@ -80,23 +80,23 @@ class Party:
         return "{0}@{1}".format(self.guid, self.xmpp.party_server)
 
     def _get_callsign(self):
-        return self.xmpp.plugin["hawken_party"].our_callsign(self._room_jid())
+        return Party.get_callsign(self.xmpp, self._room_jid())
 
     def _register_events(self):
-        self.xmpp.add_event_handler("muc::%s::got_online" % self._room_jid(), self._handle_online)
-        self.xmpp.add_event_handler("muc::%s::got_offline" % self._room_jid(), self._handle_offline)
+        self.xmpp.add_event_handler("muc::%s::joined" % self._room_jid(), self._handle_online)
+        self.xmpp.add_event_handler("muc::%s::left" % self._room_jid(), self._handle_offline)
         self.xmpp.add_event_handler("muc::%s::message" % self._room_jid(), self._handle_message)
         self.xmpp.add_event_handler("session_end", self._handle_session_end)
 
     def _unregister_events(self):
-        self.xmpp.del_event_handler("muc::%s::got_online" % self._room_jid(), self._handle_online)
-        self.xmpp.del_event_handler("muc::%s::got_offline" % self._room_jid(), self._handle_offline)
+        self.xmpp.del_event_handler("muc::%s::joined" % self._room_jid(), self._handle_online)
+        self.xmpp.del_event_handler("muc::%s::left" % self._room_jid(), self._handle_offline)
         self.xmpp.del_event_handler("muc::%s::message" % self._room_jid(), self._handle_message)
         self.xmpp.del_event_handler("session_end", self._handle_session_end)
 
     def _handle_online(self, presence):
         # Ignore the bot
-        if presence["muc"]["nick"] == self._get_callsign():
+        if presence["muc"]["jid"].user == self.api.guid:
             return
 
         # Add the player to the list
@@ -107,7 +107,7 @@ class Party:
 
     def _handle_offline(self, presence):
         # Ignore ourselves
-        if presence["muc"]["nick"] == self._get_callsign():
+        if presence["muc"]["jid"].user == self.api.guid:
             return
 
         # Remove the player to the list
@@ -298,12 +298,11 @@ class Party:
 
     @joined
     def invite(self, user):
-        # Get the target and callsign
-        target = "{0}@{1}".format(user, self.xmpp.boundjid.host)
+        # Get the callsign
         callsign = self.cache.get_callsign(user)
 
         # Send the invite
-        self.xmpp.plugin["hawken_party"].invite(self._room_jid(), self.xmpp.boundjid, target, callsign)
+        self.xmpp.plugin["hawken_party"].invite(self._room_jid(), self.xmpp.boundjid, self.xmpp.format_jid(user), callsign)
 
     @joined
     @requireleader
@@ -323,23 +322,20 @@ class Party:
 
     @joined
     def is_leader(self):
-        return self.xmpp.plugin["hawken_party"].leader_get(self._room_jid()) == self._get_callsign()
+        return self.get_leader() == self._get_callsign()
 
     @joined
     def get_leader(self):
-        return self.xmpp.plugin["hawken_party"].leader_get(self._room_jid())
+        return self.xmpp.plugin["hawken_party"].get_leader(self._room_jid())
 
     @joined
     @requireleader
     def set_leader(self, user):
-        # Get the callsign
-        callsign = self.cache.get_callsign(user)
-
         # Stop any active deployment
         self.abort(CancelCode.LEADERCHANGE)
 
         # Change the leader
-        self.xmpp.plugin["hawken_party"].leader_set(self._room_jid(), callsign)
+        self.xmpp.plugin["hawken_party"].set_leader(self._room_jid(), self.xmpp.format_jid(user))
 
     @joined
     @requireleader
@@ -371,5 +367,9 @@ class Party:
         return str(uuid.uuid4())
 
     @staticmethod
-    def our_callsign(xmpp, room):
-        return xmpp.plugin["hawken_party"].our_callsign(room)
+    def get_callsign(xmpp, room):
+        return xmpp.plugin["hawken_party"].get_callsign(room)
+
+    @staticmethod
+    def get_joined_rooms(xmpp):
+        return xmpp.plugin["hawken_party"].get_joined_rooms()
