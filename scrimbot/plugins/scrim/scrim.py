@@ -3,8 +3,8 @@
 import time
 import logging
 from hawkenapi.sleekxmpp.party import CancelCode
-from scrimbot.party import Party, DeploymentState
 from scrimbot.plugins.base import BasePlugin, CommandType
+from scrimbot.plugins.scrim.party import ScrimParty, DeploymentState
 from scrimbot.reservations import ServerReservation
 from scrimbot.util import jid_user
 
@@ -89,7 +89,7 @@ class ScrimPlugin(BasePlugin):
         return name
 
     def _guid_exists(self, guid):
-        for jid in Party.get_joined_rooms(self.xmpp):
+        for jid in ScrimParty.get_joined_rooms(self.xmpp):
             if jid_user(jid) == guid:
                 return True
 
@@ -206,7 +206,7 @@ class ScrimPlugin(BasePlugin):
 
     def create_party(self, name=None):
         # Generate the guid (and name, if needed)
-        guid = Party.generate_guid()
+        guid = ScrimParty.generate_guid()
         if name is None:
             name = self._generate_name()
 
@@ -216,7 +216,7 @@ class ScrimPlugin(BasePlugin):
             return False
 
         # Create the party
-        party = Party(self.client, self.xmpp, self.config, self.cache, self.api)
+        party = ScrimParty(self.client, self.xmpp, self.config, self.cache, self.api)
         party.create(guid)
 
         # Add the party to the list
@@ -409,6 +409,3 @@ class ScrimPlugin(BasePlugin):
 
                 party.set_leader(target_user)
                 self.leave_party(party.guid)
-
-
-plugin = ScrimPlugin
