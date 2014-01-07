@@ -33,13 +33,13 @@ class ScrimPlugin(BasePlugin):
         self.register_command(CommandType.PM, "deploy", self.party_deploy, flags=["permsreq"], permsreq=["admin", "scrim"])
         self.register_command(CommandType.PM, "cancel", self.party_cancel, flags=["permsreq"], permsreq=["admin", "scrim"])
         self.register_command(CommandType.PM, "leave", self.party_leave, flags=["permsreq"], permsreq=["admin", "scrim"])
-        self.register_command(CommandType.PM, "transfer", self.party_transfer, flags=["permsreq"], permsreq=["admin", "scrim"])
-        self.register_command(CommandType.PARTY, "invite", self.party_invite, flags=["permsreq"], permsreq=["admin", "scrim"])
-        self.register_command(CommandType.PARTY, "kick", self.party_kick, flags=["permsreq"], permsreq=["admin", "scrim"])
-        self.register_command(CommandType.PARTY, "deploy", self.party_deploy, flags=["permsreq"], permsreq=["admin", "scrim"])
-        self.register_command(CommandType.PARTY, "cancel", self.party_cancel, flags=["permsreq"], permsreq=["admin", "scrim"])
-        self.register_command(CommandType.PARTY, "leave", self.party_leave, flags=["permsreq"], permsreq=["admin", "scrim"])
-        self.register_command(CommandType.PARTY, "transfer", self.party_transfer, flags=["permsreq"], permsreq=["admin", "scrim"])
+        self.register_command(CommandType.PM, "transfer", self.party_transfer, flags=["permsreq"], permsreq=["admin", "scrim"], partyfeat=["scrim"])
+        self.register_command(CommandType.PARTY, "invite", self.party_invite, flags=["permsreq", "partyfeat"], permsreq=["admin", "scrim"], partyfeat=["scrim"])
+        self.register_command(CommandType.PARTY, "kick", self.party_kick, flags=["permsreq", "partyfeat"], permsreq=["admin", "scrim"], partyfeat=["scrim"])
+        self.register_command(CommandType.PARTY, "deploy", self.party_deploy, flags=["permsreq", "partyfeat"], permsreq=["admin", "scrim"], partyfeat=["scrim"])
+        self.register_command(CommandType.PARTY, "cancel", self.party_cancel, flags=["permsreq", "partyfeat"], permsreq=["admin", "scrim"], partyfeat=["scrim"])
+        self.register_command(CommandType.PARTY, "leave", self.party_leave, flags=["permsreq", "partyfeat"], permsreq=["admin", "scrim"], partyfeat=["scrim"])
+        self.register_command(CommandType.PARTY, "transfer", self.party_transfer, flags=["permsreq", "partyfeat"], permsreq=["admin", "scrim"], partyfeat=["scrim"])
 
         # Setup party tracking
         self.scrims = {}
@@ -90,7 +90,7 @@ class ScrimPlugin(BasePlugin):
         return name
 
     def _guid_exists(self, guid):
-        for jid in ScrimParty.get_joined_rooms(self._xmpp):
+        for jid in self._parties.joined_rooms:
             if jid_user(jid) == guid:
                 return True
 
@@ -217,7 +217,7 @@ class ScrimPlugin(BasePlugin):
             return False
 
         # Create the party
-        party = ScrimParty(self._client, self._config, self._api,  self._cache, self._xmpp)
+        party = self._parties.new(ScrimParty)
         party.create(guid)
 
         # Add the party to the list

@@ -7,17 +7,17 @@ import hawkenapi.exceptions
 from scrimbot.util import enum, create_bitfield
 
 CommandType = enum(ALL="all", PM="pm", PARTY="muc")
-CommandFlags = create_bitfield("hidden", "safe", "permsreq", "alias")
+CommandFlags = create_bitfield("hidden", "safe", "permsreq", "alias", "partyfeat")
 
 logger = logging.getLogger(__name__)
 
 
 class CommandManager:
-    def __init__(self, client, config, xmpp, permissions, plugins):
-        self.client = client
+    def __init__(self, config, xmpp, permissions, parties, plugins):
         self.config = config
         self.xmpp = xmpp
         self.permissions = permissions
+        self.parties = parties
         self.plugins = plugins
 
         self.registered = {}
@@ -149,16 +149,40 @@ class CommandManager:
         potential_commands.extend(self.get_handlers(cmdtype, command, plugin))
         potential_commands.extend(self.get_handlers(CommandType.ALL, command, plugin))
 
+        skip_usage = False
+        # Only perform command filtering if the plugin wasn't explictly given
+        if plugin is None and len(potential_commands) > 0:
+            # Filter commands that can't run in this context
+            def filter_command(handler):
+                # Check if safe command
+                if handler.flags.b.safe:
+                    return True
+
+                # Check if party features are required
+                if handler.flags.b.partyfeat:
+                    # Check the party supports the features
+                    party_features = self.parties.active[room].features
+                    for feature in handler.flags.data.partyfeat:
+                        if feature not in party_features:
+                            return False
+
+                return True
+
+            potential_commands[:] = [handler for handler in potential_commands if filter_command(handler)]
+            if len(potential_commands) == 0:
+                skip_usage = True
+
         # Check if there are no commands available
         if len(potential_commands) < 1:
-            # Search for command by any type
             types = set()
-            for registered_commands in self.registered.values():
-                # We only really need to check the first handler for the name if it matches
-                if registered_commands[0].cmdname == command:
-                    # Get the available types supported
-                    for registered_command in registered_commands:
-                        types.add(registered_command.cmdtype)
+            if not skip_usage:
+                # Search for command by any type
+                for registered_commands in self.registered.values():
+                    # We only really need to check the first handler for the name if it matches
+                    if registered_commands[0].cmdname == command:
+                        # Get the available types supported
+                        for registered_command in registered_commands:
+                            types.add(registered_command.cmdtype)
 
             if len(types) > 0:
                 # Wrong message type
@@ -196,6 +220,16 @@ class CommandManager:
                     logger.info("Command {1} {0} called by {2} - lacking required permissions [{3}]. Rejecting!".format(cmdname, handler.plugin.name, user, ", ".join(handler.flags.data.permsreq)))
                     self.xmpp.send_message(cmdtype, target, "Error: You are not authorized to access this command.")
                     return
+
+            # Check if party features are required
+            if handler.flags.b.partyfeat:
+                # Check the party supports the features
+                party_features = self.parties.active[room].features
+                for feature in handler.flags.data.partyfeat:
+                    if feature not in party_features:
+                        logger.info("Command {1} {0} called by {3} via {2} - party {4} does not support required features [{5}]. Rejecting!".format(cmdname, handler.plugin.name, cmdtype, user, room, ", ".join(handler.flags.data.partyfeat)))
+                        self.xmpp.send_message(cmdtype, target, "Error: The party does not support the feature(s) required by this command.")
+                        return
 
         # Log command usage
         logger.info("Command {1} {0} called by {3} via {2}.".format(cmdname, handler.plugin.name, cmdtype, user))
@@ -249,6 +283,10 @@ class Command:
         # Safe and Permission Required conflict
         if self.flags.b.safe and self.flags.b.permsreq:
             raise ValueError("Flags 'safe' and 'permsreq' cannot be enabled at once.")
+
+        # Party Feature cannot be used for non-party handlers
+        if self.flags.b.partyfeat and self.cmdtype != CommandType.PARTY:
+            raise ValueError("Flag 'partyfeat' cannot be enabled for non-party commands.")
 
     def call(self, cmdtype, cmdname, args, target, user, room=None):
         self.handler(cmdtype, cmdname, args, target, user, room)

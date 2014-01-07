@@ -19,6 +19,7 @@ class BasePlugin(metaclass=ABCMeta):
         self._api = client.api
         self._plugins = client.plugins
         self._commands = client.commands
+        self._parties = client.parties
         self._scheduler = client.scheduler
         self.registered_commands = {}
 

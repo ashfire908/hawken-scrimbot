@@ -78,6 +78,18 @@ Not every bit of information is required, but at the very least you need to send
             if handler.flags.b.alias:
                 continue
 
+            # Filter out parties lacking the needed feature(s)
+            if handler.flags.b.partyfeat:
+                missing = False
+                party_features = self._parties.active[room].features
+                for feature in handler.flags.data.partyfeat:
+                    if feature not in party_features:
+                        missing = True
+                        break
+
+                if missing:
+                    continue
+
             # Add it to the display list
             handler_list.add(handler)
 

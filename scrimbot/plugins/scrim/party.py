@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class ScrimParty(Party):
+    features = ["scrim"]
     _deploy_time = 12
 
     def _init_party(self):

@@ -10,7 +10,7 @@ from scrimbot.api import ApiClient
 from scrimbot.cache import Cache
 from scrimbot.command import CommandManager, CommandType
 from scrimbot.config import Config
-from scrimbot.party import Party
+from scrimbot.party import PartyManager
 from scrimbot.permissions import PermissionHandler
 from scrimbot.plugins.base import PluginManager
 from scrimbot.util import jid_user
@@ -136,8 +136,9 @@ class ScrimBot:
         self.cache = Cache(self, self.config, self.api)
         self.xmpp = ScrimBotClient(self.cache)
         self.permissions = PermissionHandler(self.config, self.xmpp)
+        self.parties = PartyManager(self.config, self.api, self.cache, self.xmpp)
         self.plugins = PluginManager(self)
-        self.commands = CommandManager(self.config, self.xmpp, self.permissions, self.plugins)
+        self.commands = CommandManager(self.config, self.xmpp, self.permissions, self.parties, self.plugins)
 
         # Load plugins
         for plugin in self.config.bot.plugins:
@@ -306,7 +307,7 @@ class ScrimBot:
     def handle_groupchat_message(self, message):
         if message["type"] == "groupchat":
             # Refuse to process chat from the bot itself
-            if message["from"].resource == Party.get_callsign(self.xmpp, message["from"].bare):
+            if message["from"].resource == self.parties.get_callsign(message["from"].bare):
                 pass
             # Check if the user is blacklisted
             elif message["stormid"].id is not None and self.permissions.user_check_group(message["stormid"].id, "blacklist"):

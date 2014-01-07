@@ -38,8 +38,10 @@ def requireleader(f):
 
 
 class Party:
-    def __init__(self, client, config, api, cache, xmpp):
-        self.client = client
+    features = []
+
+    def __init__(self, party, config, api, cache, xmpp):
+        self.parties = party
         self.config = config
         self.api = api
         self.cache = cache
@@ -89,7 +91,7 @@ class Party:
         return "{0}@{1}".format(self.guid, self.xmpp.party_server)
 
     def _get_callsign(self):
-        return Party.get_callsign(self.xmpp, self._room_jid())
+        return self.parties.get_callsign(self._room_jid())
 
     def _register_events(self):
         self.xmpp.add_event_handler("muc::%s::presence" % self._room_jid(), self.__handle_presence)
@@ -127,7 +129,7 @@ class Party:
         self.xmpp.plugin["hawken_party"].create(self._room_jid(), self.api.callsign)
 
         # Register with active parties
-        self.client.active_parties[party] = self
+        self.parties.register(self)
 
         # Mark as joined
         self.joined = True
@@ -144,7 +146,7 @@ class Party:
         self.xmpp.plugin["hawken_party"].join(self._room_jid(), self.api.callsign)
 
         # Register with active parties
-        self.client.active_parties[party] = self
+        self.parties.register(self)
 
         # Mark as joined
         self.joined = True
@@ -152,10 +154,7 @@ class Party:
     @joined
     def leave(self):
         # Remove from active parties
-        try:
-            del self.client.active_parties[self.guid]
-        except KeyError:
-            pass
+        self.parties.unregister(self)
 
         # Leave the party
         self.xmpp.plugin["hawken_party"].leave(self._room_jid())
@@ -227,10 +226,31 @@ class Party:
     def generate_guid():
         return str(uuid.uuid4())
 
-    @staticmethod
-    def get_callsign(xmpp, room):
-        return xmpp.plugin["hawken_party"].get_callsign(room)
 
-    @staticmethod
-    def get_joined_rooms(xmpp):
-        return xmpp.plugin["hawken_party"].get_joined_rooms()
+class PartyManager:
+    def __init__(self, config, api, cache, xmpp):
+        self.config = config
+        self.api = api
+        self.cache = cache
+        self.xmpp = xmpp
+
+        self.active = {}
+
+    def register(self, party):
+        self.active[party.guid] = party
+
+    def unregister(self, party):
+        try:
+            del self.active[party.guid]
+        except KeyError:
+            pass
+
+    def new(self, party, *args, **kwargs):
+        return party(self, self.config, self.api, self.cache, self.xmpp, *args, **kwargs)
+
+    def get_callsign(self, room):
+        return self.xmpp.plugin["hawken_party"].get_callsign(room)
+
+    @property
+    def joined_rooms(self):
+        return self.xmpp.plugin["hawken_party"].get_joined_rooms()
