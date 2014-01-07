@@ -6,14 +6,14 @@ logger = logging.getLogger(__name__)
 
 
 class PermissionHandler:
-    def __init__(self, xmpp, config):
-        self.xmpp = xmpp
+    def __init__(self, config, xmpp):
         self.config = config
+        self.xmpp = xmpp
         self._permissions = {}
         self._groups = set()
 
         # Register config
-        self.config.register_config("bot.permissions", dict())
+        self.config.register("bot.permissions", dict())
 
         # Load the permissions before we register the groups
         self.load()

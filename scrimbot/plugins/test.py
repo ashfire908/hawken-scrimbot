@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from scrimbot.plugins.base import BasePlugin, CommandType
+from scrimbot.command import CommandType
+from scrimbot.plugins.base import BasePlugin
 
 
 class TestPlugin(BasePlugin):
@@ -35,11 +36,11 @@ class TestPlugin(BasePlugin):
         raise Exception("Test Exception")
 
     def hammertime(self, cmdtype, cmdname, args, target, user, room):
-        self.xmpp.send_message(cmdtype, target, "STOP! HAMMER TIME!")
+        self._xmpp.send_message(cmdtype, target, "STOP! HAMMER TIME!")
 
     def whoami(self, cmdtype, cmdname, args, target, user, room):
         # Get the callsign
-        callsign = self.cache.get_callsign(user)
+        callsign = self._cache.get_callsign(user)
 
         # Check if we got a callsign back
         if callsign is None:
@@ -47,15 +48,15 @@ class TestPlugin(BasePlugin):
         else:
             message = "You are '{0}'.".format(callsign)
 
-        self.xmpp.send_message(cmdtype, target, message)
+        self._xmpp.send_message(cmdtype, target, message)
 
     def callsign(self, cmdtype, cmdname, args, target, user, room):
         # Check args
         if len(args) < 1:
-            self.xmpp.send_message(cmdtype, target, "Missing target user guid.")
+            self._xmpp.send_message(cmdtype, target, "Missing target user guid.")
         else:
             # Get the callsign
-            callsign = self.cache.get_callsign(args[0])
+            callsign = self._cache.get_callsign(args[0])
 
             # Check if we got a callsign back
             if callsign is None:
@@ -63,15 +64,15 @@ class TestPlugin(BasePlugin):
             else:
                 message = "User GUID resolves to '{0}'.".format(callsign)
 
-            self.xmpp.send_message(cmdtype, target, message)
+            self._xmpp.send_message(cmdtype, target, message)
 
     def guid(self, cmdtype, cmdname, args, target, user, room):
         # Check args
         if len(args) < 1:
-            self.xmpp.send_message(cmdtype, target, "Missing target user callsign.")
+            self._xmpp.send_message(cmdtype, target, "Missing target user callsign.")
         else:
             # Get the guid
-            guid = self.cache.get_guid(args[0])
+            guid = self._cache.get_guid(args[0])
 
             # Check if we got a guid back
             if guid is None:
@@ -79,24 +80,24 @@ class TestPlugin(BasePlugin):
             else:
                 message = "User callsign resolves to '{0}'.".format(guid)
 
-            self.xmpp.send_message(cmdtype, target, message)
+            self._xmpp.send_message(cmdtype, target, message)
 
     def tell(self, cmdtype, cmdname, args, target, user, room):
         # Check the arguments
         if len(args) < 2:
-            self.xmpp.send_message(cmdtype, target, "Missing target user and/or message.")
+            self._xmpp.send_message(cmdtype, target, "Missing target user and/or message.")
         else:
             callsign = args[0]
             message = " ".join(args[1:])
 
             # Get the user's guid
-            guid = self.cache.get_guid(callsign)
+            guid = self._cache.get_guid(callsign)
 
             if guid is None:
-                self.xmpp.send_message(cmdtype, target, "No such user exists.")
+                self._xmpp.send_message(cmdtype, target, "No such user exists.")
             else:
                 # Send the message
-                self.xmpp.send_message(CommandType.PM, "{0}@{1}".format(guid, self.xmpp.boundjid.host), message)
+                self._xmpp.send_message(CommandType.PM, "{0}@{1}".format(guid, self._xmpp.boundjid.host), message)
 
 
 plugin = TestPlugin

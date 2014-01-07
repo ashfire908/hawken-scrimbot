@@ -14,9 +14,9 @@ class Config:
         self._config = DotDict()
 
         # Register core config
-        self.register_config("bot.log_level", "INFO")
-        self.register_config("bot.command_prefix", "!")
-        self.register_config("bot.plugins", ["admin", "info"])
+        self.register("bot.log_level", "INFO")
+        self.register("bot.command_prefix", "!")
+        self.register("bot.plugins", ["admin", "info"])
 
     def __getitem__(self, key):
         return self._config[key]
@@ -91,13 +91,13 @@ class Config:
 
         return True
 
-    def register_config(self, path, value):
+    def register(self, path, value):
         try:
             if path not in self._config:
                 self._config[path] = value
         except KeyError:
             self._config[path] = value
 
-    def unregister_config(self, path):
+    def unregister(self, path):
         # Since we wish to preserve the old config, we need not do anything
         pass

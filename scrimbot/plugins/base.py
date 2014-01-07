@@ -1,20 +1,25 @@
 # -*- coding: utf-8 -*-
 
+import logging
+import importlib
+import traceback
 from abc import ABCMeta, abstractmethod
-from scrimbot.util import enum, create_bitfield
+from scrimbot.command import Command
 
-CommandType = enum(ALL="all", PM="pm", PARTY="muc")
-CommandFlags = create_bitfield("hidden", "safe", "permsreq", "alias")
+logger = logging.getLogger(__name__)
 
 
 class BasePlugin(metaclass=ABCMeta):
-    def __init__(self, client, xmpp, config, cache, permissions, api):
-        self.client = client
-        self.xmpp = xmpp
-        self.config = config
-        self.cache = cache
-        self.permissions = permissions
-        self.api = api
+    def __init__(self, client):
+        self._client = client
+        self._xmpp = client.xmpp
+        self._config = client.config
+        self._cache = client.cache
+        self._permissions = client.permissions
+        self._api = client.api
+        self._plugins = client.plugins
+        self._commands = client.commands
+        self._scheduler = client.scheduler
         self.registered_commands = {}
 
     def _thread_name(self, name):
@@ -42,79 +47,96 @@ class BasePlugin(metaclass=ABCMeta):
         pass
 
     def register_config(self, path, default):
-        self.config.register_config(path, default)
+        self._config.register(path, default)
 
     def unregister_config(self, path):
-        self.config.unregister_config(path)
+        self._config.unregister(path)
 
     def register_group(self, group):
-        self.permissions.register_group(group)
+        self._permissions.register_group(group)
 
     def unregister_group(self, group):
-        self.permissions.unregister_group(group)
+        self._permissions.unregister_group(group)
 
     def register_command(self, cmdtype, cmdname, handler, **kwargs):
         command_handler = Command(self, cmdtype, cmdname, handler, **kwargs)
 
-        # Register command
         if command_handler.id in self.registered_commands:
-            raise ValueError("Handler {0} already registered.".format(command_handler.id))
+            raise ValueError("Handler {0} already registered".format(command_handler.id))
         else:
+            # Record the handler with the plugin
             self.registered_commands[command_handler.id] = command_handler
-            self.client.register_command(command_handler)
+
+            # Register command with the command handler
+            self._commands.register(command_handler)
 
     def unregister_command(self, cmdtype, cmdname):
-        del self.registered_commands[Command.format_id(cmdtype, cmdname)]
-        self.client.unregister_command(Command.format_id(cmdtype, cmdname), Command.format_fullid(self.name, cmdtype, cmdname))
+        # Get the command
+        cmdid = Command.format_id(cmdtype, cmdname)
+        command_handler = self.registered_commands[cmdid]
+
+        # Remove the command
+        self._commands.unregister(command_handler)
+        del self.registered_commands[cmdid]
 
     def register_task(self, name, seconds, callback, **kwargs):
-        self.client.scheduler.add(self._thread_name(name), seconds, callback, **kwargs)
+        self._scheduler.add(self._thread_name(name), seconds, callback, **kwargs)
 
     def unregister_task(self, name):
-        self.client.scheduler.remove(self._thread_name(name))
+        self._scheduler.remove(self._thread_name(name))
 
 
-class Command:
-    def __init__(self, plugin, cmdtype, cmdname, handler, flags=None, **metadata):
-        self.plugin = plugin
-        self.cmdtype = cmdtype
-        self.cmdname = cmdname
-        self.id = Command.format_id(cmdtype, cmdname)
-        self.fullid = Command.format_fullid(plugin.name, cmdtype, cmdname)
-        self.handler = handler
+class PluginManager:
+    def __init__(self, client):
+        self.client = client
 
-        self.flags = CommandFlags()
-        if flags is not None:
-            for flag in flags:
-                setattr(self.flags.b, flag, 1)
+        self.active = {}
+        self.blacklist = {"base", }
 
-        for name, value in metadata.items():
-            setattr(self.flags.data, name, value)
+    def load(self, name):
+        # Check if this module is blacklisted
+        if name in self.blacklist:
+            return None
 
-        self._verify_flags()
+        # Load the module
+        target = "scrimbot.plugins.{0}".format(name)
+        try:
+            module = importlib.import_module(target)
+        except ImportError:
+            logger.info("Failed to load plugin: {0} (Import error)\n{1}".format(name, traceback.format_exc()))
+            return False
+        else:
+            # Init the plugin
+            try:
+                plugin = module.plugin(self.client)
+            except AttributeError:
+                logger.info("Failed to load plugin: {0} (Plugin has no main class set).".format(name))
+                return False
 
-    def _verify_flags(self):
-        # Safe and Permission Required conflict
-        if self.flags.b.safe and self.flags.b.permsreq:
-            raise ValueError("Flags 'safe' and 'permsreq' cannot be enabled at once.")
+            self.active[plugin.name] = plugin
+            self.active[plugin.name].enable()
 
-    def call(self, cmdtype, cmdname, args, target, user, room=None):
-        self.handler(cmdtype, cmdname, args, target, user, room)
+            logger.info("Loaded plugin: {0}".format(plugin.name))
 
-    @staticmethod
-    def format_id(cmdtype, cmdname):
-        return "{0}::{1}".format(cmdtype, cmdname.lower())
+            return True
 
-    @staticmethod
-    def format_fullid(plugin, cmdtype, cmdname):
-        return "{0}:{1}::{2}".format(plugin, cmdtype, cmdname.lower())
+    def unload(self, name):
+        if not name in self.active:
+            return False
 
-    @staticmethod
-    def parse_id(cmdid):
-        return cmdid.split("::", 1)
+        # Disable plugin and remove
+        self.active[name].disconnected()
+        self.active[name].disable()
+        del self.active[name]
 
-    @staticmethod
-    def parse_fullid(fullid):
-        plugin, cmdid = fullid.split(":", 1)
-        cmdtype, cmdname = Command.parse_id(cmdid)
-        return plugin, cmdtype, cmdname
+        logger.info("Unloaded plugin: {0}".format(name))
+
+        return True
+
+    def connected(self):
+        for plugin in self.active.values():
+            plugin.connected()
+
+    def disconnected(self):
+        for plugin in self.active.values():
+            plugin.disconnected()

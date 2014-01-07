@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import logging
-from scrimbot.plugins.base import BasePlugin, CommandType
+from scrimbot.command import CommandType
+from scrimbot.plugins.base import BasePlugin
 from scrimbot.util import format_dhms
 
 logger = logging.getLogger(__name__)
@@ -44,9 +45,9 @@ class PlayerRankPlugin(BasePlugin):
         self.unregister_command(CommandType.PM, "elo")
 
     def connected(self):
-        if self.config.plugins.playerrank.mmr_limit > 0:
+        if self._config.plugins.playerrank.mmr_limit > 0:
             # Start the usage reset thread
-            self.register_task("mmr_reset", self.config.plugins.playerrank.mmr_period, self.reset_mmr, repeat=True)
+            self.register_task("mmr_reset", self._config.plugins.playerrank.mmr_period, self.reset_mmr, repeat=True)
 
     def disconnected(self):
         # Stop the reset thread
@@ -59,14 +60,14 @@ class PlayerRankPlugin(BasePlugin):
         self.mmr_usage = dict.fromkeys(self.mmr_usage, 0)
 
     def limit_active(self, user):
-        return self.config.plugins.playerrank.mmr_limit != -1 and not self.permissions.user_check_group(user, "admin")
+        return self._config.plugins.playerrank.mmr_limit != -1 and not self._permissions.user_check_group(user, "admin")
 
     def lookup_allowed(self, user):
-        if self.config.plugins.playerrank.mmr_restricted and not self.permissions.user_check_groups(user, ("admin", "mmr")):
+        if self._config.plugins.playerrank.mmr_restricted and not self._permissions.user_check_groups(user, ("admin", "mmr")):
             return False, "Access to looking up player MMR is restricted."
 
         if self.user_overlimit(user):
-            return False, "You have reached your limit of MMR lookups. (Limit reset every {0})".format(format_dhms(self.config.plugins.playerrank.mmr_period))
+            return False, "You have reached your limit of MMR lookups. (Limit reset every {0})".format(format_dhms(self._config.plugins.playerrank.mmr_period))
 
         return True, None
 
@@ -83,13 +84,13 @@ class PlayerRankPlugin(BasePlugin):
             return False
 
         try:
-            return self.mmr_usage[user] >= self.config.plugins.playerrank.mmr_limit
+            return self.mmr_usage[user] >= self._config.plugins.playerrank.mmr_limit
         except KeyError:
             return False
 
     def get_mmr(self, guid):
         # Get the user's stats
-        stats = self.api.wrapper(self.api.user_stats, guid)
+        stats = self._api.wrapper(self._api.user_stats, guid)
 
         # Check for player data
         if stats is None:
@@ -103,7 +104,7 @@ class PlayerRankPlugin(BasePlugin):
 
     def get_rawmmr(self, guid):
         # Get the user's stats
-        stats = self.api.wrapper(self.api.user_stats, guid)
+        stats = self._api.wrapper(self._api.user_stats, guid)
 
         # Check for player data
         if stats is None:
@@ -119,12 +120,12 @@ class PlayerRankPlugin(BasePlugin):
         # Check if this user can perform a mmr lookup
         result = self.lookup_allowed(user)
         if not result[0]:
-            self.xmpp.send_message(cmdtype, target, result[1])
+            self._xmpp.send_message(cmdtype, target, result[1])
             return
 
         # Determine the requested user
         if len(args) > 0:
-            guid = self.cache.get_guid(args[0])
+            guid = self._cache.get_guid(args[0])
         else:
             guid = user
 
@@ -132,13 +133,13 @@ class PlayerRankPlugin(BasePlugin):
         if guid == user:
             identifier = "Your"
         else:
-            if self.permissions.user_check_group(user, "admin"):
+            if self._permissions.user_check_group(user, "admin"):
                 if not guid:
-                    self.xmpp.send_message(cmdtype, target, "No such user exists.")
+                    self._xmpp.send_message(cmdtype, target, "No such user exists.")
                     return
                 identifier = "{}'s".format(args[0])
             else:
-                self.xmpp.send_message(cmdtype, target, "You are not an admin.")
+                self._xmpp.send_message(cmdtype, target, "You are not an admin.")
                 return
 
         # Grab the mmr
@@ -146,16 +147,16 @@ class PlayerRankPlugin(BasePlugin):
 
         # Check the response
         if not result[0]:
-            self.xmpp.send_message(cmdtype, target, result[1])
+            self._xmpp.send_message(cmdtype, target, result[1])
         else:
             # Update the usage
             self.user_update_usage(user)
 
             # Display the mmr
             if self.limit_active(user):
-                self.xmpp.send_message(cmdtype, target, "{0} MMR is {1}. ({2} out of {3} requests)".format(identifier, result[1], self.mmr_usage[user], self.config.plugins.playerrank.mmr_limit))
+                self._xmpp.send_message(cmdtype, target, "{0} MMR is {1}. ({2} out of {3} requests)".format(identifier, result[1], self.mmr_usage[user], self._config.plugins.playerrank.mmr_limit))
             else:
-                self.xmpp.send_message(cmdtype, target, "{0} MMR is {1}.".format(identifier, result[1]))
+                self._xmpp.send_message(cmdtype, target, "{0} MMR is {1}.".format(identifier, result[1]))
 
     def mmr(self, cmdtype, cmdname, args, target, user, room):
         self.lookup_mmr(cmdname, cmdtype, args, target, user, room, self.get_mmr)
@@ -165,7 +166,7 @@ class PlayerRankPlugin(BasePlugin):
 
     def elo(self, cmdtype, cmdname, args, target, user, room):
         # Easter egg
-        self.xmpp.send_message(cmdtype, target, "Fuck off. (use !mmr)")
+        self._xmpp.send_message(cmdtype, target, "Fuck off. (use !mmr)")
 
 
 plugin = PlayerRankPlugin

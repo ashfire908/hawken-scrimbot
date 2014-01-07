@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from scrimbot.plugins.base import BasePlugin, CommandType
+from scrimbot.command import CommandType
+from scrimbot.plugins.base import BasePlugin
 from scrimbot.util import jid_user
 
 
@@ -57,11 +58,11 @@ class AdminPlugin(BasePlugin):
         group = group.lower()
 
         # Check group
-        if group not in self.permissions.group_list():
+        if group not in self._permissions.group_list():
             return False, "Unknown group '{0}'.".format(group)
 
         # Check callsign
-        guid = self.cache.get_guid(callsign)
+        guid = self._cache.get_guid(callsign)
 
         if guid is None:
             return False, "No such user exists."
@@ -78,32 +79,32 @@ class AdminPlugin(BasePlugin):
         result = self.check_authorize_args(args, user)
 
         if not result[0]:
-            self.xmpp.send_message(cmdtype, target, result[1])
+            self._xmpp.send_message(cmdtype, target, result[1])
         else:
             callsign, guid, group = result[1:]
 
             # Check if the user is already in the group
-            if self.permissions.user_check_group(guid, group):
-                self.xmpp.send_message(cmdtype, target, "'{0}' is already in the '{1}' group.".format(callsign, group))
+            if self._permissions.user_check_group(guid, group):
+                self._xmpp.send_message(cmdtype, target, "'{0}' is already in the '{1}' group.".format(callsign, group))
             else:
-                self.permissions.user_group_add(guid, group)
-                self.xmpp.send_message(cmdtype, target, "'{0}' has been added to the '{1}' group.".format(callsign, group))
+                self._permissions.user_group_add(guid, group)
+                self._xmpp.send_message(cmdtype, target, "'{0}' has been added to the '{1}' group.".format(callsign, group))
 
     def deauthorize(self, cmdtype, cmdname, args, target, user, room):
         # Verify arguments
         result = self.check_authorize_args(args, user)
 
         if not result[0]:
-            self.xmpp.send_message(cmdtype, target, result[1])
+            self._xmpp.send_message(cmdtype, target, result[1])
         else:
             callsign, guid, group = result[1:]
 
             # Check if the user is not in the group
-            if not self.permissions.user_check_group(guid, group):
-                self.xmpp.send_message(cmdtype, target, "'{0}' is not in the '{1}' group.".format(callsign, group))
+            if not self._permissions.user_check_group(guid, group):
+                self._xmpp.send_message(cmdtype, target, "'{0}' is not in the '{1}' group.".format(callsign, group))
             else:
-                self.permissions.user_group_remove(guid, group)
-                self.xmpp.send_message(cmdtype, target, "'{0}' has been removed from the '{1}' group.".format(callsign, group))
+                self._permissions.user_group_remove(guid, group)
+                self._xmpp.send_message(cmdtype, target, "'{0}' has been removed from the '{1}' group.".format(callsign, group))
 
     def group(self, cmdtype, cmdname, args, target, user, room):
         # Check if we are looking up a specific group
@@ -111,36 +112,36 @@ class AdminPlugin(BasePlugin):
             group = args[0].lower()
 
             # Check group
-            if group not in self.permissions.group_list():
-                self.xmpp.send_message(cmdtype, target, "Unknown group '{0}'.".format(group))
+            if group not in self._permissions.group_list():
+                self._xmpp.send_message(cmdtype, target, "Unknown group '{0}'.".format(group))
             else:
                 # Convert user guids to callsigns, where possible.
-                users = [self.cache.get_callsign(x) or x for x in self.permissions.group_users(group)]
+                users = [self._cache.get_callsign(x) or x for x in self._permissions.group_users(group)]
 
                 # Display the users in the group
                 if len(users) == 0:
-                    self.xmpp.send_message(cmdtype, target, "No users in group '{0}'.".format(group))
+                    self._xmpp.send_message(cmdtype, target, "No users in group '{0}'.".format(group))
                 else:
-                    self.xmpp.send_message(cmdtype, target, "Users in group '{0}': {1}".format(group, ", ".join(sorted(users))))
+                    self._xmpp.send_message(cmdtype, target, "Users in group '{0}': {1}".format(group, ", ".join(sorted(users))))
         else:
             # Display the groups
-            self.xmpp.send_message(cmdtype, target, "Groups: {0}".format(", ".join(sorted(self.permissions.group_list()))))
+            self._xmpp.send_message(cmdtype, target, "Groups: {0}".format(", ".join(sorted(self._permissions.group_list()))))
 
     def user_group(self, cmdtype, cmdname, args, target, user, room):
         # Check if we have a specific user
         if len(args) > 0:
             callsign = args[0]
-            guid = self.cache.get_guid(callsign)
+            guid = self._cache.get_guid(callsign)
 
             if guid is None:
-                self.xmpp.send_message(cmdtype, target, "No such user exists.")
+                self._xmpp.send_message(cmdtype, target, "No such user exists.")
                 return
         else:
             callsign = None
             guid = user
 
         # Get the groups
-        groups = self.permissions.user_groups(guid)
+        groups = self._permissions.user_groups(guid)
 
         if guid == user:
             if len(groups) > 0:
@@ -148,33 +149,33 @@ class AdminPlugin(BasePlugin):
             else:
                 identifier = "You are"
         else:
-            if self.permissions.user_check_group(user, "admin"):
+            if self._permissions.user_check_group(user, "admin"):
                 identifier = "'{0}' is".format(callsign)
             else:
-                self.xmpp.send_message(cmdtype, target, "You are not an admin.")
+                self._xmpp.send_message(cmdtype, target, "You are not an admin.")
                 return
 
         # Display the groups the user is in
         if len(groups) > 0:
-            self.xmpp.send_message(cmdtype, target, "Groups {0} in: {1}".format(identifier, ", ".join(sorted(groups))))
+            self._xmpp.send_message(cmdtype, target, "Groups {0} in: {1}".format(identifier, ", ".join(sorted(groups))))
         else:
-            self.xmpp.send_message(cmdtype, target, "{0} not in any groups.".format(identifier))
+            self._xmpp.send_message(cmdtype, target, "{0} not in any groups.".format(identifier))
 
     def save_data(self, cmdtype, cmdname, args, target, user, room):
-        self.xmpp.send_message(cmdtype, target, "Saving bot config and cache.")
+        self._xmpp.send_message(cmdtype, target, "Saving bot config and cache.")
 
         # Save the current permissions, config, and cache
-        self.permissions.save()
-        self.config.save()
-        self.cache.save()
+        self._permissions.save()
+        self._config.save()
+        self._cache.save()
 
     def get_friends(self):
-        return [jid_user(jid) for jid in self.xmpp.roster_list() if self.xmpp.client_roster[jid]["subscription"] != "none"]
+        return [jid_user(jid) for jid in self._xmpp.roster_list() if self._xmpp.client_roster[jid]["subscription"] != "none"]
 
     def friends(self, cmdtype, cmdname, args, target, user, room):
         # Get the friends list
         friends = self.get_friends()
-        self.xmpp.send_message(cmdtype, target, "Friends list ({1}): {0}".format(", ".join(friends), len(friends)))
+        self._xmpp.send_message(cmdtype, target, "Friends list ({1}): {0}".format(", ".join(friends), len(friends)))
 
     def friends_named(self, cmdtype, cmdname, args, target, user, room):
         # Get the friends list
@@ -183,64 +184,66 @@ class AdminPlugin(BasePlugin):
         # Grab all the callsigns
         names = []
         for guid in friends:
-            callsign = self.cache.get_callsign(guid)
+            callsign = self._cache.get_callsign(guid)
             if callsign is None:
                 names.append(guid)
             else:
                 names.append(callsign)
 
-        self.xmpp.send_message(cmdtype, target, "Friends list ({1}): {0}".format(", ".join(sorted(names, key=str.lower)), len(friends)))
+        self._xmpp.send_message(cmdtype, target, "Friends list ({1}): {0}".format(", ".join(sorted(names, key=str.lower)), len(friends)))
 
     def friends_count(self, cmdtype, cmdname, args, target, user, room):
         # Get the friends list total
         count = len(self.get_friends())
-        self.xmpp.send_message(cmdtype, target, "Current number of friends: {0}".format(count))
+        self._xmpp.send_message(cmdtype, target, "Current number of friends: {0}".format(count))
 
     def plugin_load(self, cmdtype, cmdname, args, target, user, room):
         # Check arguments
         if len(args) < 1:
-            self.xmpp.send_message(cmdtype, target, "Missing plugin name.")
+            self._xmpp.send_message(cmdtype, target, "Missing plugin name.")
         else:
             # Load the given plugin
             name = args[0].lower()
 
-            if name in self.client.plugins:
-                self.xmpp.send_message(cmdtype, target, "Plugin is already loaded.")
+            if name in self._plugins.active:
+                self._xmpp.send_message(cmdtype, target, "Plugin is already loaded.")
+            elif name in self._plugins.blacklist:
+                self._xmpp.send_message(cmdtype, target, "Error: Specified plugin is blacklisted from being loaded.")
             else:
-                if self.client.load_plugin(name):
+                if self._plugins.load(name):
                     # Start the plugin, enable it in the config and save it
-                    self.client.plugins[name].connected()
-                    self.config.bot.plugins.append(name)
-                    self.config.save()
+                    self._plugins.active[name].connected()
+                    self._config.bot.plugins.append(name)
+                    self._config.save()
 
-                    self.xmpp.send_message(cmdtype, target, "Loaded plugin.")
+                    self._xmpp.send_message(cmdtype, target, "Loaded plugin.")
                 else:
-                    self.xmpp.send_message(cmdtype, target, "Error: Failed to load plugin.")
+                    self._xmpp.send_message(cmdtype, target, "Error: Failed to load plugin. Please check the logs for more information.")
 
     def plugin_unload(self, cmdtype, cmdname, args, target, user, room):
         # Check arguments
         if len(args) < 1:
-            self.xmpp.send_message(cmdtype, target, "Missing plugin name.")
+            self._xmpp.send_message(cmdtype, target, "Missing plugin name.")
         else:
             # Load the given plugin
             name = args[0].lower()
 
-            if name not in self.client.plugins:
-                self.xmpp.send_message(cmdtype, target, "Plugin is not loaded.")
+            if name not in self._plugins.active:
+                self._xmpp.send_message(cmdtype, target, "Plugin is not loaded.")
             else:
-                if self.client.unload_plugin(name):
+                if self._plugins.unload(name):
                     # Disable the plugin in the config and save it
-                    self.config.bot.plugins.remove(name)
-                    self.config.save()
+                    self._config.bot.plugins.remove(name)
+                    self._config.save()
 
-                    self.xmpp.send_message(cmdtype, target, "Unloaded plugin.")
+                    self._xmpp.send_message(cmdtype, target, "Unloaded plugin.")
                 else:
-                    self.xmpp.send_message(cmdtype, target, "Error: Failed to unload plugin.")
+                    self._xmpp.send_message(cmdtype, target, "Error: Failed to unload plugin. Please check the logs for more information.")
 
     def shutdown(self, cmdtype, cmdname, args, target, user, room):
         # Send out the confirm message immediately so it doesn't get lost in the shutdown
-        self.xmpp.send_message(cmdtype, target, "Shutting down the bot.", now=True)
-        self.client.shutdown()
+        self._xmpp.send_message(cmdtype, target, "Shutting down the bot.", now=True)
+        self._client.shutdown()
 
 
 plugin = AdminPlugin

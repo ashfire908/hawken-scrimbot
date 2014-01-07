@@ -1,0 +1,272 @@
+# -*- coding: utf-8 -*-
+
+import shlex
+import logging
+import traceback
+import hawkenapi.exceptions
+from scrimbot.util import enum, create_bitfield
+
+CommandType = enum(ALL="all", PM="pm", PARTY="muc")
+CommandFlags = create_bitfield("hidden", "safe", "permsreq", "alias")
+
+logger = logging.getLogger(__name__)
+
+
+class CommandManager:
+    def __init__(self, client, config, xmpp, permissions, plugins):
+        self.client = client
+        self.config = config
+        self.xmpp = xmpp
+        self.permissions = permissions
+        self.plugins = plugins
+
+        self.registered = {}
+
+    def _log_unknown_command(self, cmdtype, command, target, user, plugin=None):
+        if plugin:
+            if user is None:
+                logger.warn("Unknown command {1} {0} called by unidentified user via {2} - target was {3}.".format(command, plugin, cmdtype, target))
+            else:
+                logger.info("Unknown command {1} {0} called by {3} via {2}.".format(command, plugin, cmdtype, user))
+        else:
+            if user is None:
+                logger.warn("Unknown command {0} called by unidentified user via {1} - target was {2}.".format(command, cmdtype, target))
+            else:
+                logger.info("Unknown command {0} called by {2} via {1}.".format(command, cmdtype, user))
+
+    def _handle_none_given(self, cmdtype, target):
+        self.xmpp.send_message(cmdtype, target, "Error: No command given. See {0}commands for a list of commands.".format(self.config.bot.command_prefix))
+
+    def _handle_no_match(self, cmdtype, command, target, user, plugin=None):
+        if plugin:
+            self.xmpp.send_message(cmdtype, target, "Error: No such command in plugin {0}. See {1}commands for a list of commands.".format(plugin, self.config.bot.command_prefix))
+        else:
+            self.xmpp.send_message(cmdtype, target, "Error: No such command. See {0}commands for a list of commands.".format(self.config.bot.command_prefix))
+
+        self._log_unknown_command(cmdtype, command, target, user, plugin)
+
+    def _handle_wrong_usage(self, cmdtype, command, target, user, types, plugin=None):
+        # Format the output
+        identifier = ""
+        count = 0
+        for rtype in types:
+            if count > 0:
+                identifier += " or "
+
+            if rtype == CommandType.PM:
+                identifier += "a pm"
+            elif rtype == CommandType.PARTY:
+                identifier += "a party"
+            else:
+                identifier += "<unknown>"
+
+            count += 1
+
+        self.xmpp.send_message(cmdtype, target, "This command can only be run from {0}.".format(identifier))
+        self._log_unknown_command(cmdtype, command, target, user, plugin)
+
+    def _handle_ambiguous(self, cmdtype, command, target, user, plugins):
+        self.xmpp.send_message(cmdtype, target, "Error: Command '{0}' available in multiple plugins: {1}".format(command, ", ".join(plugins)))
+
+        if user is None:
+            logger.warn("Ambiguous command {0} called by unidentified user via {1} - target was {2}.".format(command, cmdtype, target))
+        else:
+            logger.info("Ambiguous command {0} called by {2} via {1}.".format(command, cmdtype, user))
+
+    def register(self, handler):
+        if handler.id not in self.registered:
+            # Add the handler for the command
+            self.registered[handler.id] = [handler]
+        else:
+            # Check if the handler isn't already registered
+            for registered_handler in self.registered[handler.id]:
+                if registered_handler.fullid == handler.fullid:
+                    raise ValueError("Handler {0} is already registered".format(handler.fullid))
+
+            # Add the handler for the command
+            self.registered[handler.id].append(handler)
+
+    def unregister(self, handler):
+        # Remove the command from the registered commands list
+        self.registered[handler.id][:] = [cmdhandler for cmdhandler in self.registered[handler.id] if cmdhandler.fullid != handler.full_id]
+
+        # Cleanup the list if it's empty
+        if len(self.registered[handler.id]) == 0:
+            del self.registered[handler.id]
+
+    def get_handlers(self, cmdtype, cmdname, plugin=None):
+        cmdid = Command.format_id(cmdtype, cmdname)
+
+        if not plugin:
+            try:
+                return self.registered[cmdid]
+            except KeyError:
+                return []
+        else:
+            try:
+                return [self.plugins.active[plugin].registered_commands[cmdid]]
+            except KeyError:
+                return []
+
+    def handle_command_message(self, cmdtype, body, message):
+        # Get the parameters for the message
+        target = message["from"].bare
+        if cmdtype == CommandType.PM:
+            user = message["from"].user
+            room = None
+        elif cmdtype == CommandType.PARTY:
+            user = message["stormid"].id
+            room = message["from"].user
+        else:
+            # O_o
+            raise NotImplementedError("Unsupported message type.")
+
+        # Split the arguments
+        try:
+            arguments = shlex.split(body)
+        except ValueError:
+            self.xmpp.send_message(cmdtype, target, "Error: Invalid command given. Please check your syntax.")
+            logger.info("Bad command line given by {2} via {1}: {0}".format(body, cmdtype, user))
+            return
+
+        # Verify we have at least one argument
+        if len(arguments) < 1:
+            # No command given
+            self._handle_none_given(cmdtype, target)
+            return
+        # Check if the first argument is a plugin, (matches a plugin and has a argument for a command)
+        elif arguments[0].lower() in self.plugins.active and len(arguments) > 1:
+            plugin = arguments[0].lower()
+            command = arguments[1].lower()
+            arguments = arguments[2:]
+        else:
+            plugin = None
+            command = arguments[0].lower()
+            arguments = arguments[1:]
+
+        # Get potential commands
+        potential_commands = []
+        potential_commands.extend(self.get_handlers(cmdtype, command, plugin))
+        potential_commands.extend(self.get_handlers(CommandType.ALL, command, plugin))
+
+        # Check if there are no commands available
+        if len(potential_commands) < 1:
+            # Search for command by any type
+            types = set()
+            for registered_commands in self.registered.values():
+                # We only really need to check the first handler for the name if it matches
+                if registered_commands[0].cmdname == command:
+                    # Get the available types supported
+                    for registered_command in registered_commands:
+                        types.add(registered_command.cmdtype)
+
+            if len(types) > 0:
+                # Wrong message type
+                self._handle_wrong_usage(cmdtype, command, target, user, types, plugin)
+            else:
+                # No such command
+                self._handle_no_match(cmdtype, command, target, user, plugin)
+        # Check if there are multiple commands
+        elif len(potential_commands) > 1:
+            # Ambiguous command call
+            plugins = [handler.plugin.name for handler in potential_commands]
+            self._handle_ambiguous(cmdtype, command, target, user, plugins)
+        else:
+            # Call the matching command
+            self.call_command(potential_commands[0], cmdtype, command, arguments, target, user, room)
+
+    def call_command(self, handler, cmdtype, cmdname, arguments, target, user, room):
+        # Check if command is marked 'safe'
+        if handler.flags.b.safe:
+            assert not handler.flags.b.permsreq
+            # Command is safe, bypass checks
+        else:
+            # Perform checks
+            # Check if we can identify the user
+            if user is None:
+                # Can't identify user!
+                logger.warn("Command {1} {0} called by unidentified user via {2} - target was {3}. Rejecting!".format(cmdname, handler.plugin.name, cmdtype, target))
+                self.xmpp.send_message(cmdtype, target, "Error: Failed to identify the user calling the command. Please report your callsign and the command you were using (see {0}foundabug). This error has been logged.".format(self.config.bot.command_prefix))
+                return
+
+            # Check if command is marked as requiring perms
+            if handler.flags.b.permsreq:
+                # Check if the user has the required perms
+                if not self.permissions.user_check_groups(user, handler.flags.data.permsreq):
+                    logger.info("Command {1} {0} called by {2} - lacking required permissions [{3}]. Rejecting!".format(cmdname, handler.plugin.name, user, ", ".join(handler.flags.data.permsreq)))
+                    self.xmpp.send_message(cmdtype, target, "Error: You are not authorized to access this command.")
+                    return
+
+        # Log command usage
+        logger.info("Command {1} {0} called by {3} via {2}.".format(cmdname, handler.plugin.name, cmdtype, user))
+
+        try:
+            handler.call(cmdtype, cmdname, arguments, target, user, room)
+        except Exception as e:
+            # Generate the trackback
+            exception = traceback.format_exc()
+
+            # Log the error
+            logger.error("""Command {1} {0} (called via {2}) has failed due to an exception: {3} {4}
+Handler: {5} Arguments: {6} Target: {7} User: {8} Room: {9}
+{10}""".format(cmdname, handler.plugin.name, cmdtype, type(e), e, handler.fullid, arguments, target, user, room, exception))
+
+            # Report back to the user
+            if isinstance(e, hawkenapi.exceptions.RetryLimitExceeded):
+                # Temp error encountered, retry limit reached
+                msg = "Error: The command you attempted to run has failed due to a temporary issue with the Hawken servers. Please try again later. If the error persists, please report it (see {0}foundabug)!".format(self.config.bot.command_prefix)
+            elif isinstance(e, (hawkenapi.exceptions.AuthenticationFailure, hawkenapi.exceptions.NotAuthenticated, hawkenapi.exceptions.NotAuthorized)):
+                # Auth error encountered
+                msg = "Error: The command you attempted to run has failed due to a authentication failure. If the error persists, please report it (see {0}foundabug)!".format(self.config.bot.command_prefix)
+            elif isinstance(e, (hawkenapi.exceptions.NotAllowed, hawkenapi.exceptions.WrongOwner, hawkenapi.exceptions.InvalidRequest, hawkenapi.exceptions.InvalidBatch)):
+                # Bad request, probably a bug
+                msg = "Error: The command you attempted to run has failed due to an issue between the bot and the Hawken servers. This is most likely a bug! Please report it! See {0}foundabug for more information.".format(self.config.bot.command_prefix)
+            else:
+                msg = "Error: The command you attempted to run has encountered an unhandled exception, please report it (see {1}foundabug). {0} This error has been logged.".format(type(e), self.config.bot.command_prefix)
+            self.xmpp.send_message(cmdtype, target, msg)
+
+
+class Command:
+    def __init__(self, plugin, cmdtype, cmdname, handler, flags=None, **metadata):
+        self.plugin = plugin
+        self.cmdtype = cmdtype
+        self.cmdname = cmdname
+        self.id = Command.format_id(cmdtype, cmdname)
+        self.fullid = Command.format_fullid(plugin.name, cmdtype, cmdname)
+        self.handler = handler
+
+        self.flags = CommandFlags()
+        if flags is not None:
+            for flag in flags:
+                setattr(self.flags.b, flag, 1)
+
+        for name, value in metadata.items():
+            setattr(self.flags.data, name, value)
+
+        self._verify_flags()
+
+    def _verify_flags(self):
+        # Safe and Permission Required conflict
+        if self.flags.b.safe and self.flags.b.permsreq:
+            raise ValueError("Flags 'safe' and 'permsreq' cannot be enabled at once.")
+
+    def call(self, cmdtype, cmdname, args, target, user, room=None):
+        self.handler(cmdtype, cmdname, args, target, user, room)
+
+    @staticmethod
+    def format_id(cmdtype, cmdname):
+        return "{0}::{1}".format(cmdtype, cmdname.lower())
+
+    @staticmethod
+    def format_fullid(plugin, cmdtype, cmdname):
+        return "{0}:{1}::{2}".format(plugin, cmdtype, cmdname.lower())
+
+    @staticmethod
+    def parse_id(cmdid):
+        return cmdid.split("::", 1)
+
+    @staticmethod
+    def parse_fullid(fullid):
+        plugin, cmdid = fullid.split(":", 1)
+        cmdtype, cmdname = Command.parse_id(cmdid)
+        return plugin, cmdtype, cmdname

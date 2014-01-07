@@ -3,8 +3,8 @@
 import logging
 import threading
 from hawkenapi.sleekxmpp.party import CancelCode
+from scrimbot.command import CommandType
 from scrimbot.party import Party, joined, requireleader
-from scrimbot.plugins.base import CommandType
 from scrimbot.reservations import ReservationResult
 from scrimbot.util import enum
 

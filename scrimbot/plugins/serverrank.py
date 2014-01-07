@@ -3,7 +3,8 @@
 from copy import deepcopy
 import math
 import hawkenapi.exceptions
-from scrimbot.plugins.base import BasePlugin, CommandType
+from scrimbot.command import CommandType
+from scrimbot.plugins.base import BasePlugin
 
 
 class ServerRankPlugin(BasePlugin):
@@ -71,9 +72,9 @@ class ServerRankPlugin(BasePlugin):
     def load_server_info(self, args, user):
         if len(args) > 0:
             # Check if this user is allowed to pick what server to check
-            if self.config.plugins.serverrank.arbitrary_servers or self.permissions.user_check_group(user, "admin"):
+            if self._config.plugins.serverrank.arbitrary_servers or self._permissions.user_check_group(user, "admin"):
                 # Load the server info by name
-                server_info = self.api.wrapper(self.api.server_by_name, args[0])
+                server_info = self._api.wrapper(self._api.server_by_name, args[0])
 
                 if not server_info:
                     return False, "No such server."
@@ -81,13 +82,13 @@ class ServerRankPlugin(BasePlugin):
                 return False, "Rankings for arbitrary servers are disabled."
         else:
             # Find the server the user is on
-            server = self.api.wrapper(self.api.user_server, user)
+            server = self._api.wrapper(self._api.user_server, user)
             # Check if they are actually on a server
             if server is None:
                 return False, "You are not on a server."
             else:
                 # Load the server info
-                server_info = self.api.wrapper(self.api.server_list, server[0])
+                server_info = self._api.wrapper(self._api.server_list, server[0])
 
                 if not server_info:
                     return False, "Error: Failed to load server info."
@@ -95,10 +96,10 @@ class ServerRankPlugin(BasePlugin):
         return True, server_info
 
     def server_min(self, server):
-        if self.config.plugins.serverrank.min_users == -1:
+        if self._config.plugins.serverrank.min_users == -1:
             min_players = server["MinUsers"]
         else:
-            min_players = self.config.plugins.serverrank.min_users
+            min_players = self._config.plugins.serverrank.min_users
 
         return min_players
 
@@ -106,7 +107,7 @@ class ServerRankPlugin(BasePlugin):
         if len(server_info["Users"]) < 1:
             return False, "No one is on the server '{0[ServerName]}'.".format(server_info)
 
-        if not self.permissions.user_check_group(user, "admin") and \
+        if not self._permissions.user_check_group(user, "admin") and \
            len(server_info["Users"]) < self.server_min(server_info):
             return False, "There needs to be at least {0} players on the server to use this command.".format(self.server_min(server_info))
 
@@ -118,7 +119,7 @@ class ServerRankPlugin(BasePlugin):
 
         # Check the response
         if not result[0]:
-            self.xmpp.send_message(cmdtype, target, result[1])
+            self._xmpp.send_message(cmdtype, target, result[1])
         else:
             server_info = result[1]
 
@@ -127,11 +128,11 @@ class ServerRankPlugin(BasePlugin):
 
             # Check the response
             if not result[0]:
-                self.xmpp.send_message(cmdtype, target, result[1])
+                self._xmpp.send_message(cmdtype, target, result[1])
             else:
                 # Display the standard server rank
                 message = "Ranking info for {0[ServerName]}: MMR Average: {0[ServerRanking]}, Average Pilot Level: {0[DeveloperData][AveragePilotLevel]}".format(server_info)
-                self.xmpp.send_message(cmdtype, target, message)
+                self._xmpp.send_message(cmdtype, target, message)
 
     def server_rank_detailed(self, cmdtype, cmdname, args, target, user, room):
         # Get the server info
@@ -139,7 +140,7 @@ class ServerRankPlugin(BasePlugin):
 
         # Check the response
         if not result[0]:
-            self.xmpp.send_message(cmdtype, target, result[1])
+            self._xmpp.send_message(cmdtype, target, result[1])
         else:
             server_info = result[1]
 
@@ -148,13 +149,13 @@ class ServerRankPlugin(BasePlugin):
 
             # Check the response
             if not result[0]:
-                self.xmpp.send_message(cmdtype, target, result[1])
+                self._xmpp.send_message(cmdtype, target, result[1])
             else:
                 # Load the MMR for all the players on the server
                 try:
-                    data = self.api.wrapper(self.api.user_stats, server_info["Users"])
+                    data = self._api.wrapper(self._api.user_stats, server_info["Users"])
                 except hawkenapi.exceptions.InvalidBatch:
-                    self.xmpp.send_message(cmdtype, target, "Error: Failed to load player data.")
+                    self._xmpp.send_message(cmdtype, target, "Error: Failed to load player data.")
                 else:
                     users = {}
                     for user_data in data:
@@ -169,14 +170,14 @@ class ServerRankPlugin(BasePlugin):
                     server_min = self.server_min(server_info)
                     ranked_users = len([x for x in users.values() if x["mmr"] is not None])
 
-                    if ranked_users < server_min and not self.permissions.user_check_group(user, "admin"):
-                        self.xmpp.send_message(cmdtype, target, "There needs to be {0} ranked players (i.e. have an MMR set) on the server to use this command - only {1} of the players are currently ranked.".format(server_min, ranked_users))
+                    if ranked_users < server_min and not self._permissions.user_check_group(user, "admin"):
+                        self._xmpp.send_message(cmdtype, target, "There needs to be {0} ranked players (i.e. have an MMR set) on the server to use this command - only {1} of the players are currently ranked.".format(server_min, ranked_users))
                     else:
                         # Process stats, display
                         mmr_info = self.mmr_stats(users)
 
                         message = "MMR breakdown for {0[ServerName]}: Average MMR: {1[mean]:.2f}, Max MMR: {1[max]:.2f}, Min MMR: {1[min]:.2f}, Standard deviation {1[stddev]:.3f}".format(server_info, mmr_info)
-                        self.xmpp.send_message(cmdtype, target, message)
+                        self._xmpp.send_message(cmdtype, target, message)
 
 
 plugin = ServerRankPlugin

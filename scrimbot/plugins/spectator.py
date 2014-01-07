@@ -2,7 +2,8 @@
 
 import logging
 import threading
-from scrimbot.plugins.base import BasePlugin, CommandType
+from scrimbot.command import CommandType
+from scrimbot.plugins.base import BasePlugin
 from scrimbot.reservations import ReservationResult, ServerReservation
 
 logger = logging.getLogger(__name__)
@@ -132,18 +133,18 @@ class SpectatorPlugin(BasePlugin):
 
     def place_reservation(self, cmdtype, target, user, server):
         # Set up the reservation
-        reservation = ServerReservation(self.config, self.cache, self.api, server, [user])
+        reservation = ServerReservation(self._config, self._cache, self._api, server, [user])
 
         # Check for potential issues and report them
         critical, issues = reservation.check()
         for issue in issues:
-            self.xmpp.send_message(cmdtype, target, issue)
+            self._xmpp.send_message(cmdtype, target, issue)
 
         if critical:
             return
 
         # Submit the reservation
-        reservation.reserve(limit=self.config.plugins.spectator.polling_limit)
+        reservation.reserve(limit=self._config.plugins.spectator.polling_limit)
         self.reservation_set(user, reservation)
 
         # Set up the polling in another thread
@@ -160,22 +161,22 @@ class SpectatorPlugin(BasePlugin):
         # Handle the result
         if result == ReservationResult.READY:
             message = "\nReservation for server '{2}' complete.\nServer IP: {0}:{1}.\n\nUse '{3}{4} confirm' after joining the server, or '{3}{4} cancel' if you do not plan on joining the server."
-            self.xmpp.send_message(cmdtype, target, message.format(reservation.advertisement["AssignedServerIp"], reservation.advertisement["AssignedServerPort"], reservation.server["ServerName"], self.config.bot.command_prefix, self.name))
+            self._xmpp.send_message(cmdtype, target, message.format(reservation.advertisement["AssignedServerIp"], reservation.advertisement["AssignedServerPort"], reservation.server["ServerName"], self._config.bot.command_prefix, self.name))
         else:
             self.reservation_delete(user)
             if result == ReservationResult.TIMEOUT:
-                self.xmpp.send_message(cmdtype, target, "Time limit reached - reservation canceled.")
+                self._xmpp.send_message(cmdtype, target, "Time limit reached - reservation canceled.")
             elif result == ReservationResult.NOTFOUND:
-                self.xmpp.send_message(cmdtype, target, "Error: Could not retrieve advertisement - expired? This is a bug - please report it!")
+                self._xmpp.send_message(cmdtype, target, "Error: Could not retrieve advertisement - expired? This is a bug - please report it!")
             elif result == ReservationResult.ERROR:
-                self.xmpp.send_message(cmdtype, target, "Error: Failed to poll for reservation. This is a bug - please report it!")
+                self._xmpp.send_message(cmdtype, target, "Error: Failed to poll for reservation. This is a bug - please report it!")
 
     def cancel(self, cmdtype, cmdname, args, target, user, room):
         # Delete the user's server reservation
         if self.reservation_delete(user):
-            self.xmpp.send_message(cmdtype, target, "Canceled server reservation.")
+            self._xmpp.send_message(cmdtype, target, "Canceled server reservation.")
         else:
-            self.xmpp.send_message(cmdtype, target, "No reservation found to cancel.")
+            self._xmpp.send_message(cmdtype, target, "No reservation found to cancel.")
 
     def confirm(self, cmdtype, cmdname, args, target, user, room):
         # Grab the reservation for the user
@@ -183,11 +184,11 @@ class SpectatorPlugin(BasePlugin):
 
         # Check if the user actually has a reservation
         if not reservation:
-            self.xmpp.send_message(cmdtype, target, "No reservation found to confirm.")
+            self._xmpp.send_message(cmdtype, target, "No reservation found to confirm.")
         else:
             # Save the assigned server for later use
             self.saved_server_set(user, reservation.advertisement["AssignedServerGuid"])
-            self.xmpp.send_message(cmdtype, target, "Reservation confirmed; saved for future use.")
+            self._xmpp.send_message(cmdtype, target, "Reservation confirmed; saved for future use.")
 
             # Delete the server reservation (as it's fulfilled now)
             self.reservation_delete(user)
@@ -195,86 +196,86 @@ class SpectatorPlugin(BasePlugin):
     def save(self, cmdtype, cmdname, args, target, user, room):
         # Check that the user isn't already joining a server
         if self.reservation_get(user):
-            self.xmpp.send_message(cmdtype, target, "Error: You cannot save a server while joining another.")
+            self._xmpp.send_message(cmdtype, target, "Error: You cannot save a server while joining another.")
         else:
             # Get the user's current server
-            server = self.api.wrapper(self.api.user_server, user)
+            server = self._api.wrapper(self._api.user_server, user)
 
             # Check if they are actually on a server
             if server is None:
-                self.xmpp.send_message(cmdtype, target, "You are not on a server.")
+                self._xmpp.send_message(cmdtype, target, "You are not on a server.")
             else:
                 self.saved_server_set(user, server[0])
-                self.xmpp.send_message(cmdtype, target, "Current server saved for future use.")
+                self._xmpp.send_message(cmdtype, target, "Current server saved for future use.")
 
     def clear(self, cmdtype, cmdname, args, target, user, room):
         # Clear data for user
         self.reservation_delete(user)
         self.saved_server_delete(user)
 
-        self.xmpp.send_message(cmdtype, target, "Cleared stored spectator data for your user.")
+        self._xmpp.send_message(cmdtype, target, "Cleared stored spectator data for your user.")
 
     def renew(self, cmdtype, cmdname, args, target, user, room):
         # Check if the user has a saved server
         if not self.saved_server_has(user):
-            self.xmpp.send_message(cmdtype, target, "No saved server on file.")
+            self._xmpp.send_message(cmdtype, target, "No saved server on file.")
         else:
             # Get the server info
-            server = self.api.wrapper(self.api.server_list, self.saved_server_get(user))
+            server = self._api.wrapper(self._api.server_list, self.saved_server_get(user))
 
             # Check if the server exists
             if server is None:
-                self.xmpp.send_message(cmdtype, target, "Error: Could not find the server from your last reservation.")
+                self._xmpp.send_message(cmdtype, target, "Error: Could not find the server from your last reservation.")
             else:
                 # Place the reservation
-                self.xmpp.send_message(cmdtype, target, "Renewing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.config.bot.command_prefix, self.name))
+                self._xmpp.send_message(cmdtype, target, "Renewing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self._config.bot.command_prefix, self.name))
                 self.place_reservation(cmdtype, target, user, server)
 
     def user(self, cmdtype, cmdname, args, target, user, room):
         # Check arguments
         if len(args) < 1:
-            self.xmpp.send_message(cmdtype, target, "Missing target user")
+            self._xmpp.send_message(cmdtype, target, "Missing target user")
         else:
             # Get the user
-            guid = self.cache.get_guid(args[0])
+            guid = self._cache.get_guid(args[0])
 
             # Check if the user exists
             if guid is None:
-                self.xmpp.send_message(cmdtype, target, "No such player exists.")
+                self._xmpp.send_message(cmdtype, target, "No such player exists.")
             else:
                 # Get the user's server
-                servers = self.api.wrapper(self.api.user_server, guid)
+                servers = self._api.wrapper(self._api.user_server, guid)
 
                 # Check if the user is on a server
                 if servers is None:
-                    self.xmpp.send_message(cmdtype, target, "{0} is not on a server.".format(self.cache.get_callsign(guid)))
+                    self._xmpp.send_message(cmdtype, target, "{0} is not on a server.".format(self._cache.get_callsign(guid)))
                 else:
-                    server = self.api.wrapper(self.api.server_list, servers[0])
+                    server = self._api.wrapper(self._api.server_list, servers[0])
 
                     # Check if the server exists
                     if server is None:
-                        self.xmpp.send_message(cmdtype, target, "Error: Could not the find the server '{0}' is on.".format(self.cache.get_callsign(guid)))
+                        self._xmpp.send_message(cmdtype, target, "Error: Could not the find the server '{0}' is on.".format(self._cache.get_callsign(guid)))
                     else:
                         # Place the reservation
-                        self.xmpp.send_message(cmdtype, target, "Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.config.bot.command_prefix, self.name))
+                        self._xmpp.send_message(cmdtype, target, "Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self._config.bot.command_prefix, self.name))
                         self.place_reservation(cmdtype, target, user, server)
 
     def server(self, cmdtype, cmdname, args, target, user, room):
         # Check arguments
         if len(args) < 1:
-            self.xmpp.send_message(cmdtype, target, "Missing target server.")
+            self._xmpp.send_message(cmdtype, target, "Missing target server.")
         else:
             # Get the server
-            server = self.api.wrapper(self.api.server_by_name, args[0])
+            server = self._api.wrapper(self._api.server_by_name, args[0])
 
             # Check if the server exists
             if server is False:
-                self.xmpp.send_message(cmdtype, target, "Error: Failed to load server list.")
+                self._xmpp.send_message(cmdtype, target, "Error: Failed to load server list.")
             elif server is None:
-                self.xmpp.send_message(cmdtype, target, "Error: Could not find server '{0}'.".format(args[0]))
+                self._xmpp.send_message(cmdtype, target, "Error: Could not find server '{0}'.".format(args[0]))
             else:
                 # Place the reservation
-                self.xmpp.send_message(cmdtype, target, "Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self.config.bot.command_prefix, self.name))
+                self._xmpp.send_message(cmdtype, target, "Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self._config.bot.command_prefix, self.name))
                 self.place_reservation(cmdtype, target, user, server["Guid"])
 
 

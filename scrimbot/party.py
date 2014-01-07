@@ -38,12 +38,12 @@ def requireleader(f):
 
 
 class Party:
-    def __init__(self, client, xmpp, config, cache, api):
+    def __init__(self, client, config, api, cache, xmpp):
         self.client = client
-        self.xmpp = xmpp
         self.config = config
-        self.cache = cache
         self.api = api
+        self.cache = cache
+        self.xmpp = xmpp
 
         self.guid = None
         self._init_party()

@@ -9,15 +9,15 @@ class ApiClient(hawkenapi.client.Client):
         self.config = config
 
         # Register config values
-        self.config.register_config("api.username", None)
-        self.config.register_config("api.password", None)
-        self.config.register_config("api.stack", None)
-        self.config.register_config("api.scheme", None)
-        self.config.register_config("api.retry_delay", 1)
-        self.config.register_config("api.retry_max", 5)
-        self.config.register_config("api.advertisement.polling_rate.server", 0.5)
-        self.config.register_config("api.advertisement.polling_rate.matchmaking", 1)
-        self.config.register_config("api.advertisement.polling_limit", 30.0)
+        self.config.register("api.username", None)
+        self.config.register("api.password", None)
+        self.config.register("api.stack", None)
+        self.config.register("api.scheme", None)
+        self.config.register("api.retry_delay", 1)
+        self.config.register("api.retry_max", 5)
+        self.config.register("api.advertisement.polling_rate.server", 0.5)
+        self.config.register("api.advertisement.polling_rate.matchmaking", 1)
+        self.config.register("api.advertisement.polling_limit", 30.0)
 
     def setup(self):
         # Get the parameters and init the underlying client

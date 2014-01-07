@@ -17,9 +17,9 @@ class Cache:
         self._registered_cache = set()
 
         # Register settings
-        self.config.register_config("cache.filename", "cache.json")
-        self.config.register_config("cache.save_period", 60 * 30)
-        self.config.register_config("cache.globals_period", 60 * 60 * 12)
+        self.config.register("cache.filename", "cache.json")
+        self.config.register("cache.save_period", 60 * 30)
+        self.config.register("cache.globals_period", 60 * 60 * 12)
 
         # Register core cache variables
         self.register_cache("callsign")

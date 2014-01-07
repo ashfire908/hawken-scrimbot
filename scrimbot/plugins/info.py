@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import itertools
-from scrimbot.plugins.base import BasePlugin, CommandType
+from scrimbot.command import CommandType
+from scrimbot.plugins.base import BasePlugin
 
 
 class InfoPlugin(BasePlugin):
@@ -36,7 +37,7 @@ If you need help with the bot, send a pm to Ashfire908 on the Hawken forums, tal
 
 This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Meteor Entertainment."""
 
-        self.xmpp.send_message(cmdtype, target, message)
+        self._xmpp.send_message(cmdtype, target, message)
 
     def foundabug(self, cmdtype, cmdname, args, target, user, room):
         message = """If you have encounter an error with the bot, please send in an error report. Either send a pm to Ashfire908 on the Hawken forums, talk to him on the #hawkenscrim IRC channel, or send an email to: scrimbot@hawkenwiki.com
@@ -45,18 +46,18 @@ The error report should contain your callsign, what you were doing, the command 
 
 Not every bit of information is required, but at the very least you need to send in your callsign and the approximate time the error occured; Otherwise the error can't be found."""
 
-        self.xmpp.send_message(cmdtype, target, message)
+        self._xmpp.send_message(cmdtype, target, message)
 
     def commands(self, cmdtype, cmdname, args, target, user, room):
         if len(args) > 0:
             plugin_name = args[0].lower()
-            if plugin_name in self.client.plugins:
-                targets = self.client.plugins[plugin_name].registered_commands.values()
+            if plugin_name in self._plugins.active:
+                targets = self._plugins.active[plugin_name].registered_commands.values()
             else:
-                self.xmpp.send_message(cmdtype, target, "Error: No such plugin.")
+                self._xmpp.send_message(cmdtype, target, "Error: No such plugin.")
                 return
         else:
-            targets = itertools.chain(*self.client.commands.values())
+            targets = itertools.chain(*self._commands.registered.values())
 
         # Build command list
         handler_list = set()
@@ -70,7 +71,7 @@ Not every bit of information is required, but at the very least you need to send
                 continue
 
             # Filter out commands by required permission
-            if handler.flags.b.permsreq and not self.permissions.user_check_groups(user, handler.flags.data.permsreq):
+            if handler.flags.b.permsreq and not self._permissions.user_check_groups(user, handler.flags.data.permsreq):
                 continue
 
             # Filter out aliases
@@ -81,11 +82,14 @@ Not every bit of information is required, but at the very least you need to send
             handler_list.add(handler)
 
         # Display the list
-        commands = [self.config.bot.command_prefix + x.cmdname for x in handler_list]
-        self.xmpp.send_message(cmdtype, target, "Available commands: {0}".format(" ".join(sorted(commands))))
+        commands = [self._config.bot.command_prefix + x.cmdname for x in handler_list]
+        if len(commands) > 0:
+            self._xmpp.send_message(cmdtype, target, "Available commands: {0}".format(" ".join(sorted(commands))))
+        else:
+            self._xmpp.send_message(cmdtype, target, "No available commands found.")
 
     def plugin_list(self, cmdtype, cmdname, args, target, user, room):
-        self.xmpp.send_message(cmdtype, target, "Loaded plugins: {0}".format(", ".join([plugin.name for plugin in self.client.plugins.values()])))
+        self._xmpp.send_message(cmdtype, target, "Loaded plugins: {0}".format(", ".join(sorted([plugin.name for plugin in self._plugins.active.values()]))))
 
 
 plugin = InfoPlugin
