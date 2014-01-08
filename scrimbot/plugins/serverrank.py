@@ -83,12 +83,11 @@ class ServerRankPlugin(BasePlugin):
             message = "Call usage for [{0}]: Server {1} with {2} player(s) {3} request".format(command, server_info["ServerName"], len(server_info["Users"]), status)
 
             if data is not None:
-                message += " - Avg: {0[mean]:.2f} Min: {0[max]:.2f} Max: {0[min]:.2f} Stddev: {0[stddev]:.3f}".format(data)
+                message += " - Avg: {0[mean]:.2f} Max: {0[max]:.2f} Min: {0[min]:.2f} Stddev: {0[stddev]:.3f}".format(data)
             else:
                 message += " - Avg: {0:.2f}".format(server_info["ServerRanking"])
 
             logger.info(message)
-
 
     def load_server_info(self, args, user):
         if len(args) > 0:
