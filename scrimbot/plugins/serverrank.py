@@ -2,9 +2,12 @@
 
 from copy import deepcopy
 import math
+import logging
 import hawkenapi.exceptions
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
+
+logger = logging.getLogger(__name__)
 
 
 class ServerRankPlugin(BasePlugin):
@@ -16,6 +19,7 @@ class ServerRankPlugin(BasePlugin):
         # Register config
         self.register_config("plugins.serverrank.arbitrary_servers", True)
         self.register_config("plugins.serverrank.min_users", 2)
+        self.register_config("plugins.serverrank.log_usage", False)
 
         # Register commands
         self.register_command(CommandType.ALL, "serverrank", self.server_rank)
@@ -68,6 +72,23 @@ class ServerRankPlugin(BasePlugin):
         else:
             # Can't pull mmr out of thin air
             return False
+
+    def record_usage_info(self, command, returned, server_info, data=None):
+        if self._config.plugins.serverrank.log_usage:
+            if returned:
+                status = "returned"
+            else:
+                status = "rejected"
+
+            message = "Call usage for [{0}]: Server {1} with {2} player(s) {3} request".format(command, server_info["ServerName"], len(server_info["Users"]), status)
+
+            if data is not None:
+                message += " - Avg: {0[mean]:.2f} Min: {0[max]:.2f} Max: {0[min]:.2f} Stddev: {0[stddev]:.3f}".format(data)
+            else:
+                message += " - Avg: {0:.2f}".format(server_info["ServerRanking"])
+
+            logger.info(message)
+
 
     def load_server_info(self, args, user):
         if len(args) > 0:
@@ -126,6 +147,9 @@ class ServerRankPlugin(BasePlugin):
             # Check server
             result = self.check_server(server_info, user)
 
+            # Log it
+            self.record_usage_info(cmdname, result[0], server_info)
+
             # Check the response
             if not result[0]:
                 self._xmpp.send_message(cmdtype, target, result[1])
@@ -150,6 +174,9 @@ class ServerRankPlugin(BasePlugin):
             # Check the response
             if not result[0]:
                 self._xmpp.send_message(cmdtype, target, result[1])
+
+                # Log it
+                self.record_usage_info(cmdname, False, server_info)
             else:
                 # Load the MMR for all the players on the server
                 try:
@@ -170,14 +197,21 @@ class ServerRankPlugin(BasePlugin):
                     server_min = self.server_min(server_info)
                     ranked_users = len([x for x in users.values() if x["mmr"] is not None])
 
+                    # Process stats
+                    mmr_info = self.mmr_stats(users)
+
                     if ranked_users < server_min and not self._permissions.user_check_group(user, "admin"):
                         self._xmpp.send_message(cmdtype, target, "There needs to be {0} ranked players (i.e. have an MMR set) on the server to use this command - only {1} of the players are currently ranked.".format(server_min, ranked_users))
-                    else:
-                        # Process stats, display
-                        mmr_info = self.mmr_stats(users)
 
+                        # Log it
+                        self.record_usage_info(cmdname, False, server_info, mmr_info)
+                    else:
+                        # Display stats
                         message = "MMR breakdown for {0[ServerName]}: Average MMR: {1[mean]:.2f}, Max MMR: {1[max]:.2f}, Min MMR: {1[min]:.2f}, Standard deviation {1[stddev]:.3f}".format(server_info, mmr_info)
                         self._xmpp.send_message(cmdtype, target, message)
+
+                        # Log it
+                        self.record_usage_info(cmdname, True, server_info, mmr_info)
 
 
 plugin = ServerRankPlugin
