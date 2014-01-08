@@ -88,7 +88,7 @@ class CommandManager:
 
     def unregister(self, handler):
         # Remove the command from the registered commands list
-        self.registered[handler.id][:] = [cmdhandler for cmdhandler in self.registered[handler.id] if cmdhandler.fullid != handler.full_id]
+        self.registered[handler.id][:] = [cmdhandler for cmdhandler in self.registered[handler.id] if cmdhandler.fullid != handler.fullid]
 
         # Cleanup the list if it's empty
         if len(self.registered[handler.id]) == 0:
