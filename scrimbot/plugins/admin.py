@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import ast
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
 from scrimbot.util import jid_user
@@ -25,6 +26,7 @@ class AdminPlugin(BasePlugin):
         self.register_command(CommandType.PM, "load", self.plugin_load, flags=["permsreq"], permsreq=["admin"])
         self.register_command(CommandType.PM, "unload", self.plugin_unload, flags=["permsreq"], permsreq=["admin"])
         self.register_command(CommandType.PM, "shutdown", self.shutdown, flags=["permsreq"], permsreq=["admin"])
+        self.register_command(CommandType.PM, "config", self.config, flags=["permsreq"], permsreq=["admin"])
 
     def disable(self):
         # Unregister commands
@@ -41,6 +43,7 @@ class AdminPlugin(BasePlugin):
         self.unregister_command(CommandType.PM, "load")
         self.unregister_command(CommandType.PM, "unload")
         self.unregister_command(CommandType.PM, "shutdown")
+        self.unregister_command(CommandType.PM, "config")
 
     def connected(self):
         pass
@@ -244,6 +247,27 @@ class AdminPlugin(BasePlugin):
         # Send out the confirm message immediately so it doesn't get lost in the shutdown
         self._xmpp.send_message(cmdtype, target, "Shutting down the bot.", now=True)
         self._client.shutdown()
+
+    def config(self, cmdtype, cmdname, args, target, user, room):
+        # Check arguments
+        if len(args) < 1:
+            self._xmpp.send_message(cmdtype, target, "Missing config name.")
+        elif args[0] not in self._config:
+            self._xmpp.send_message(cmdtype, target, "Error: No such config variable.")
+        else:
+            config = args[0]
+            if len(args) == 1:
+                # Display the config value
+                self._xmpp.send_message(cmdtype, target, repr(self._config[config]))
+            else:
+                try:
+                    value = ast.literal_eval(args[1])
+                except ValueError:
+                    self._xmpp.send_message(cmdtype, target, "Error: Invalid value given - must be a supported Python literal.")
+                else:
+                    # Set the config value
+                    self._config[config] = value
+                    self._xmpp.send_message(cmdtype, target, "Config value set.")
 
 
 plugin = AdminPlugin
