@@ -20,6 +20,7 @@ class ServerRankPlugin(BasePlugin):
         self.register_config("plugins.serverrank.arbitrary_servers", True)
         self.register_config("plugins.serverrank.min_users", 2)
         self.register_config("plugins.serverrank.log_usage", False)
+        self.register_config("plugins.serverrank.show_minmax", True)
 
         # Register commands
         self.register_command(CommandType.ALL, "serverrank", self.server_rank)
@@ -32,6 +33,7 @@ class ServerRankPlugin(BasePlugin):
         self.unregister_config("plugins.serverrank.arbitrary_servers")
         self.unregister_config("plugins.serverrank.min_users")
         self.unregister_config("plugins.serverrank.log_usage")
+        self.unregister_config("plugins.serverrank.show_minmax")
 
         # Unregister commands
         self.unregister_command(CommandType.ALL, "serverrank")
@@ -207,7 +209,12 @@ class ServerRankPlugin(BasePlugin):
                         self.record_usage_info(cmdname, False, server_info, mmr_info)
                     else:
                         # Display stats
-                        message = "MMR breakdown for {0[ServerName]}: Average MMR: {1[mean]:.2f}, Max MMR: {1[max]:.2f}, Min MMR: {1[min]:.2f}, Standard deviation {1[stddev]:.3f}".format(server_info, mmr_info)
+                        if self._config.plugins.serverrank.show_minmax:
+                            minmax = "Max MMR: {1[max]:.2f}, Min MMR: {1[min]:.2f}, ".format(mmr_info)
+                        else:
+                            minmax = ""
+
+                        message = "MMR breakdown for {0[ServerName]}: Average MMR: {1[mean]:.2f}, {2}Standard deviation {1[stddev]:.3f}".format(server_info, mmr_info, minmax)
                         self._xmpp.send_message(cmdtype, target, message)
 
                         # Log it
