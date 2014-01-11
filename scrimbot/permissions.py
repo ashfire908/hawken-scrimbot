@@ -95,7 +95,7 @@ class PermissionHandler:
             # Remove the user from the group
             self._permissions[group].remove(user)
 
-            if self.config.bot.offline and group in ("admin", "whitelist") and \
+            if self.config.bot.whitelisted and group in ("admin", "whitelist") and \
                not self.user_check_groups(user, ("admin", "whitelist")):
                 # Remove the user
                 self.xmpp.remove_jid(self.xmpp.format_jid(user))

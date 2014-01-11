@@ -115,7 +115,7 @@ class CommandManager:
             user = message["from"].user
             room = None
         elif cmdtype == CommandType.PARTY:
-            user = message["stormid"].id
+            user = message["stormid"]
             room = message["from"].user
         else:
             # O_o
@@ -211,6 +211,11 @@ class CommandManager:
                 # Can't identify user!
                 logger.warn("Command {1} {0} called by unidentified user via {2} - target was {3}. Rejecting!".format(cmdname, handler.plugin.name, cmdtype, target))
                 self.xmpp.send_message(cmdtype, target, "Error: Failed to identify the user calling the command. Please report your callsign and the command you were using (see {0}foundabug). This error has been logged.".format(self.config.bot.command_prefix))
+                return
+
+            # Check for offline mode
+            if self.config.bot.offline and (user is None or not self.permissions.user_check_group(user, "admin")):
+                self.xmpp.send_message(cmdtype, target, "The bot is currently in offline mode and is not accepting commands at this time. Please try again later.")
                 return
 
             # Check if command is marked as requiring perms

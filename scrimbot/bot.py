@@ -39,6 +39,7 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
         self.register_plugin("xep_0030")  # Service Discovery
         self.register_plugin("xep_0045")  # Multi-User Chat
         self.register_plugin("xep_0199")  # XMPP Ping
+        self.register_plugin("hawken")  # Hawken
         self.register_plugin("hawken_party")  # Hawken Party
 
     def send_message(self, mtype, mto, mbody, now=False):
@@ -124,6 +125,7 @@ class ScrimBot:
 
         # Register core config
         self.config.register("bot.offline", False)
+        self.config.register("bot.whitelisted", False)
         self.config.register("bot.roster_update_rate", 0.05)
 
         # Load config
@@ -210,7 +212,7 @@ class ScrimBot:
                 if not self.xmpp.add_jid(jid):
                     # No changes were made, do not delay
                     continue
-            elif self.config.bot.offline or self.xmpp.client_roster[jid]["subscription"] == "none":
+            elif self.config.bot.whitelisted or self.xmpp.client_roster[jid]["subscription"] == "none":
                 # Remove the user from the roster
                 self.xmpp.remove_jid(jid)
             # Make sure the jid is up to date
@@ -268,7 +270,7 @@ class ScrimBot:
 
         # Check if we should accept the subscription from the user
         if self.permissions.user_check_group(user, "blacklist") or \
-           (self.config.bot.offline and not self.permissions.user_check_groups(user, ("admin", "whitelist"))):
+           (self.config.bot.whitelisted and not self.permissions.user_check_groups(user, ("admin", "whitelist"))):
             # Reject the subscription and remove the user
             roster_item.unauthorize()
             self.xmpp.remove_jid(presence["from"].bare)
@@ -285,7 +287,7 @@ class ScrimBot:
     def handle_chat_message(self, message):
         # Check if the user is allowed to send messages to the bot
         if self.permissions.user_check_group(message["from"].user, "blacklist") or \
-           (self.config.bot.offline and not self.permissions.user_check_groups(message["from"].user, ("admin", "whitelist"))):
+           (self.config.bot.whitelisted and not self.permissions.user_check_groups(message["from"].user, ("admin", "whitelist"))):
             # Ignore it
             pass
         elif message["type"] == "chat":
@@ -310,7 +312,7 @@ class ScrimBot:
             if message["from"].resource == self.parties.get_callsign(message["from"].bare):
                 pass
             # Check if the user is blacklisted
-            elif message["stormid"].id is not None and self.permissions.user_check_group(message["stormid"].id, "blacklist"):
+            elif message["stormid"] is not None and self.permissions.user_check_group(message["stormid"], "blacklist"):
                 pass
             # Check if this is a command
             elif message["body"].startswith(self.config.bot.command_prefix):
