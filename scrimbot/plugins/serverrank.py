@@ -31,6 +31,7 @@ class ServerRankPlugin(BasePlugin):
         # Unregister config
         self.unregister_config("plugins.serverrank.arbitrary_servers")
         self.unregister_config("plugins.serverrank.min_users")
+        self.unregister_config("plugins.serverrank.log_usage")
 
         # Unregister commands
         self.unregister_command(CommandType.ALL, "serverrank")
