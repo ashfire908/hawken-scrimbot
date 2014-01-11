@@ -2,6 +2,7 @@
 
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
+from scrimbot.util import jid_user
 
 
 class TestPlugin(BasePlugin):
@@ -17,6 +18,9 @@ class TestPlugin(BasePlugin):
         self.register_command(CommandType.ALL, "callsign", self.callsign, flags=["hidden"])
         self.register_command(CommandType.ALL, "guid", self.guid, flags=["hidden"])
         self.register_command(CommandType.PM, "tell", self.tell, flags=["permsreq"], permsreq=["admin"])
+        self.register_command(CommandType.PM, "friends", self.friends, flags=["permsreq"], permsreq=["admin"])
+        self.register_command(CommandType.PM, "friendsnamed", self.friends_named, flags=["permsreq"], permsreq=["admin"])
+        self.register_command(CommandType.PM, "friendscount", self.friends_count, flags=["permsreq"], permsreq=["admin"])
 
     def disable(self):
         # Unregister commands
@@ -25,12 +29,18 @@ class TestPlugin(BasePlugin):
         self.unregister_command(CommandType.ALL, "callsign")
         self.unregister_command(CommandType.ALL, "guid")
         self.unregister_command(CommandType.PM, "tell")
+        self.unregister_command(CommandType.PM, "friends")
+        self.unregister_command(CommandType.PM, "friendsnamed")
+        self.unregister_command(CommandType.PM, "friendscount")
 
     def connected(self):
         pass
 
     def disconnected(self):
         pass
+
+    def get_friends(self):
+        return [jid_user(jid) for jid in self._xmpp.roster_list() if self._xmpp.client_roster[jid]["subscription"] != "none"]
 
     def test_exception(self, cmdtype, cmdname, args, target, user, room):
         raise Exception("Test Exception")
@@ -98,6 +108,31 @@ class TestPlugin(BasePlugin):
             else:
                 # Send the message
                 self._xmpp.send_message(CommandType.PM, "{0}@{1}".format(guid, self._xmpp.boundjid.host), message)
+
+    def friends(self, cmdtype, cmdname, args, target, user, room):
+        # Get the friends list
+        friends = self.get_friends()
+        self._xmpp.send_message(cmdtype, target, "Friends list ({1}): {0}".format(", ".join(friends), len(friends)))
+
+    def friends_named(self, cmdtype, cmdname, args, target, user, room):
+        # Get the friends list
+        friends = self.get_friends()
+
+        # Grab all the callsigns
+        names = []
+        for guid in friends:
+            callsign = self._cache.get_callsign(guid)
+            if callsign is None:
+                names.append(guid)
+            else:
+                names.append(callsign)
+
+        self._xmpp.send_message(cmdtype, target, "Friends list ({1}): {0}".format(", ".join(sorted(names, key=str.lower)), len(friends)))
+
+    def friends_count(self, cmdtype, cmdname, args, target, user, room):
+        # Get the friends list total
+        count = len(self.get_friends())
+        self._xmpp.send_message(cmdtype, target, "Current number of friends: {0}".format(count))
 
 
 plugin = TestPlugin

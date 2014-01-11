@@ -3,7 +3,6 @@
 import ast
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
-from scrimbot.util import jid_user
 
 
 class AdminPlugin(BasePlugin):
@@ -20,9 +19,6 @@ class AdminPlugin(BasePlugin):
         self.register_command(CommandType.PM, "group", self.group, flags=["permsreq"], permsreq=["admin"])
         self.register_command(CommandType.PM, "usergroup", self.user_group)
         self.register_command(CommandType.PM, "save", self.save_data, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "friends", self.friends, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "friendsnamed", self.friends_named, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "friendscount", self.friends_count, flags=["permsreq"], permsreq=["admin"])
         self.register_command(CommandType.PM, "load", self.plugin_load, flags=["permsreq"], permsreq=["admin"])
         self.register_command(CommandType.PM, "unload", self.plugin_unload, flags=["permsreq"], permsreq=["admin"])
         self.register_command(CommandType.PM, "shutdown", self.shutdown, flags=["permsreq"], permsreq=["admin"])
@@ -37,9 +33,6 @@ class AdminPlugin(BasePlugin):
         self.unregister_command(CommandType.PM, "group")
         self.unregister_command(CommandType.PM, "usergroup")
         self.unregister_command(CommandType.PM, "save")
-        self.unregister_command(CommandType.PM, "friends")
-        self.unregister_command(CommandType.PM, "friendsnamed")
-        self.unregister_command(CommandType.PM, "friendscount")
         self.unregister_command(CommandType.PM, "load")
         self.unregister_command(CommandType.PM, "unload")
         self.unregister_command(CommandType.PM, "shutdown")
@@ -171,34 +164,6 @@ class AdminPlugin(BasePlugin):
         self._permissions.save()
         self._config.save()
         self._cache.save()
-
-    def get_friends(self):
-        return [jid_user(jid) for jid in self._xmpp.roster_list() if self._xmpp.client_roster[jid]["subscription"] != "none"]
-
-    def friends(self, cmdtype, cmdname, args, target, user, room):
-        # Get the friends list
-        friends = self.get_friends()
-        self._xmpp.send_message(cmdtype, target, "Friends list ({1}): {0}".format(", ".join(friends), len(friends)))
-
-    def friends_named(self, cmdtype, cmdname, args, target, user, room):
-        # Get the friends list
-        friends = self.get_friends()
-
-        # Grab all the callsigns
-        names = []
-        for guid in friends:
-            callsign = self._cache.get_callsign(guid)
-            if callsign is None:
-                names.append(guid)
-            else:
-                names.append(callsign)
-
-        self._xmpp.send_message(cmdtype, target, "Friends list ({1}): {0}".format(", ".join(sorted(names, key=str.lower)), len(friends)))
-
-    def friends_count(self, cmdtype, cmdname, args, target, user, room):
-        # Get the friends list total
-        count = len(self.get_friends())
-        self._xmpp.send_message(cmdtype, target, "Current number of friends: {0}".format(count))
 
     def plugin_load(self, cmdtype, cmdname, args, target, user, room):
         # Check arguments
