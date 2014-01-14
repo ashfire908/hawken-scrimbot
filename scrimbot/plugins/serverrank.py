@@ -210,7 +210,7 @@ class ServerRankPlugin(BasePlugin):
                     else:
                         # Display stats
                         if self._config.plugins.serverrank.show_minmax:
-                            minmax = "Max MMR: {1[max]:.2f}, Min MMR: {1[min]:.2f}, ".format(mmr_info)
+                            minmax = "Max MMR: {0[max]:.2f}, Min MMR: {0[min]:.2f}, ".format(mmr_info)
                         else:
                             minmax = ""
 
