@@ -21,6 +21,7 @@ class TestPlugin(BasePlugin):
         self.register_command(CommandType.PM, "friends", self.friends, flags=["permsreq"], permsreq=["admin"])
         self.register_command(CommandType.PM, "friendsnamed", self.friends_named, flags=["permsreq"], permsreq=["admin"])
         self.register_command(CommandType.PM, "friendscount", self.friends_count, flags=["permsreq"], permsreq=["admin"])
+        self.register_command(CommandType.PM, "updateglobals", self.update_globals, flags=["permsreq"], permsreq=["admin"])
 
     def disable(self):
         # Unregister commands
@@ -32,6 +33,7 @@ class TestPlugin(BasePlugin):
         self.unregister_command(CommandType.PM, "friends")
         self.unregister_command(CommandType.PM, "friendsnamed")
         self.unregister_command(CommandType.PM, "friendscount")
+        self.unregister_command(CommandType.PM, "updateglobals")
 
     def connected(self):
         pass
@@ -133,6 +135,12 @@ class TestPlugin(BasePlugin):
         # Get the friends list total
         count = len(self.get_friends())
         self._xmpp.send_message(cmdtype, target, "Current number of friends: {0}".format(count))
+
+    def update_globals(self, cmdtype, cmdname, args, target, user, room):
+        # Update the globals cache
+
+        self._cache.globals_update()
+        self._xmpp.send_message(cmdtype, target, "Updated the cached globals.")
 
 
 plugin = TestPlugin
