@@ -215,6 +215,7 @@ class CommandManager:
 
             # Check for offline mode
             if self.config.bot.offline and (user is None or not self.permissions.user_check_group(user, "admin")):
+                logger.info("Bot offline - rejecting command {1} {0} called by {2}.".format(cmdname, handler.plugin.name, user))
                 self.xmpp.send_message(cmdtype, target, "The bot is currently in offline mode and is not accepting commands at this time. Please try again later.")
                 return
 
