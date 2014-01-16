@@ -377,8 +377,8 @@ class ServerRankPlugin(BasePlugin):
 
                     # Display the detailed quality info
                     score = int((details["score"]["sum"] / details["threshold"]["sum"]) * 100)
-                    rank = int((details["score"]["rank"] / details["threshold"]["rank"]) * 100)
-                    level = int((details["score"]["level"] / details["threshold"]["level"]) * 100)
+                    rank = int((details["score"]["rank"] / details["threshold"]["sum"]) * 100)
+                    level = int((details["score"]["level"] / details["threshold"]["sum"]) * 100)
                     message = "Quality info for {0[ServerName]}: Rating {1}, Quality {2}, Score {3}% [Rating {4}% + Level {5}%]".format(server_info, rating, health, score, rank, level)
                     self._xmpp.send_message(cmdtype, target, message)
 
