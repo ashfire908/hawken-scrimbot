@@ -2,7 +2,6 @@
 
 import logging
 import importlib
-import traceback
 from abc import ABCMeta, abstractmethod
 from scrimbot.command import Command
 
@@ -103,15 +102,15 @@ class PluginManager:
         target = "scrimbot.plugins.{0}".format(name)
         try:
             module = importlib.import_module(target)
-        except ImportError:
-            logger.info("Failed to load plugin: {0} (Import error)\n{1}".format(name, traceback.format_exc()))
+        except:
+            logger.exception("Failed to load plugin: {0} - Error while importing.".format(name))
             return False
         else:
             # Init the plugin
             try:
                 plugin = module.plugin(self.client)
             except AttributeError:
-                logger.info("Failed to load plugin: {0} (Plugin has no main class set).".format(name))
+                logger.info("Failed to load plugin: {0} - Plugin does not have a defined main class.".format(name))
                 return False
 
             self.active[plugin.name] = plugin

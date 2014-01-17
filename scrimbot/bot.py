@@ -13,7 +13,7 @@ from scrimbot.config import Config
 from scrimbot.party import PartyManager
 from scrimbot.permissions import PermissionHandler
 from scrimbot.plugins.base import PluginManager
-from scrimbot.util import jid_user
+from scrimbot.util import jid_user, default_logging
 
 logger = logging.getLogger(__name__)
 
@@ -115,15 +115,18 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
 
 # Main Bot
 class ScrimBot:
-    def __init__(self, config_filename="config.json"):
+    def __init__(self, config="config.json"):
         # Init bot data
         self.active_parties = {}
         self.scheduler = Scheduler()
 
         # Init the config
-        self.config = Config(config_filename)
+        self.config = Config(config)
 
         # Register core config
+        self.config.register("bot.logging", default_logging())
+        self.config.register("bot.plugins", ["admin", "info"])
+        self.config.register("bot.command_prefix", "!")
         self.config.register("bot.offline", False)
         self.config.register("bot.whitelisted", False)
         self.config.register("bot.roster_update_rate", 0.05)

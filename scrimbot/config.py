@@ -13,11 +13,6 @@ class Config:
         self.filename = filename
         self._config = DotDict()
 
-        # Register core config
-        self.register("bot.log_level", "INFO")
-        self.register("bot.command_prefix", "!")
-        self.register("bot.plugins", ["admin", "info"])
-
     def __getitem__(self, key):
         return self._config[key]
 
@@ -63,14 +58,11 @@ class Config:
                 return None
             else:
                 # Other error, fail
-                logger.error("Failed to read config file: {0}".format(e))
+                logger.exception("Failed to read config file!")
                 return False
 
         # Load in the config
         self._load_config(config)
-
-        # Update the logging settings
-        logging.getLogger().setLevel(self.bot.log_level)
 
         return True
 
@@ -84,9 +76,9 @@ class Config:
                 json.dump(self._config, config_file, indent=2, sort_keys=True)
             finally:
                 config_file.close()
-        except IOError as e:
+        except IOError:
             # Error
-            logger.error("Failed to write config file: {0}".format(e))
+            logger.exception("Failed to write config file!")
             return False
 
         return True

@@ -75,7 +75,7 @@ class Cache:
                 return None
             else:
                 # Other error, fail
-                logger.error("Failed to read cache file: {0}".format(e))
+                logger.exception("Failed to read cache file!")
                 return False
 
         self._cache.update(cache)
@@ -103,9 +103,9 @@ class Cache:
                 json.dump(self._cache, cache_file)
             finally:
                 cache_file.close()
-        except IOError as e:
+        except IOError:
             # Error
-            logger.error("Failed to write cache file: {0}".format(e))
+            logger.exception("Failed to write cache file!")
             return False
 
         self._cache.commit()

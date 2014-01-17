@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import ctypes
+import logging.config
 
 
 def enum(**enums):
@@ -165,3 +166,47 @@ class CommittableDict(dict):
     popitem = _do_commit(dict.popitem)
     setdefault = _do_commit(dict.setdefault)
     update = _do_commit(dict.update)
+
+
+def default_logging():
+    config = {
+        "formatters": {
+            "console": {
+                "format": "%(levelname)-8s %(name)s %(message)s"
+            },
+            "file": {
+                "format": "%(asctime)-15s %(levelname)-8s %(name)s %(message)s"
+            }
+        },
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "formatter": "console",
+                "level": "ERROR"
+            },
+            "file": {
+                "class": "logging.handlers.TimedRotatingFileHandler",
+                "formatter": "file",
+                "level": "INFO",
+                "filename": "logs/scrimbot.log",
+                "when": "midnight",
+                "interval": 7,
+                "backupCount": 5
+            }
+        }
+    }
+
+    return config
+
+
+def setup_logging(config):
+    # Add base config
+    config["root"] = {
+        "handlers": ["console", "file"],
+        "level": "NOTSET"
+    }
+    config["version"] = 1
+    config["disable_existing_loggers"] = False
+
+    # Load config
+    logging.config.dictConfig(config)
