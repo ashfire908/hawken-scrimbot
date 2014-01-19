@@ -21,9 +21,9 @@ class QualityPlugin(BasePlugin):
 
         # Register commands
         self.register_command(CommandType.ALL, "quality", self.quality)
-        self.register_command(CommandType.ALL, "qualitydetailed", self.quality_detailed)
+        self.register_command(CommandType.ALL, "qualityexplain", self.quality_explain)
         self.register_command(CommandType.ALL, "qa", self.quality, flags=["alias"])
-        self.register_command(CommandType.ALL, "qad", self.quality_detailed, flags=["alias"])
+        self.register_command(CommandType.ALL, "qae", self.quality_explain, flags=["alias"])
 
     def disable(self):
         # Unregister config
@@ -34,9 +34,9 @@ class QualityPlugin(BasePlugin):
 
         # Unregister commands
         self.unregister_command(CommandType.ALL, "quality")
-        self.unregister_command(CommandType.ALL, "qualitydetailed")
+        self.unregister_command(CommandType.ALL, "qualityexplain")
         self.unregister_command(CommandType.ALL, "qa")
-        self.unregister_command(CommandType.ALL, "qad")
+        self.unregister_command(CommandType.ALL, "qae")
 
     def connected(self):
         pass
@@ -195,7 +195,7 @@ class QualityPlugin(BasePlugin):
                     # Log it
                     self.record_usage(cmdname, result[0], server_info, data=details)
 
-    def quality_detailed(self, cmdtype, cmdname, args, target, user, room):
+    def quality_explain(self, cmdtype, cmdname, args, target, user, room):
         # Get the server info
         result = self.load_server_info(args, user)
 
