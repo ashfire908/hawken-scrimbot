@@ -110,11 +110,28 @@ class PluginManager:
             try:
                 plugin = module.plugin(self.client)
             except AttributeError:
-                logger.info("Failed to load plugin: {0} - Plugin does not have a defined main class.".format(name))
+                logger.error("Failed to load plugin: {0} - Plugin does not have a defined main class.".format(name))
                 return False
 
+            # Enable the plugin
             self.active[plugin.name] = plugin
-            self.active[plugin.name].enable()
+            try:
+                self.active[plugin.name].enable()
+            except:
+                logger.exception("Failed to load plugin: {0} - Error while enabling plugin.".format(name))
+
+                # Attempt to unload the plugin
+                try:
+                    self.active[plugin.name].disable()
+                except:
+                    # Welp.
+                    logger.exception("Failed to unload plugin after failed load!")
+                finally:
+                    # Remove the plugin from the active list
+                    # Not that this will do much in the case of an error...
+                    del self.active[plugin.name]
+
+                return False
 
             logger.info("Loaded plugin: {0}".format(plugin.name))
 
@@ -125,9 +142,23 @@ class PluginManager:
             return False
 
         # Disable plugin and remove
-        self.active[name].disconnected()
-        self.active[name].disable()
-        del self.active[name]
+        error = False
+        try:
+            self.active[name].disconnected()
+        except:
+            logger.exception("Failed to unload plugin: {0} - Error while signaling a disconnect.".format(name))
+            error = True
+        finally:
+            try:
+                self.active[name].disable()
+            except:
+                logger.exception("Failed to unload plugin: {0} - Error while disabling plugin.".format(name))
+                error = True
+            finally:
+                del self.active[name]
+
+        if error:
+            return False
 
         logger.info("Unloaded plugin: {0}".format(name))
 
