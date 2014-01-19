@@ -21,6 +21,7 @@ class TestPlugin(BasePlugin):
         self.register_command(CommandType.PM, "friends", self.friends, flags=["permsreq"], permsreq=["admin"])
         self.register_command(CommandType.PM, "friendsnamed", self.friends_named, flags=["permsreq"], permsreq=["admin"])
         self.register_command(CommandType.PM, "friendscount", self.friends_count, flags=["permsreq"], permsreq=["admin"])
+        self.register_command(CommandType.PM, "friendsonline", self.friends_online, flags=["permsreq"], permsreq=["admin"])
         self.register_command(CommandType.PM, "updateglobals", self.update_globals, flags=["permsreq"], permsreq=["admin"])
 
     def disable(self):
@@ -33,6 +34,7 @@ class TestPlugin(BasePlugin):
         self.unregister_command(CommandType.PM, "friends")
         self.unregister_command(CommandType.PM, "friendsnamed")
         self.unregister_command(CommandType.PM, "friendscount")
+        self.unregister_command(CommandType.PM, "friendsonline")
         self.unregister_command(CommandType.PM, "updateglobals")
 
     def connected(self):
@@ -43,6 +45,9 @@ class TestPlugin(BasePlugin):
 
     def get_friends(self):
         return [jid_user(jid) for jid in self._xmpp.roster_list() if self._xmpp.client_roster[jid]["subscription"] != "none"]
+
+    def get_online_friends(self):
+        return [jid_user(jid) for jid in self._xmpp.roster_list() if len(self._xmpp.client_roster[jid].resources) > 0]
 
     def test_exception(self, cmdtype, cmdname, args, target, user, room):
         raise Exception("Test Exception")
@@ -135,6 +140,11 @@ class TestPlugin(BasePlugin):
         # Get the friends list total
         count = len(self.get_friends())
         self._xmpp.send_message(cmdtype, target, "Current number of friends: {0}".format(count))
+
+    def friends_online(self, cmdtype, cmdname, args, target, user, room):
+        # Get the total number of online friends
+        count = len(self.get_online_friends())
+        self._xmpp.send_message(cmdtype, target, "Number of friends online: {0}".format(count))
 
     def update_globals(self, cmdtype, cmdname, args, target, user, room):
         # Update the globals cache
