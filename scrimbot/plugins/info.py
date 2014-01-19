@@ -94,9 +94,15 @@ Not every bit of information is required, but at the very least you need to send
             handler_list.add(handler)
 
         # Display the list
-        commands = [self._config.bot.command_prefix + x.cmdname for x in handler_list]
+        commands = [x.cmdname for x in handler_list]
         if len(commands) > 0:
-            self._xmpp.send_message(cmdtype, target, "Available commands: {0}".format(" ".join(sorted(commands))))
+            formatted = []
+            for handler in sorted(handler_list, key=lambda x: x.cmdname):
+                if commands.count(handler.cmdname) > 1:
+                    formatted.append("{0}{1} {2}".format(self._config.bot.command_prefix, handler.plugin.name, handler.cmdname))
+                else:
+                    formatted.append("{0}{1}".format(self._config.bot.command_prefix, handler.cmdname))
+            self._xmpp.send_message(cmdtype, target, "Available commands: {0}".format(" ".join(formatted)))
         else:
             self._xmpp.send_message(cmdtype, target, "No available commands found.")
 
