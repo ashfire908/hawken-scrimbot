@@ -4,7 +4,7 @@
 import logging
 import time
 import sleekxmpp
-from sleekxmpp.xmlstream.scheduler import Scheduler
+import sleekxmpp.xmlstream.scheduler
 
 from scrimbot.api import ApiClient
 from scrimbot.cache import Cache
@@ -111,6 +111,16 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
             iq.send()
 
         return updated
+
+
+class Scheduler(sleekxmpp.xmlstream.scheduler.Scheduler):
+    def add(self, name, seconds, callback, **kwargs):
+        super().add(name, seconds, callback, **kwargs)
+        logger.debug("Registered task: {0}".format(name))
+
+    def remove(self, name):
+        super().remove(name)
+        logger.debug("Unregistered task: {0}".format(name))
 
 
 # Main Bot

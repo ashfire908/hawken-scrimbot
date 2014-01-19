@@ -85,6 +85,8 @@ class CommandManager:
             # Add the handler for the command
             self.registered[handler.id].append(handler)
 
+        logger.debug("Registered command: {0}".format(handler.fullid))
+
     def unregister(self, handler):
         # Remove the command from the registered commands list
         self.registered[handler.id][:] = [cmdhandler for cmdhandler in self.registered[handler.id] if cmdhandler.fullid != handler.fullid]
@@ -92,6 +94,8 @@ class CommandManager:
         # Cleanup the list if it's empty
         if len(self.registered[handler.id]) == 0:
             del self.registered[handler.id]
+
+        logger.debug("Unregistered command: {0}".format(handler.fullid))
 
     def get_handlers(self, cmdtype, cmdname, plugin=None):
         cmdid = Command.format_id(cmdtype, cmdname)

@@ -90,6 +90,8 @@ class Config:
         except KeyError:
             self._config[path] = value
 
+        logger.debug("Registered config: {0}".format(path))
+
     def unregister(self, path):
         # Since we wish to preserve the old config, we need not do anything
-        pass
+        logger.debug("Unregistered config: {0}".format(path))

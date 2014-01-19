@@ -53,11 +53,15 @@ class PermissionHandler:
 
         self.save()
 
+        logger.debug("Registered group: {0}".format(group))
+
     def unregister_group(self, group):
         self._groups.discard(group)
         # Preserve old config, don't purge group
 
         self.save()
+
+        logger.debug("Unregistered group: {0}".format(group))
 
     def group_list(self):
         return self._permissions
