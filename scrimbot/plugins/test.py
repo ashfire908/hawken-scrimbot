@@ -28,6 +28,7 @@ class TestPlugin(BasePlugin):
         # Unregister commands
         self.unregister_command(CommandType.PM, "testexception")
         self.unregister_command(CommandType.ALL, "hammertime")
+        self.unregister_command(CommandType.ALL, "whoami")
         self.unregister_command(CommandType.ALL, "callsign")
         self.unregister_command(CommandType.ALL, "guid")
         self.unregister_command(CommandType.PM, "tell")
