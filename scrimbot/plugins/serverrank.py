@@ -21,6 +21,7 @@ class ServerRankPlugin(BasePlugin):
         self.register_config("plugins.serverrank.min_users", 2)
         self.register_config("plugins.serverrank.log_usage", False)
         self.register_config("plugins.serverrank.show_minmax", True)
+        self.register_config("plugins.serverrank.playerrank_integration", False)
 
         # Register commands
         self.register_command(CommandType.ALL, "serverrank", self.server_rank)
@@ -34,6 +35,7 @@ class ServerRankPlugin(BasePlugin):
         self.unregister_config("plugins.serverrank.min_users")
         self.unregister_config("plugins.serverrank.log_usage")
         self.unregister_config("plugins.serverrank.show_minmax")
+        self.unregister_config("plugins.serverrank.playerrank_integration")
 
         # Unregister commands
         self.unregister_command(CommandType.ALL, "serverrank")
@@ -209,10 +211,11 @@ class ServerRankPlugin(BasePlugin):
                         self.record_usage(cmdname, False, server_info, mmr_info)
                     else:
                         # Display stats
-                        if self._config.plugins.serverrank.show_minmax:
-                            minmax = "Max MMR: {0[max]:.2f}, Min MMR: {0[min]:.2f}, ".format(mmr_info)
-                        else:
+                        if not self._config.plugins.serverrank.show_minmax or \
+                           (self._config.plugins.serverrank.playerrank_integration and "playerrank" in self._plugins.active and not self._plugins.active["playerrank"].lookup_allowed(user)[0]):
                             minmax = ""
+                        else:
+                            minmax = "Max MMR: {0[max]:.2f}, Min MMR: {0[min]:.2f}, ".format(mmr_info)
 
                         message = "MMR breakdown for {0[ServerName]}: Average MMR: {1[mean]:.2f}, {2}Standard deviation {1[stddev]:.3f}".format(server_info, mmr_info, minmax)
                         self._xmpp.send_message(cmdtype, target, message)
