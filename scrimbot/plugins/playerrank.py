@@ -55,7 +55,7 @@ class PlayerRankPlugin(BasePlugin):
         pass
 
     def limit_active(self, user):
-        return self._config.plugins.playerrank.limit != 0 and not self._permissions.user_check_group(user, "admin")
+        return self._config.plugins.playerrank.limit > 0 and not self._permissions.user_check_group(user, "admin")
 
     def lookup_allowed(self, user):
         if self._config.plugins.playerrank.restricted and not self._permissions.user_check_groups(user, ("admin", "mmr")):
