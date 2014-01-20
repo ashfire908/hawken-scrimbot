@@ -57,13 +57,15 @@ class PlayerRankPlugin(BasePlugin):
     def limit_active(self, user):
         return self._config.plugins.playerrank.limit > 0 and not self._permissions.user_check_group(user, "admin")
 
+    def next_check(self, user):
+        return math.ceil(self._config.plugins.playerrank.period - (time.time() - self.mmr_usage[user][0]))
+
     def lookup_allowed(self, user):
         if self._config.plugins.playerrank.restricted and not self._permissions.user_check_groups(user, ("admin", "mmr")):
             return False, "Access to looking up player MMR is restricted."
 
         if self.user_overlimit(user):
-            delay = math.ceil(self._config.plugins.playerrank.period - (time.time() - self.mmr_usage[user][0]))
-            return False, "You have reached your limit of MMR lookups. (Next check allowed in {0})".format(format_dhms(delay))
+            return False, "You have reached your limit of MMR lookups. (Next check allowed in {0})".format(format_dhms(self.next_check(user)))
 
         return True, None
 
@@ -162,7 +164,8 @@ class PlayerRankPlugin(BasePlugin):
 
             # Display the mmr
             if self.limit_active(user):
-                self._xmpp.send_message(cmdtype, target, "{0} MMR is {1}. (Request {2} out of {3})".format(identifier, result[1], len(self.mmr_usage[user]), self._config.plugins.playerrank.limit))
+                self._xmpp.send_message(cmdtype, target, "{0} MMR is {1}. (Request {2} out of {3} allowed in the next {4})".format(identifier,
+                                        result[1], len(self.mmr_usage[user]), self._config.plugins.playerrank.limit, format_dhms(self.next_check(user))))
             else:
                 self._xmpp.send_message(cmdtype, target, "{0} MMR is {1}.".format(identifier, result[1]))
 
