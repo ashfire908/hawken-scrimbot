@@ -39,6 +39,7 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
         self.register_plugin("xep_0030")  # Service Discovery
         self.register_plugin("xep_0045")  # Multi-User Chat
         self.register_plugin("xep_0199")  # XMPP Ping
+        self.register_plugin("xep_0203")  # Delay
         self.register_plugin("hawken")  # Hawken
         self.register_plugin("hawken_party")  # Hawken Party
 
@@ -298,33 +299,36 @@ class ScrimBot:
         self.xmpp.remove_jid(presence["from"].bare)
 
     def handle_chat_message(self, message):
-        # Check if the user is allowed to send messages to the bot
-        if self.permissions.user_check_group(message["from"].user, "blacklist") or \
-           (self.config.bot.whitelisted and not self.permissions.user_check_groups(message["from"].user, ("admin", "whitelist"))):
-            # Ignore it
+        # Refuse to process chat from the bot itself
+        if message["from"].user == self.xmpp.boundjid.user:
             pass
+        # Drop messages that were sent while offline
+        elif message["delay"]["text"] == "Offline Storage":
+            pass
+        # Drop messages from people not friends with
+        elif not self.xmpp.has_jid(message["from"].bare):
+            pass
+        # Drop messages from users not allowed to send messages to the bot
+        elif self.permissions.user_check_group(message["from"].user, "blacklist") or \
+            (self.config.bot.whitelisted and not self.permissions.user_check_groups(message["from"].user, ("admin", "whitelist"))):
+            pass
+        # Check if this is a normal chat message
         elif message["type"] == "chat":
-            # Drop messages from people not friends with
-            if not self.xmpp.has_jid(message["from"].bare):
-                pass
-            # Refuse to process chat from the bot itself
-            elif message["from"].user == self.xmpp.boundjid.user:
-                pass
-            # Pass off the message to the command handler
+            # Strip off the command prefix, if one is set
+            if message["body"].startswith(self.config.bot.command_prefix):
+                body = message["body"][len(self.config.bot.command_prefix):]
             else:
-                # Strip off the command prefix, if one is set
-                if message["body"].startswith(self.config.bot.command_prefix):
-                    body = message["body"][len(self.config.bot.command_prefix):]
-                else:
-                    body = message["body"]
-                self.commands.handle_command_message(CommandType.PM, body, message)
+                body = message["body"]
+
+            # Pass off the message to the command handler
+            self.commands.handle_command_message(CommandType.PM, body, message)
 
     def handle_groupchat_message(self, message):
         if message["type"] == "groupchat":
             # Refuse to process chat from the bot itself
             if message["from"].resource == self.parties.get_callsign(message["from"].bare):
                 pass
-            # Check if the user is blacklisted
+            # Drop messages from blacklisted users
             elif message["stormid"] is not None and self.permissions.user_check_group(message["stormid"], "blacklist"):
                 pass
             # Check if this is a command
