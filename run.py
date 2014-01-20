@@ -36,18 +36,20 @@ def bootstrap_logging(config):
     setup_logging(log_config)
 
 
-def start(config):
+def run(config):
     # Bootstrap logging
     bootstrap_logging(config)
 
-    # Run the bot
+    # Init the bot
     logger.info("Initializing the bot...")
     hawkenbot = ScrimBot(config)
+
+    # Connect to chat and process data
     logger.info("Connecting to chat...")
     if hawkenbot.connect():
         hawkenbot.process(block=True)
     else:
-        logging.critical("Unable to connect.")
+        logger.critical("Unable to connect.")
 
 
 if __name__ == "__main__":
@@ -55,4 +57,4 @@ if __name__ == "__main__":
     args = get_parser().parse_args()
 
     # Start the bot
-    start(args.config)
+    run(args.config)

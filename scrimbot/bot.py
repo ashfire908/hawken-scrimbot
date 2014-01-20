@@ -258,7 +258,7 @@ class ScrimBot:
         self.update_roster()
 
         # CROWBAR IS READY
-        logger.info("Bot connected and ready.")
+        logger.info("Bot connected.")
 
     def handle_session_end(self, event):
         logger.info("Bot disconnected.")
