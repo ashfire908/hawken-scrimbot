@@ -28,6 +28,7 @@ class PlayerRankPlugin(BasePlugin):
         self.register_command(CommandType.PM, "mmr", self.mmr)
         self.register_command(CommandType.PM, "rawmmr", self.rawmmr)
         self.register_command(CommandType.PM, "elo", self.elo, flags=["hidden", "safe"])
+        self.register_command(CommandType.PM, "glicko", self.glicko, flags=["hidden", "safe"])
 
         # Setup usage tracking
         self.mmr_usage = {}
@@ -45,6 +46,7 @@ class PlayerRankPlugin(BasePlugin):
         self.unregister_command(CommandType.PM, "mmr")
         self.unregister_command(CommandType.PM, "rawmmr")
         self.unregister_command(CommandType.PM, "elo")
+        self.unregister_command(CommandType.PM, "glicko")
 
     def connected(self):
         pass
@@ -173,6 +175,10 @@ class PlayerRankPlugin(BasePlugin):
     def elo(self, cmdtype, cmdname, args, target, user, room):
         # Easter egg
         self._xmpp.send_message(cmdtype, target, "Fuck off. (use !mmr)")
+
+    def glicko(self, cmdtype, cmdname, args, target, user, room):
+        # Easter egg
+        self._xmpp.send_message(cmdtype, target, ":D :D :D")
 
 
 plugin = PlayerRankPlugin
