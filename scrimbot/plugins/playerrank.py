@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import time
+import math
 import logging
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
@@ -15,9 +17,9 @@ class PlayerRankPlugin(BasePlugin):
 
     def enable(self):
         # Register config
-        self.register_config("plugins.playerrank.mmr_limit", -1)
-        self.register_config("plugins.playerrank.mmr_period", 60 * 60 * 6)
-        self.register_config("plugins.playerrank.mmr_restricted", False)
+        self.register_config("plugins.playerrank.limit", 0)
+        self.register_config("plugins.playerrank.period", 60 * 60 * 2)
+        self.register_config("plugins.playerrank.restricted", False)
 
         # Register group
         self.register_group("mmr")
@@ -32,9 +34,9 @@ class PlayerRankPlugin(BasePlugin):
 
     def disable(self):
         # Unregister config
-        self.unregister_config("plugins.playerrank.mmr_limit")
-        self.unregister_config("plugins.playerrank.mmr_period")
-        self.unregister_config("plugins.playerrank.mmr_restricted")
+        self.unregister_config("plugins.playerrank.limit")
+        self.unregister_config("plugins.playerrank.period")
+        self.unregister_config("plugins.playerrank.restricted")
 
         # Unregister group
         self.unregister_group("mmr")
@@ -45,46 +47,50 @@ class PlayerRankPlugin(BasePlugin):
         self.unregister_command(CommandType.PM, "elo")
 
     def connected(self):
-        if self._config.plugins.playerrank.mmr_limit > 0:
-            # Start the usage reset thread
-            self.register_task("mmr_reset", self._config.plugins.playerrank.mmr_period, self.reset_mmr, repeat=True)
+        pass
 
     def disconnected(self):
-        # Stop the reset thread
-        self.unregister_task("mmr_reset")
-
-    def reset_mmr(self):
-        logger.info("Resetting MMR usage.")
-
-        # A loop would probably be better here
-        self.mmr_usage = dict.fromkeys(self.mmr_usage, 0)
+        pass
 
     def limit_active(self, user):
-        return self._config.plugins.playerrank.mmr_limit != -1 and not self._permissions.user_check_group(user, "admin")
+        return self._config.plugins.playerrank.limit != 0 and not self._permissions.user_check_group(user, "admin")
 
     def lookup_allowed(self, user):
-        if self._config.plugins.playerrank.mmr_restricted and not self._permissions.user_check_groups(user, ("admin", "mmr")):
+        if self._config.plugins.playerrank.restricted and not self._permissions.user_check_groups(user, ("admin", "mmr")):
             return False, "Access to looking up player MMR is restricted."
 
         if self.user_overlimit(user):
-            return False, "You have reached your limit of MMR lookups. (Limit reset every {0})".format(format_dhms(self._config.plugins.playerrank.mmr_period))
+            delay = math.ceil(self._config.plugins.playerrank.period - (time.time() - self.mmr_usage[user][0]))
+            return False, "You have reached your limit of MMR lookups. (Next check allowed in {0})".format(format_dhms(delay))
 
         return True, None
 
-    def user_update_usage(self, user):
+    def update_usage(self, user):
         if self.limit_active(user):
             if user not in self.mmr_usage:
-                self.mmr_usage[user] = 0
+                return
+
+            now = time.time()
+            for _time in self.mmr_usage[user][:]:
+                if _time < now - self._config.plugins.playerrank.period:
+                    self.mmr_usage[user].remove(_time)
+
+    def increment_usage(self, user):
+        if self.limit_active(user):
+            if user not in self.mmr_usage:
+                self.mmr_usage[user] = []
 
             # Increment the usage
-            self.mmr_usage[user] += 1
+            self.mmr_usage[user].append(time.time())
 
     def user_overlimit(self, user):
         if not self.limit_active(user):
             return False
 
+        self.update_usage(user)
+
         try:
-            return self.mmr_usage[user] >= self._config.plugins.playerrank.mmr_limit
+            return len(self.mmr_usage[user]) >= self._config.plugins.playerrank.limit
         except KeyError:
             return False
 
@@ -98,7 +104,7 @@ class PlayerRankPlugin(BasePlugin):
 
         # Check for a MMR
         if "MatchMaking.Rating" not in stats:
-            return False, "Error: Player does not appear to have a MMR."
+            return False, "Error: Player does not appear to have an MMR."
 
         return True, int(stats["MatchMaking.Rating"])
 
@@ -112,7 +118,7 @@ class PlayerRankPlugin(BasePlugin):
 
         # Check for a MMR
         if "MatchMaking.Rating" not in stats:
-            return False, "Error: Player does not appear to have a MMR."
+            return False, "Error: Player does not appear to have an MMR."
 
         return True, stats["MatchMaking.Rating"]
 
@@ -150,11 +156,11 @@ class PlayerRankPlugin(BasePlugin):
             self._xmpp.send_message(cmdtype, target, result[1])
         else:
             # Update the usage
-            self.user_update_usage(user)
+            self.increment_usage(user)
 
             # Display the mmr
             if self.limit_active(user):
-                self._xmpp.send_message(cmdtype, target, "{0} MMR is {1}. ({2} out of {3} requests)".format(identifier, result[1], self.mmr_usage[user], self._config.plugins.playerrank.mmr_limit))
+                self._xmpp.send_message(cmdtype, target, "{0} MMR is {1}. (Request {2} out of {3})".format(identifier, result[1], len(self.mmr_usage[user]), self._config.plugins.playerrank.limit))
             else:
                 self._xmpp.send_message(cmdtype, target, "{0} MMR is {1}.".format(identifier, result[1]))
 
