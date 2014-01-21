@@ -190,7 +190,6 @@ def default_logging():
                 "level": "INFO",
                 "filename": "logs/scrimbot.log",
                 "when": "midnight",
-                "interval": 7,
                 "backupCount": 5
             }
         }
