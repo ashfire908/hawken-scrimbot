@@ -6,6 +6,10 @@ import logging
 import hawkenapi.exceptions
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
+try:
+    from scrimbot.plugins.playerrank import LookupMode
+except ImportError:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -212,7 +216,7 @@ class ServerRankPlugin(BasePlugin):
                     else:
                         # Display stats
                         if not self._config.plugins.serverrank.show_minmax or \
-                           (self._config.plugins.serverrank.playerrank_integration and "playerrank" in self._plugins.active and not self._plugins.active["playerrank"].lookup_allowed(user)[0]):
+                           (self._config.plugins.serverrank.playerrank_integration and "playerrank" in self._plugins.active and not self._plugins.active["playerrank"].lookup_allowed(user, LookupMode.RAW)[0]):
                             minmax = ""
                         else:
                             minmax = "Max MMR: {0[max]:.2f}, Min MMR: {0[min]:.2f}, ".format(mmr_info)
