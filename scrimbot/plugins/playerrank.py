@@ -3,6 +3,7 @@
 import time
 import math
 import logging
+from scrimbot.cache import CacheList
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
 from scrimbot.util import enum, format_dhms
@@ -26,6 +27,9 @@ class PlayerRankPlugin(BasePlugin):
         self.register_config("plugins.playerrank.restricted.raw", False)
         self.register_config("plugins.playerrank.bracket_range", 0)
 
+        # Register cache
+        self.register_cache("mmr_usage")
+
         # Register group
         self.register_group("mmr")
 
@@ -34,9 +38,6 @@ class PlayerRankPlugin(BasePlugin):
         self.register_command(CommandType.PM, "rawmmr", self.rawmmr)
         self.register_command(CommandType.PM, "elo", self.elo, flags=["hidden", "safe"])
         self.register_command(CommandType.PM, "glicko", self.glicko, flags=["hidden", "safe"])
-
-        # Setup usage tracking
-        self.mmr_usage = {}
 
     def disable(self):
         # Unregister config
@@ -47,6 +48,9 @@ class PlayerRankPlugin(BasePlugin):
         self.unregister_config("plugins.playerrank.restricted.mmr")
         self.unregister_config("plugins.playerrank.restricted.raw")
         self.unregister_config("plugins.playerrank.bracket_range")
+
+        # Unregister cache
+        self.unregister_cache("mmr_usage")
 
         # Unregister group
         self.unregister_group("mmr")
@@ -75,12 +79,12 @@ class PlayerRankPlugin(BasePlugin):
         self.update_usage(user, mode)
 
         try:
-            return len(self.mmr_usage[user]) >= self._config.plugins.playerrank.limit.count
+            return len(self._cache["mmr_usage"][user]) >= self._config.plugins.playerrank.limit.count
         except KeyError:
             return False
 
     def next_check(self, user):
-        return math.ceil(self._config.plugins.playerrank.limit.period - (time.time() - self.mmr_usage[user][0]))
+        return math.ceil(self._config.plugins.playerrank.limit.period - (time.time() - self._cache["mmr_usage"][user][0]))
 
     def get_bracket(self, mmr):
         x = math.floor(mmr / self._config.plugins.playerrank.bracket_range)
@@ -100,21 +104,21 @@ class PlayerRankPlugin(BasePlugin):
 
     def update_usage(self, user, mode):
         if self.limit_active(user, mode):
-            if user not in self.mmr_usage:
+            if user not in self._cache["mmr_usage"]:
                 return
 
             now = time.time()
-            for _time in self.mmr_usage[user][:]:
+            for _time in self._cache["mmr_usage"][user][:]:
                 if _time < now - self._config.plugins.playerrank.limit.period:
-                    self.mmr_usage[user].remove(_time)
+                    self._cache["mmr_usage"][user].remove(_time)
 
     def increment_usage(self, user, mode):
         if self.limit_active(user, mode):
-            if user not in self.mmr_usage:
-                self.mmr_usage[user] = []
+            if user not in self._cache["mmr_usage"]:
+                self._cache["mmr_usage"][user] = CacheList()
 
             # Increment the usage
-            self.mmr_usage[user].append(time.time())
+            self._cache["mmr_usage"][user].append(time.time())
 
     def get_mmr(self, guid):
         # Get the user's stats
@@ -183,7 +187,7 @@ class PlayerRankPlugin(BasePlugin):
 
             if self.limit_active(user, mode):
                 # Add the limit message
-                message += " (Request {0} out of {1} allowed in the next {2})".format(len(self.mmr_usage[user]),
+                message += " (Request {0} out of {1} allowed in the next {2})".format(len(self._cache["mmr_usage"][user]),
                                                                                       self._config.plugins.playerrank.limit.count,
                                                                                       format_dhms(self.next_check(user)))
 
