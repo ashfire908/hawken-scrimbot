@@ -59,7 +59,7 @@ class BaseReservation(metaclass=ABCMeta):
             while (time.time() - start) < limit:
                 # Check the advertisement
                 try:
-                    self.advertisement = self._api.wrapper(self._api.matchmaking_advertisement, self.guid)
+                    self.advertisement = self._api.get_advertisement(self.guid)
                 except hawkenapi.exceptions.RetryLimitExceeded:
                     # Continue polling the advertisement
                     pass
@@ -129,7 +129,7 @@ class BaseReservation(metaclass=ABCMeta):
     @created
     def delete(self):
         if self.guid is not None and not self._deleted.is_set():
-            self._api.wrapper(self._api.matchmaking_advertisement_delete, self.guid)
+            self._api.delete_advertisement(self.guid)
             self._deleted.set()
 
     @property
@@ -157,7 +157,7 @@ class ServerReservation(BaseReservation):
             raise ValueError("No users were given")
 
         # Grab the server info
-        self.server = self._api.wrapper(self._api.server_list, server)
+        self.server = self._api.get_server(server)
         if self.server is None:
             raise NoSuchServer("The specified server does not exist")
 
@@ -179,7 +179,7 @@ class ServerReservation(BaseReservation):
             server_level = int(self.server["DeveloperData"]["AveragePilotLevel"])
             if server_level > 0:
                 try:
-                    data = self._api.wrapper(self._api.user_stats, self.users)
+                    data = self._api.get_user_stats(self.users)
                 except hawkenapi.exceptions.InvalidBatch:
                     # No use crying over spilled milk - just ignore the check
                     pass
@@ -195,8 +195,7 @@ class ServerReservation(BaseReservation):
             limit = self._config.api.advertisement.polling_limit
 
         # Place the reservation
-        self.guid = self._api.wrapper(self._api.matchmaking_advertisement_post_server, self.server["GameVersion"],
-                                      self.server["Region"], self.server["Guid"], self._api.guid, self.users, self.party)
+        self.guid = self._api.post_server_advertisement(self.server["GameVersion"], self.server["Region"], self.server["Guid"], self.users, self.party)
 
         # Start polling the reservation
         poll_thread = threading.Thread(target=self._poll, args=(self._config.api.advertisement.polling_rate.server, limit))
@@ -228,8 +227,7 @@ class MatchmakingReservation(BaseReservation):
             limit = self._config.api.advertisement.polling_limit
 
         # Place the reservation
-        self.guid = self._api.wrapper(self._api.matchmaking_advertisement_post_matchmaking, self.gameversion,
-                                      self.region, self.gametype, self._api.guid, self.users, self.party)
+        self.guid = self._api.post_matchmaking_advertisement(self.gameversion, self.region, self.gametype, self.users, self.party)
 
         # Start polling the reservation
         poll_thread = threading.Thread(target=self._poll, args=(self._config.api.advertisemnet.polling_rate.matchmaking, limit))

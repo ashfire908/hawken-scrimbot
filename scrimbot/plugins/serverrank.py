@@ -103,7 +103,7 @@ class ServerRankPlugin(BasePlugin):
             # Check if this user is allowed to pick what server to check
             if self._config.plugins.serverrank.arbitrary_servers or self._permissions.user_check_group(user, "admin"):
                 # Load the server info by name
-                server_info = self._api.wrapper(self._api.server_by_name, args[0])
+                server_info = self._api.get_server_by_name(args[0])
 
                 if not server_info:
                     return False, "No such server."
@@ -111,13 +111,14 @@ class ServerRankPlugin(BasePlugin):
                 return False, "Rankings for arbitrary servers are disabled."
         else:
             # Find the server the user is on
-            server = self._api.wrapper(self._api.user_server, user)
+            server = self._api.get_user_server(user)
+
             # Check if they are actually on a server
             if server is None:
                 return False, "You are not on a server."
             else:
                 # Load the server info
-                server_info = self._api.wrapper(self._api.server_list, server[0])
+                server_info = self._api.get_server(server[0])
 
                 if not server_info:
                     return False, "Error: Failed to load server info."
@@ -188,7 +189,7 @@ class ServerRankPlugin(BasePlugin):
             else:
                 # Load the MMR for all the players on the server
                 try:
-                    data = self._api.wrapper(self._api.user_stats, server_info["Users"])
+                    data = self._api.get_user_stats(server_info["Users"])
                 except hawkenapi.exceptions.InvalidBatch:
                     self._xmpp.send_message(cmdtype, target, "Error: Failed to load player data.")
                 else:

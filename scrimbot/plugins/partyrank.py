@@ -83,7 +83,7 @@ class PartyRankPlugin(BasePlugin):
     def load_party_data(self, party):
         # Get the player stats data
         try:
-            data = self._api.wrapper(self._api.user_stats, party.players)
+            data = self._api.get_user_stats(party.players)
         except hawkenapi.exceptions.InvalidBatch:
             return False, "Error: Failed to load player data."
         else:

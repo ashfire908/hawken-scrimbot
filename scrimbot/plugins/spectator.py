@@ -199,7 +199,7 @@ class SpectatorPlugin(BasePlugin):
             self._xmpp.send_message(cmdtype, target, "Error: You cannot save a server while joining another.")
         else:
             # Get the user's current server
-            server = self._api.wrapper(self._api.user_server, user)
+            server = self._api.get_user_server(user)
 
             # Check if they are actually on a server
             if server is None:
@@ -221,7 +221,7 @@ class SpectatorPlugin(BasePlugin):
             self._xmpp.send_message(cmdtype, target, "No saved server on file.")
         else:
             # Get the server info
-            server = self._api.wrapper(self._api.server_list, self.saved_server_get(user))
+            server = self._api.get_server(self.saved_server_get(user))
 
             # Check if the server exists
             if server is None:
@@ -244,7 +244,7 @@ class SpectatorPlugin(BasePlugin):
                 self._xmpp.send_message(cmdtype, target, "No such player exists.")
             else:
                 # Get the user's server
-                servers = self._api.wrapper(self._api.user_server, guid)
+                servers = self._api.get_user_server(guid)
 
                 # Check if the user is on a server
                 if servers is None:
@@ -266,7 +266,7 @@ class SpectatorPlugin(BasePlugin):
             self._xmpp.send_message(cmdtype, target, "Missing target server.")
         else:
             # Get the server
-            server = self._api.wrapper(self._api.server_by_name, args[0])
+            server = self._api.get_server_by_name(args[0])
 
             # Check if the server exists
             if server is False:
