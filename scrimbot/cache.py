@@ -123,7 +123,7 @@ class Cache:
             return self["callsign"][guid]
 
         # Fetch callsign
-        callsign = self.api.wrapper(self.api.user_callsign, guid)
+        callsign = self.api.get_user_callsign(guid)
 
         if callsign is not None:
             # Cache the callsign
@@ -153,7 +153,7 @@ class Cache:
                 return guid
 
         # Fetch GUID
-        guid = self.api.wrapper(self.api.user_guid, callsign)
+        guid = self.api.get_user_guid(callsign)
 
         if guid is not None:
             # Cache the GUID
@@ -165,7 +165,7 @@ class Cache:
         logger.info("Updating globals.")
 
         # Get the global item, update settings
-        self["globals"].update(self.api.wrapper(self.api.game_items, "ff7aa68d-d450-44c3-86f0-a403e87b0f64"))
+        self["globals"].update(self.api.get_game_items("ff7aa68d-d450-44c3-86f0-a403e87b0f64"))
 
     def cache_save(self):
         # Save the cache

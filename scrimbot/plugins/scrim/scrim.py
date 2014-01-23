@@ -181,7 +181,7 @@ class ScrimPlugin(BasePlugin):
                 self._xmpp.send_message(cmdtype, target, "Missing target party and/or server.")
                 return False, None, None
 
-            server = self._api.wrapper(self._api.server_by_name, args[1])
+            server = self._api.get_server_by_name(args[1])
             party = self.get_party(args[0])
         else:
             # This is a party
@@ -189,7 +189,7 @@ class ScrimPlugin(BasePlugin):
                 self._xmpp.send_message(cmdtype, target, "Missing target server.")
                 return False, None, None
 
-            server = self._api.wrapper(self._api.server_by_name, args[0])
+            server = self._api.get_server_by_name(args[0])
             party = self.get_party(room)
 
         # Check values given

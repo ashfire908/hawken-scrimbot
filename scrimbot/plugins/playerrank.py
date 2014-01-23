@@ -118,7 +118,7 @@ class PlayerRankPlugin(BasePlugin):
 
     def get_mmr(self, guid):
         # Get the user's stats
-        stats = self._api.wrapper(self._api.user_stats, guid)
+        stats = self._api.get_user_stats(guid)
 
         # Check for player data
         if stats is None:

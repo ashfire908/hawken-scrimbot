@@ -174,8 +174,7 @@ class ScrimBot:
         self.cache.setup()
 
         # Setup the XMPP client
-        self.xmpp.setup(self.api.guid, self.api.wrapper(self.api.presence_domain, self.api.guid),
-                        self.api.wrapper(self.api.presence_access, self.api.guid))
+        self.xmpp.setup(self.api.guid, self.api.get_presence_domain(), self.api.get_presence_access())
 
         # Attach the scheduler to the xmpp stop event and start processing
         self.scheduler.stop = self.xmpp.stop
