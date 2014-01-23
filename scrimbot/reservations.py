@@ -203,13 +203,13 @@ class ServerReservation(BaseReservation):
 
 
 class MatchmakingReservation(BaseReservation):
-    def __init__(self, config, cache, api, gameversion, region, gametype, users, party=None):
+    def __init__(self, config, cache, api, gameversion, region, users, gametype=None, party=None):
         super().__init__(config, cache, api)
 
         self.gameversion = gameversion
         self.region = region
-        self.gametype = gametype
         self.users = users
+        self.gametype = gametype
         self.party = party
 
         # Validate the number of users
