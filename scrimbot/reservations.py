@@ -174,7 +174,7 @@ class ServerReservation(BaseReservation):
         else:
             # Server is full
             if self.server["MaxUsers"] < (len(self.server["Users"]) + len(self.users)):
-                issues.append("Warning: Server is full ({0}/{1}) - reservation may fail!".format(len(self.users), self.server["MaxUsers"]))
+                issues.append("Warning: Server is full ({0}/{1}) - reservation may fail!".format(len(self.server["Users"]), self.server["MaxUsers"]))
             # Server outside the users's average rank
             server_level = int(self.server["DeveloperData"]["AveragePilotLevel"])
             if server_level > 0:
