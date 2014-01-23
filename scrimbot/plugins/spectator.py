@@ -250,7 +250,7 @@ class SpectatorPlugin(BasePlugin):
                 if servers is None:
                     self._xmpp.send_message(cmdtype, target, "{0} is not on a server.".format(self._cache.get_callsign(guid)))
                 else:
-                    server = self._api.wrapper(self._api.server_list, servers[0])
+                    server = servers[0]
 
                     # Check if the server exists
                     if server is None:
