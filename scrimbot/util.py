@@ -122,50 +122,43 @@ class DotDict(dict):
     __getattr__ = __getitem__
 
 
-class CommittableDict(dict):
-    def __init__(self, value=None):
-        self._committed = True
+def create_committer(*types, methods=None):
+    if methods is None:
+        changer_methods = {"__setitem__", "__setslice__", "__delitem__", "update", "append", "extend", "add", "insert", "pop", "popitem", "remove", "setdefault", "__iadd__"}
+    else:
+        changer_methods = methods
 
-        if value is None:
-            pass
-        elif isinstance(value, dict):
-            for key in value:
-                self.__setitem__(key, value[key])
-        else:
-            raise TypeError("Expected dict")
+    def callback_getter(obj):
+        def callback(name):
+            obj.committed = False
+        return callback
 
-    @property
-    def committed(self):
-        if not self._committed:
-            return False
-
-        for subitem in self.values():
-            if isinstance(subitem, CommittableDict) and not subitem.committed:
-                return False
-
-        return True
-
-    def commit(self):
-        self._committed = True
-
-        for subitem in self.values():
-            if isinstance(subitem, CommittableDict):
-                subitem.commit()
-
-    def _do_commit(method):
-        def wrapper(self, *args, **kwargs):
-            result = method(self, *args, **kwargs)
-            self._committed = False
-            return result
+    def proxy_decorator(func, callback):
+        def wrapper(*args, **kw):
+            callback(func.__name__)
+            return func(*args, **kw)
+        wrapper.__name__ = func.__name__
         return wrapper
 
-    __delitem__ = _do_commit(dict.__delitem__)
-    __setitem__ = _do_commit(dict.__setitem__)
-    clear = _do_commit(dict.clear)
-    pop = _do_commit(dict.pop)
-    popitem = _do_commit(dict.popitem)
-    setdefault = _do_commit(dict.setdefault)
-    update = _do_commit(dict.update)
+    def proxy_class_factory(cls, obj):
+        new_dct = cls.__dict__.copy()
+        for key, value in new_dct.items():
+            if key in changer_methods:
+                new_dct[key] = proxy_decorator(value, callback_getter(obj))
+        return type("proxy_" + cls.__name__, (cls, ), new_dct)
+
+    class Flag(object):
+        def __init__(self):
+            self.commit()
+
+        def commit(self):
+            self.committed = True
+
+    flag = Flag()
+    yield flag
+
+    for t in types:
+        yield proxy_class_factory(t, flag)
 
 
 def default_logging():

@@ -52,6 +52,12 @@ class BasePlugin(metaclass=ABCMeta):
     def unregister_config(self, path):
         self._config.unregister(path)
 
+    def register_cache(self, name):
+        self._cache.register(name)
+
+    def unregister_cache(self, name):
+        self._cache.unregister(name)
+
     def register_group(self, group):
         self._permissions.register_group(group)
 

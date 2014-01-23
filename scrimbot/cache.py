@@ -3,9 +3,11 @@
 import errno
 import json
 import logging
-from scrimbot.util import CommittableDict
+from scrimbot.util import create_committer
 
 logger = logging.getLogger(__name__)
+
+cache_flag, CacheList, CacheDict = create_committer(list, dict)
 
 
 class Cache:
@@ -13,7 +15,7 @@ class Cache:
         self.client = client
         self.config = config
         self.api = api
-        self._cache = CommittableDict()
+        self._cache = CacheDict()
         self._registered_cache = set()
 
         # Register settings
@@ -22,9 +24,9 @@ class Cache:
         self.config.register("cache.globals_period", 60 * 60 * 12)
 
         # Register core cache variables
-        self.register_cache("callsign")
-        self.register_cache("guid")
-        self.register_cache("globals")
+        self.register("callsign")
+        self.register("guid")
+        self.register("globals")
 
     def __getitem__(self, key):
         return self._cache[key]
@@ -41,14 +43,19 @@ class Cache:
     def _verify_cache(self):
         for name in self._registered_cache:
             if name not in self:
-                self[name] = CommittableDict()
+                self[name] = CacheDict()
 
         for callsign in self["callsign"].values():
             if callsign.lower() in self["guid"]:
                 del self["guid"][callsign.lower()]
 
-    def _as_committable(self, dct):
-        return CommittableDict(dct)
+    def _as_committable(self, obj):
+        if isinstance(obj, dict):
+            return CacheDict(obj)
+        elif isinstance(obj, list):
+            return CacheList(obj)
+        else:
+            return obj
 
     def setup(self):
         # Do an initial globals update
@@ -79,7 +86,7 @@ class Cache:
                 return False
 
         self._cache.update(cache)
-        self._cache.commit()
+        cache_flag.commit()
 
         # Verify the new cache data
         self._verify_cache()
@@ -91,7 +98,7 @@ class Cache:
         self._verify_cache()
 
         # Check if there are any changes to commit
-        if self._cache.committed:
+        if cache_flag.committed:
             return True
 
         logger.info("Saving cache.")
@@ -108,14 +115,20 @@ class Cache:
             logger.exception("Failed to write cache file!")
             return False
 
-        self._cache.commit()
+        cache_flag.commit()
         return True
 
-    def register_cache(self, name):
+    def register(self, name):
         self._registered_cache.add(name)
 
         if name not in self:
-            self[name] = CommittableDict()
+            self[name] = CacheDict()
+
+        logger.debug("Registered cache: {0}".format(name))
+
+    def unregister(self, name):
+        # Since we wish to preserve the old cache, we need not do anything
+        logger.debug("Unregistered cache: {0}".format(name))
 
     def get_callsign(self, guid):
         # Check cache
