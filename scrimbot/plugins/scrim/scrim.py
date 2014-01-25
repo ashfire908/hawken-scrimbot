@@ -6,8 +6,8 @@ from hawkenapi.sleekxmpp.party import CancelCode
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
 from scrimbot.plugins.scrim.party import ScrimParty, DeploymentState
-from scrimbot.reservations import ServerReservation
-from scrimbot.util import jid_user
+from scrimbot.reservations import ServerReservation, SynchronizedServerReservation
+from scrimbot.util import jid_user, chunks
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ class ScrimPlugin(BasePlugin):
         # Register config
         self.register_config("plugins.scrim.cleanup_period", 60 * 15)
         self.register_config("plugins.scrim.polling_limit", 30)
+        self.register_config("plugins.scrim.max_group_size", 6)
 
         # Register group
         self.register_group("scrim")
@@ -49,6 +50,7 @@ class ScrimPlugin(BasePlugin):
         # Unregister config
         self.unregister_config("plugins.scrim.cleanup_period")
         self.unregister_config("plugins.scrim.polling_limit")
+        self.unregister_config("plugins.scrim.max_group_size")
 
         # Unregister group
         self.unregister_group("scrim")
@@ -349,8 +351,19 @@ class ScrimPlugin(BasePlugin):
             elif len(party.players) > server["MaxUsers"]:
                 self._xmpp.send_message(cmdtype, target, "Error: The party is too large to fit on the server.")
             else:
-                # Setup the reservation
-                reservation = ServerReservation(self._config, self._cache, self._api, server["Guid"], list(party.players), party=None)
+                if len(party.players) > self._config.plugins.scrim.max_group_size:
+                    # Create main reservation
+                    reservation = SynchronizedServerReservation(self._config, self._cache, self._api, server["Guid"])
+
+                    # Split party into groups
+                    groups = chunks(list(party.players), self._config.plugins.scrim.max_group_size)
+
+                    # Add each group to the reservation
+                    for group in groups:
+                        reservation.add(group, None)
+                else:
+                    # Setup the reservation
+                    reservation = ServerReservation(self._config, self._cache, self._api, server["Guid"], list(party.players), party=None)
 
                 # Check for issues
                 critical, issues = reservation.check()
