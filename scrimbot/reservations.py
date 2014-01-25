@@ -4,6 +4,7 @@ import time
 import math
 import logging
 import threading
+import concurrent.futures
 from abc import ABCMeta, abstractmethod
 import hawkenapi.exceptions
 from scrimbot.util import enum
@@ -254,3 +255,172 @@ class MatchmakingReservation(BaseReservation):
         # TODO: Perform checks
 
         return critical, issues
+
+
+class SynchronizedReservation(metaclass=ABCMeta):
+    def __init__(self):
+        self.reservations = []
+
+        self._created = threading.Event()
+
+    def _add(self, reservation):
+        if reservation in self.reservations:
+            raise ValueError("Reservation already added")
+
+        self.reservations.append(reservation)
+
+    def _remove(self, reservation):
+        self.reservations.remove(reservation)
+
+    @abstractmethod
+    def check(self):
+        pass
+
+    @notcreated
+    def reserve(self, limit=None):
+        # Mark as created
+        self._created.set()
+
+        # Setup a task pool
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(self.reservations)) as executor:
+            # Submit the tasks
+            reservations = {executor.submit(reservation.reserve, limit=limit): reservation for reservation in self.reservations}
+
+            abort = False
+            exception = None
+
+            # Check the results as they come in
+            for future in concurrent.futures.as_completed(reservations):
+                try:
+                    # Check the result
+                    future.result()
+                except Exception as e:
+                    logger.exception("Exception while placing reservations.")
+
+                    # If this is the first exception, mark an abort and save the exception
+                    if not abort:
+                        abort = True
+                        exception = e
+
+            # Check if there was an exception
+            if abort:
+                # Delete the reservations and raise the exception
+                self.delete()
+                raise exception
+
+    @created
+    def poll(self, limit=None):
+        abort = False
+        return_code = ReservationResult.READY
+
+        # Setup a task pool
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(self.reservations)) as executor:
+            # Submit the tasks
+            reservations = {executor.submit(reservation.poll, limit=limit): reservation for reservation in self.reservations}
+
+            # Check the results as they come in
+            for future in concurrent.futures.as_completed(reservations):
+                # Check the result
+                try:
+                    code = future.result()
+                except:
+                    logger.exception("Exception while polling reservations.")
+
+                    self.cancel()
+                    raise
+
+                # Check if we already aborted
+                if abort:
+                    # Just throw away the result
+                    pass
+                else:
+                    # Check if the reservation was not successful
+                    if code != ReservationResult.READY:
+                        abort = True
+                        return_code = code
+                        self.cancel()
+
+        return return_code
+
+    @created
+    def cancel(self):
+        # Setup a task pool
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(self.reservations)) as executor:
+            # Submit the tasks
+            for reservation in self.reservations:
+                executor.submit(reservation.cancel)
+
+    @created
+    def delete(self):
+        # Setup a task pool
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(self.reservations)) as executor:
+            # Submit the tasks
+            for reservation in self.reservations:
+                executor.submit(reservation.delete)
+
+    @property
+    def created(self):
+        return self._created.is_set()
+
+    @property
+    def finished(self):
+        finished = False
+
+        for reservation in self.reservations:
+            if not reservation.finished:
+                return False
+            finished = True
+
+        return finished
+
+    @property
+    def deleted(self):
+        deleted = False
+
+        for reservation in self.reservations:
+            if not reservation.deleted:
+                return False
+            deleted = True
+
+        return deleted
+
+    @property
+    @abstractmethod
+    def advertisement(self):
+        pass
+
+
+class SynchronizedServerReservation(SynchronizedReservation):
+    def __init__(self, config, cache, api, server):
+        super().__init__()
+
+        self._config = config
+        self._cache = cache
+        self._api = api
+        self._server = server
+
+        self._user_groups = []
+
+    @notcreated
+    def add(self, users, party=None):
+        reservation = ServerReservation(self._config, self._cache, self._api, self._server, users, party)
+        self._add(reservation)
+
+    @notcreated
+    def remove(self, users, party):
+        raise NotImplementedError("Removing user groups is not implemented")
+
+    def check(self):
+        critical = False
+        issues = []
+
+        # TODO: Perform checks
+
+        return critical, issues
+
+    @property
+    def advertisement(self):
+        try:
+            return self.reservations[0].advertisement
+        except KeyError:
+            return None
