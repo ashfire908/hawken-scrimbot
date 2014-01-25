@@ -108,7 +108,7 @@ class PartyRankPlugin(BasePlugin):
     def party_rank(self, cmdtype, cmdname, args, target, user, room):
         # Get the party
         try:
-            party = self._client.active_parties[room]
+            party = self._parties.active[room]
         except KeyError:
             self._xmpp.send_message(cmdtype, target, "Error: Couldn't find party object. This is a bug, please report it!")
             logger.warn("Could not find active party object for {0}.".format(room))
@@ -149,7 +149,7 @@ class PartyRankPlugin(BasePlugin):
     def party_rank_detailed(self, cmdtype, cmdname, args, target, user, room):
         # Get the party
         try:
-            party = self._client.active_parties[room]
+            party = self._parties.active[room]
         except KeyError:
             self._xmpp.send_message(cmdtype, target, "Error: Couldn't find party object. This is a bug, please report it!")
             logger.warn("Could not find active party object for {0}.".format(room))

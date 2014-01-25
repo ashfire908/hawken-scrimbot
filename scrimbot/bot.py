@@ -128,7 +128,6 @@ class Scheduler(sleekxmpp.xmlstream.scheduler.Scheduler):
 class ScrimBot:
     def __init__(self, config="config.json"):
         # Init bot data
-        self.active_parties = {}
         self.scheduler = Scheduler()
 
         # Init the config
