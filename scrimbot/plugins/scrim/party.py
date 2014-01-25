@@ -92,13 +92,11 @@ class ScrimParty(Party):
         assert self.state == DeploymentState.MATCHMAKING
         assert self.is_leader()
 
-        # Format the server info
-        server_string = ";".join((self.reservation.advertisement["AssignedServerGuid"],
-                                  self.reservation.advertisement["AssignedServerIp"],
-                                  str(self.reservation.advertisement["AssignedServerPort"])))
-
         # Send the notice
-        self.xmpp.plugin["hawken_party"].deploy_start(self._room_jid(), self.xmpp.boundjid, server_string)
+        self.xmpp.plugin["hawken_party"].deploy_start(self._room_jid(), self.xmpp.boundjid,
+                                                      self.reservation.advertisement["AssignedServerGuid"],
+                                                      self.reservation.advertisement["AssignedServerIp"],
+                                                      self.reservation.advertisement["AssignedServerPort"])
 
         # Start deployment timer
         self._thread_timer_start()
