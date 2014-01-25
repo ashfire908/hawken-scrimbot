@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from copy import deepcopy
-import math
 import logging
 import hawkenapi.exceptions
 from scrimbot.command import CommandType
@@ -10,6 +8,8 @@ try:
     from scrimbot.plugins.playerrank import LookupMode
 except ImportError:
     pass
+from scrimbot.util import mmr_stats
+
 
 logger = logging.getLogger(__name__)
 
@@ -52,35 +52,6 @@ class ServerRankPlugin(BasePlugin):
 
     def disconnected(self):
         pass
-
-    def mmr_stats(self, users):
-        # TODO: Redo the loop so this isn't needed or such
-        users = deepcopy(users)
-        mmr = {}
-
-        # Calculate min/max/mean
-        mmr["list"] = [user["mmr"] for user in users.values() if user["mmr"] is not None]
-        if len(mmr["list"]) > 0:
-            mmr["max"] = max(mmr["list"])
-            mmr["min"] = min(mmr["list"])
-            mmr["mean"] = math.fsum(mmr["list"]) / float(len(mmr["list"]))
-
-            # Process each user's stats
-            for user in users.values():
-                # Check if they have an mmr
-                if not user["mmr"] is None:
-                    # Calculate the deviation
-                    user["deviation"] = user["mmr"] - mmr["mean"]  # Server MMR can be fixed
-
-            # Calculate standard deviation
-            stddev_list = [user["deviation"] ** 2 for user in users.values() if "deviation" in user]
-            if len(stddev_list) > 0:
-                mmr["stddev"] = math.sqrt(math.fsum(stddev_list) / float(len(stddev_list)))
-
-            return mmr
-        else:
-            # Can't pull mmr out of thin air
-            return False
 
     def record_usage(self, command, returned, server_info, data=None):
         if self._config.plugins.serverrank.log_usage:
@@ -207,7 +178,7 @@ class ServerRankPlugin(BasePlugin):
                     ranked_users = len([x for x in users.values() if x["mmr"] is not None])
 
                     # Process stats
-                    mmr_info = self.mmr_stats(users)
+                    mmr_info = mmr_stats(users)
 
                     if ranked_users < min_users and not self._permissions.user_check_group(user, "admin"):
                         self._xmpp.send_message(cmdtype, target, "There needs to be {0} ranked players (i.e. have an MMR set) on the server to use this command - only {1} of the players are currently ranked.".format(min_users, ranked_users))

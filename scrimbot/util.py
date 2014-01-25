@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import math
+from copy import deepcopy
 import ctypes
 import logging.config
 
@@ -202,3 +204,86 @@ def setup_logging(config):
 
     # Load config
     logging.config.dictConfig(config)
+
+
+def mmr_stats(users):
+    # TODO: Redo the loop so this isn't needed or such
+    users = deepcopy(users)
+    mmr = {}
+
+    # Calculate min/max/mean
+    mmr["list"] = [user["mmr"] for user in users.values() if user["mmr"] is not None]
+    if len(mmr["list"]) > 0:
+        mmr["max"] = max(mmr["list"])
+        mmr["min"] = min(mmr["list"])
+        mmr["mean"] = math.fsum(mmr["list"]) / len(mmr["list"])
+
+        # Process each user's stats
+        for user in users.values():
+            # Check if they have an mmr
+            if not user["mmr"] is None:
+                # Calculate the deviation
+                user["deviation"] = user["mmr"] - mmr["mean"]
+
+        # Calculate standard deviation
+        stddev_list = [user["deviation"] ** 2 for user in users.values() if "deviation" in user]
+        if len(stddev_list) > 0:
+            mmr["stddev"] = math.sqrt(math.fsum(stddev_list) / len(stddev_list))
+
+        return mmr
+    else:
+        # Can't pull mmr out of thin air
+        return False
+
+
+def calc_fitness(globals_info, player, server):
+    # Get shared values
+    weight_rank = int(globals_info["MMGlickoWeight"])
+    weight_level = int(globals_info["MMPilotLevelWeight"])
+    min_matches = int(globals_info["NoobHandicapCutoff"])
+    avg_level = int(server["DeveloperData"]["AveragePilotLevel"])
+    avg_rank = server["ServerRanking"]
+
+    # Get threshold
+    threshold = {}
+    threshold["rank"] = weight_rank * int(globals_info["MMSkillRange"])
+    threshold["level"] = weight_level * int(globals_info["MMPilotLevelRange"])
+    threshold["sum"] = sum(threshold.values())
+
+    # Calculate handicap
+    matches = min(min_matches, abs(min(0, int(player["GameMode.All.TotalMatches"]) - min_matches)))
+    handicap = matches * int(globals_info["NoobHandicapSize"])
+
+    # Get adjusted player rating
+    rank = player["MatchMaking.Rating"] - handicap
+
+    # Calculate score
+    score = {}
+    score["rank"] = (avg_rank - rank) * weight_rank
+    score["level"] = (avg_level - int(player["Progress.Pilot.Level"])) * weight_level
+    score["sum"] = sum(score.values())
+
+    # Calculate health
+    health = int((abs(score["sum"]) * 100) / threshold["sum"])
+
+    # Calculate rating
+    if avg_level <= 0 or avg_rank <= 0:
+        rating = 3
+    elif abs(score["sum"]) > threshold["sum"]:
+        rating = 0
+    elif health > int(globals_info["BrowserMedium"]):
+        rating = 1
+    elif health > int(globals_info["BrowserGood"]):
+        rating = 2
+    else:
+        rating = 3
+
+    details = {
+        "threshold": threshold,
+        "handicap": handicap,
+        "score": score,
+        "health": health,
+        "rating": rating
+    }
+
+    return score["sum"], health, rating, details

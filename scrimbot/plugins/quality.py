@@ -3,6 +3,7 @@
 import logging
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
+from scrimbot.util import calc_fitness
 
 logger = logging.getLogger(__name__)
 
@@ -43,62 +44,6 @@ class QualityPlugin(BasePlugin):
 
     def disconnected(self):
         pass
-
-    def calc_fitness(self, player, server):
-        # Get shared values
-        weight_rank = int(self._cache["globals"]["MMGlickoWeight"])
-        weight_level = int(self._cache["globals"]["MMPilotLevelWeight"])
-        min_matches = int(self._cache["globals"]["NoobHandicapCutoff"])
-        avg_level = int(server["DeveloperData"]["AveragePilotLevel"])
-        avg_rank = server["ServerRanking"]
-
-        # Get threshold
-        threshold = {}
-        threshold["rank"] = weight_rank * int(self._cache["globals"]["MMSkillRange"])
-        threshold["level"] = weight_level * int(self._cache["globals"]["MMPilotLevelRange"])
-        threshold["sum"] = sum(threshold.values())
-
-        # Calculate handicap
-        matches = min(min_matches, abs(min(0, int(player["GameMode.All.TotalMatches"]) - min_matches)))
-        handicap = matches * int(self._cache["globals"]["NoobHandicapSize"])
-
-        # Get adjusted player rating
-        rank = player["MatchMaking.Rating"] - handicap
-
-        # Calculate score
-        score = {}
-        score["rank"] = (avg_rank - rank) * weight_rank
-        score["level"] = (avg_level - int(player["Progress.Pilot.Level"])) * weight_level
-        score["sum"] = sum(score.values())
-
-        # Calculate health
-        health = int((abs(score["sum"]) * 100) / threshold["sum"])
-
-        # Calculate rating
-        if avg_level <= 0 or avg_rank <= 0:
-            rating = 3
-        elif abs(score["sum"]) > threshold["sum"]:
-            rating = 0
-        elif health > int(self._cache["globals"]["BrowserMedium"]):
-            rating = 1
-        elif health > int(self._cache["globals"]["BrowserGood"]):
-            rating = 2
-        else:
-            rating = 3
-
-        details = {
-            "threshold": threshold,
-            "handicap": handicap,
-            "score": score,
-            "health": health,
-            "rating": rating
-        }
-
-        if self._config.plugins.quality.health_offset:
-            # Offset the health
-            health = -health + self._config.plugins.quality.health_offset
-
-        return score["sum"], health, rating, details
 
     def record_usage(self, command, returned, server_info, data=None):
         if self._config.plugins.quality.log_usage:
@@ -186,7 +131,11 @@ class QualityPlugin(BasePlugin):
                 if player is None:
                     self._xmpp.send_message(cmdtype, target, "Error: Failed to load player stats.")
                 else:
-                    score, health, rating, details = self.calc_fitness(player, server_info)
+                    score, health, rating, details = calc_fitness(self._cache.globals, player, server_info)
+
+                    if self._config.plugins.quality.health_offset:
+                        # Offset the health
+                        health = -health + self._config.plugins.quality.health_offset
 
                     # Display the standard quality info
                     message = "Quality info for {0[ServerName]}: Rating {1}, Quality {2}".format(server_info, rating, health)
@@ -221,7 +170,11 @@ class QualityPlugin(BasePlugin):
                 if player is None:
                     self._xmpp.send_message(cmdtype, target, "Error: Failed to load player stats.")
                 else:
-                    score, health, rating, details = self.calc_fitness(player, server_info)
+                    score, health, rating, details = calc_fitness(self._cache.globals, player, server_info)
+
+                    if self._config.plugins.quality.health_offset:
+                        # Offset the health
+                        health = -health + self._config.plugins.quality.health_offset
 
                     # Display the detailed quality info
                     score = int((details["score"]["sum"] / details["threshold"]["sum"]) * 100)
