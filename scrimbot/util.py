@@ -184,8 +184,7 @@ def default_logging():
                 "formatter": "file",
                 "level": "INFO",
                 "filename": "logs/scrimbot.log",
-                "when": "midnight",
-                "backupCount": 5
+                "when": "midnight"
             }
         }
     }
