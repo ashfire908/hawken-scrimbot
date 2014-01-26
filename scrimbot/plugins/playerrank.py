@@ -22,7 +22,6 @@ class PlayerRankPlugin(BasePlugin):
         self.register_config("plugins.playerrank.limit.period", 60 * 60 * 2)
         self.register_config("plugins.playerrank.restricted.mmr", False)
         self.register_config("plugins.playerrank.restricted.bracket", False)
-        self.register_config("plugins.playerrank.display_glicko", False)
         self.register_config("plugins.playerrank.arbitrary_bracket", False)
         self.register_config("plugins.playerrank.bracket_range", 200)
 
@@ -34,9 +33,9 @@ class PlayerRankPlugin(BasePlugin):
 
         # Register commands
         self.register_command(CommandType.PM, "mmr", self.mmr)
+        self.register_command(CommandType.PM, "glicko", self.glicko)
         self.register_command(CommandType.PM, "bracket", self.bracket)
         self.register_command(CommandType.PM, "elo", self.elo, flags=["hidden", "safe"])
-        self.register_command(CommandType.PM, "glicko", self.glicko, flags=["hidden", "safe"])
 
     def disable(self):
         # Unregister config
@@ -44,7 +43,6 @@ class PlayerRankPlugin(BasePlugin):
         self.unregister_config("plugins.playerrank.limit.period")
         self.unregister_config("plugins.playerrank.restricted.mmr")
         self.unregister_config("plugins.playerrank.restricted.bracket")
-        self.unregister_config("plugins.playerrank.display_glicko")
         self.unregister_config("plugins.playerrank.arbitrary_bracket")
         self.unregister_config("plugins.playerrank.bracket_range")
 
@@ -56,9 +54,9 @@ class PlayerRankPlugin(BasePlugin):
 
         # Unregister commands
         self.unregister_command(CommandType.PM, "mmr")
+        self.unregister_command(CommandType.PM, "glicko")
         self.unregister_command(CommandType.PM, "bracket")
         self.unregister_command(CommandType.PM, "elo")
-        self.unregister_command(CommandType.PM, "glicko")
 
     def connected(self):
         pass
@@ -109,7 +107,7 @@ class PlayerRankPlugin(BasePlugin):
             # Increment the usage
             self._cache["mmr_usage"][user].append(time.time())
 
-    def mmr(self, cmdtype, cmdname, args, target, user, room):
+    def mmr_lookup(self, cmdtype, cmdname, args, target, user, room, glicko):
         # Check if the user can perform a mmr lookup
         if self._config.plugins.playerrank.restricted.mmr and not self._permissions.user_check_groups(user, ("admin", "mmr")):
             self._xmpp.send_message(cmdtype, target, "Access to looking up a player's MMR is restricted.")
@@ -152,8 +150,8 @@ class PlayerRankPlugin(BasePlugin):
                 self.increment_usage(user)
 
                 # Format the message
-                if self._config.plugins.playerrank.display_glicko:
-                    message = "{0} MMR is {1:.2f}, with a true rating (95% certainty) between {2:.2f}-{3:.2f}.".format(identifier, mmr, mmr - (deviation * 2), mmr + (deviation * 2))
+                if glicko:
+                    message = "{0} MMR is {1:.2f}, with a true rating between {2:.2f}-{3:.2f} (95% certainty).".format(identifier, mmr, mmr - (deviation * 2), mmr + (deviation * 2))
                 else:
                     message = "{0} MMR is {1:.2f}.".format(identifier, mmr)
                 if self.limit_active(user):
@@ -163,6 +161,12 @@ class PlayerRankPlugin(BasePlugin):
                                                                                           format_dhms(self.next_check(user)))
 
                 self._xmpp.send_message(cmdtype, target, message)
+
+    def mmr(self, cmdtype, cmdname, args, target, user, room):
+        self.mmr_lookup(cmdtype, cmdname, args, target, user, room, False)
+
+    def glicko(self, cmdtype, cmdname, args, target, user, room):
+        self.mmr_lookup(cmdtype, cmdname, args, target, user, room, True)
 
     def bracket(self, cmdtype, cmdname, args, target, user, room):
         # Check if the user can perform a bracket lookup
@@ -205,16 +209,12 @@ class PlayerRankPlugin(BasePlugin):
 
                 # Format the message
                 message = "{0} MMR bracket is {1}-{2}.".format(identifier, low, high)
-                
+
                 self._xmpp.send_message(cmdtype, target, message)
 
     def elo(self, cmdtype, cmdname, args, target, user, room):
         # Easter egg
         self._xmpp.send_message(cmdtype, target, "Fuck off. (use !mmr)")
-
-    def glicko(self, cmdtype, cmdname, args, target, user, room):
-        # Easter egg
-        self._xmpp.send_message(cmdtype, target, ":D :D :D")
 
 
 plugin = PlayerRankPlugin
