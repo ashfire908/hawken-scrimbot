@@ -84,6 +84,10 @@ class Cache:
                 # Other error, fail
                 logger.exception("Failed to read cache file!")
                 return False
+        except ValueError:
+            # Failed to parse and load JSON
+            logger.exception("Failed to load cache file! (Corrupt data?)")
+            return False
 
         self._cache.update(cache)
         cache_flag.commit()

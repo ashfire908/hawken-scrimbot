@@ -26,6 +26,8 @@ def bootstrap_logging(config):
             config_file.close()
     except IOError:
         log_config = default_logging()
+    except ValueError:
+        log_config = default_logging()
     else:
         try:
             log_config = config_data["bot"]["logging"]

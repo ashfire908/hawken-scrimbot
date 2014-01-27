@@ -60,6 +60,10 @@ class Config:
                 # Other error, fail
                 logger.exception("Failed to read config file!")
                 return False
+        except ValueError:
+            # Failed to parse and load JSON
+            logger.exception("Failed to load config file! (Corrupt data?)")
+            return False
 
         # Load in the config
         self._load_config(config)
