@@ -272,17 +272,19 @@ class SpectatorPlugin(BasePlugin):
             self._xmpp.send_message(cmdtype, target, "Missing target server.")
         else:
             # Get the server
-            server = self._api.get_server_by_name(args[0])
+            servers = self._api.get_server_by_name(args[0])
 
             # Check if the server exists
-            if server is False:
+            if servers is False:
                 self._xmpp.send_message(cmdtype, target, "Error: Failed to load server list.")
-            elif server is None:
+            elif len(servers) < 1:
                 self._xmpp.send_message(cmdtype, target, "Error: Could not find server '{0}'.".format(args[0]))
+            elif len(servers) > 1:
+                self._xmpp.send_message(cmdtype, target, "Error: Server '{0}' is ambiguous.".format(args[0]))
             else:
                 # Place the reservation
                 self._xmpp.send_message(cmdtype, target, "Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self._config.bot.command_prefix, self.name))
-                self.place_reservation(cmdtype, target, user, server["Guid"])
+                self.place_reservation(cmdtype, target, user, servers[0]["Guid"])
 
 
 plugin = SpectatorPlugin

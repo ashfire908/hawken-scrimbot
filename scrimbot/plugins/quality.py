@@ -66,10 +66,14 @@ class QualityPlugin(BasePlugin):
             # Check if this user is allowed to pick what server to check
             if self._config.plugins.quality.arbitrary_servers or self._permissions.user_check_group(user, "admin"):
                 # Load the server info by name
-                server_info = self._api.get_server_by_name(args[0])
+                servers = self._api.get_server_by_name(args[0])
 
-                if not server_info:
+                if len(servers) < 1:
                     return False, "No such server."
+                if len(servers) > 1:
+                    return False, "Server name is ambiguous."
+                else:
+                    server_info = servers[0]
             else:
                 return False, "Rankings for arbitrary servers are disabled."
         else:

@@ -181,7 +181,7 @@ class ScrimPlugin(BasePlugin):
                 self._xmpp.send_message(cmdtype, target, "Missing target party and/or server.")
                 return False, None, None
 
-            server = self._api.get_server_by_name(args[1])
+            servers = self._api.get_server_by_name(args[1])
             party = self.get_party(args[0])
         else:
             # This is a party
@@ -189,20 +189,22 @@ class ScrimPlugin(BasePlugin):
                 self._xmpp.send_message(cmdtype, target, "Missing target server.")
                 return False, None, None
 
-            server = self._api.get_server_by_name(args[0])
+            servers = self._api.get_server_by_name(args[0])
             party = self.get_party(room)
 
         # Check values given
-        if server is False:
+        if servers is False:
             self._xmpp.send_message(cmdtype, target, "Error: Failed to load server list.")
-        elif server is None:
+        elif len(servers) < 1:
             self._xmpp.send_message(cmdtype, target, "No such server.")
+        elif len(servers) > 1:
+            self._xmpp.send_message(cmdtype, target, "Error: Server name is ambiguous.")
         elif party is None:
             self._xmpp.send_message(cmdtype, target, "No such party.")
         elif party is False:
             self._xmpp.send_message(cmdtype, target, "Error: The party exists, but it is not managed by the scrim plugin.")
         else:
-            return True, server, party
+            return True, servers[0], party
         return False, None, None
 
     def create_party(self, name=None):
