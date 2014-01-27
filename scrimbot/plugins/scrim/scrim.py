@@ -2,6 +2,7 @@
 
 import time
 import logging
+import threading
 from hawkenapi.sleekxmpp.party import CancelCode
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
@@ -72,11 +73,15 @@ class ScrimPlugin(BasePlugin):
         self.unregister_command(CommandType.PARTY, "transfer")
 
     def connected(self):
+        def rejoin(party):
+            if not party.join():
+                party.active = False
+                logger.error("Failed to rejoin party {0}, marking inactive.".format(party.name or party.guid))
+
         # Rejoin parties
         for party in self.scrims.values():
-            if party.guid is not None:
-                party.join(party.guid)
-                party.messaage("Rejoined after getting disconnected, please restore leader status or tell me to leave.")
+            if party.active:
+                threading.Thread(target=rejoin, args=[party.join]).start()
 
         # Start cleanup thread
         self.register_task("cleanup_thread", self._config.plugins.scrim.cleanup_period, self.cleanup, repeat=True)
@@ -209,7 +214,7 @@ class ScrimPlugin(BasePlugin):
 
     def create_party(self, name=None):
         # Generate the guid (and name, if needed)
-        guid = ScrimParty.generate_guid()
+        guid = self._parties.generate_guid()
         if name is None:
             name = self._generate_name()
 
@@ -219,8 +224,9 @@ class ScrimPlugin(BasePlugin):
             return False
 
         # Create the party
-        party = self._parties.new(ScrimParty)
-        party.create(guid)
+        party = self._parties.new(ScrimParty, guid)
+        party.name = name
+        party.create()
 
         # Add the party to the list
         self.scrims[name] = party
@@ -248,7 +254,7 @@ class ScrimPlugin(BasePlugin):
         time_check = time.time() - self._config.plugins.scrim.cleanup_period
 
         # Check for empty parties
-        targets = [k for k, v in self.scrims.items() if len(v.players) == 0 and v.create_time < time_check]
+        targets = [k for k, v in self.scrims.items() if len(v.players) == 0 and v.join_time < time_check]
 
         if len(targets) > 0:
             # Purge all empty parties
@@ -321,7 +327,7 @@ class ScrimPlugin(BasePlugin):
             target_user, party = result[1:]
 
             # Check if we are the leader
-            if not party.is_leader():
+            if not party.is_leader:
                 self._xmpp.send_message(cmdtype, target, "Error: I am not the leader of the party.")
             # Check if we are kicking ourselves
             elif target_user == self._api.guid:
@@ -343,7 +349,7 @@ class ScrimPlugin(BasePlugin):
             server, party = result[1:]
 
             # Check if we are the leader
-            if not party.is_leader():
+            if not party.is_leader:
                 self._xmpp.send_message(cmdtype, target, "Error: I am not the leader of the party.")
             # Check that there are users to deploy
             elif len(party.players) < 1:
@@ -394,7 +400,7 @@ class ScrimPlugin(BasePlugin):
             party = result[1]
 
             # Check if we are the leader
-            if not party.is_leader():
+            if not party.is_leader:
                 self._xmpp.send_message(cmdtype, target, "Error: I am not the leader of the party.")
             elif party.abort(CancelCode.LEADERCANCEL):
                 if cmdtype == CommandType.PM:
@@ -410,7 +416,7 @@ class ScrimPlugin(BasePlugin):
             target_user, party = result[1:]
 
             # Check if we are the leader
-            if not party.is_leader():
+            if not party.is_leader:
                 self._xmpp.send_message(cmdtype, target, "Error: I am not the leader of the party.")
             # Check if the user is in the party
             elif target_user not in party.players:
