@@ -221,7 +221,7 @@ class SpectatorPlugin(BasePlugin):
             self._xmpp.send_message(cmdtype, target, "No saved server on file.")
         else:
             # Get the server info
-            server = self._api.get_server(self.saved_server_get(user))
+            server = self.saved_server_get(user)
 
             # Check if the server exists
             if server is None:
