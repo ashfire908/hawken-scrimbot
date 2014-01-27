@@ -2,6 +2,7 @@
 
 import logging
 import threading
+from scrimbot.cache import CacheDict
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
 from scrimbot.reservations import ReservationResult, ServerReservation
@@ -18,6 +19,9 @@ class SpectatorPlugin(BasePlugin):
         # Register config
         self.register_config("plugins.spectator.polling_limit", 30)
 
+        # Register cache
+        self.register_cache("spectators")
+
         # Register group
         self.register_group("spectator")
 
@@ -32,12 +36,12 @@ class SpectatorPlugin(BasePlugin):
         self.register_command(CommandType.PM, "renew", self.renew, flags=["permsreq"], permsreq=["admin", "spectator"])
         self.register_command(CommandType.PM, "clear", self.clear, flags=["permsreq"], permsreq=["admin", "spectator"])
 
-        # Setup reservation tracking
-        self.reservations = {}
-
     def disable(self):
         # Unregister config
         self.unregister_config("plugins.spectator.polling_limit")
+
+        # Unregister cache
+        self.unregister_cache("spectators")
 
         # Unregister group
         self.unregister_group("spectator")
@@ -54,30 +58,32 @@ class SpectatorPlugin(BasePlugin):
         self.unregister_command(CommandType.PM, "clear")
 
     def connected(self):
-        pass
+        # Delete all pending reservations (for cleanup on dirty restart/reload)
+        for user in self._cache["spectators"]:
+            self.reservation_delete(user)
 
     def disconnected(self):
         # Delete all pending reservations
-        for user in self.reservations:
+        for user in self._cache["spectators"]:
             self.reservation_delete(user)
 
     def reservation_init(self, user):
-        template = {
-            "reservation": None,
-            "saved": None
-        }
-        if not user in self.reservations:
-            self.reservations[user] = template
+        template = CacheDict()
+        template["reservation"] = None
+        template["saved"] = None
+
+        if not user in self._cache["spectators"]:
+            self._cache["spectators"][user] = template
 
     def reservation_has(self, user):
         try:
-            return self.reservations[user]["reservation"] is not None
+            return self._cache["spectators"][user]["reservation"] is not None
         except KeyError:
             return False
 
     def reservation_get(self, user):
         try:
-            return self.reservations[user]["reservation"]
+            return self._cache["spectators"][user]["reservation"]
         except KeyError:
             return False
 
@@ -88,13 +94,13 @@ class SpectatorPlugin(BasePlugin):
         # Clear the previous reservation
         self.reservation_delete(user)
 
-        self.reservations[user]["reservation"] = reservation
+        self._cache["spectators"][user]["reservation"] = reservation
 
     def reservation_delete(self, user):
         reservation = self.reservation_get(user)
         if reservation and reservation.created:
             reservation.cancel()
-            self.reservations[user]["reservation"] = None
+            self._cache["spectators"][user]["reservation"] = None
             return True
 
         return False
@@ -103,19 +109,19 @@ class SpectatorPlugin(BasePlugin):
         self.reservation_delete(user)
 
         try:
-            del self.reservations[user]
+            del self._cache["spectators"][user]
         except KeyError:
             pass
 
     def saved_server_has(self, user):
         try:
-            return self.reservations[user]["saved"] is not None
+            return self._cache["spectators"][user]["saved"] is not None
         except KeyError:
             return False
 
     def saved_server_get(self, user):
         try:
-            return self.reservations[user]["saved"]
+            return self._cache["spectators"][user]["saved"]
         except KeyError:
             return None
 
@@ -123,11 +129,11 @@ class SpectatorPlugin(BasePlugin):
         # Initialize the user data
         self.reservation_init(user)
 
-        self.reservations[user]["saved"] = server
+        self._cache["spectators"][user]["saved"] = server
 
     def saved_server_delete(self, user):
         try:
-            self.reservations[user]["saved"] = None
+            self._cache["spectators"][user]["saved"] = None
         except KeyError:
             pass
 
