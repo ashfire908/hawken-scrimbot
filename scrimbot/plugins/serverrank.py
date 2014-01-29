@@ -188,7 +188,7 @@ class ServerRankPlugin(BasePlugin):
                     else:
                         # Display stats
                         if not self._config.plugins.serverrank.show_minmax or \
-                           (self._config.plugins.serverrank.playerrank_integration and "playerrank" in self._plugins.active and self._plugins.active["playerrank"].user_overlimit(user)[0]):
+                           (self._config.plugins.serverrank.playerrank_integration and "playerrank" in self._plugins.active and self._plugins.active["playerrank"].user_overlimit(user)):
                             minmax = ""
                         else:
                             minmax = "Max MMR: {0[max]:.2f}, Min MMR: {0[min]:.2f}, ".format(mmr_info)
