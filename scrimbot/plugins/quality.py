@@ -135,7 +135,7 @@ class QualityPlugin(BasePlugin):
                 if player is None:
                     self._xmpp.send_message(cmdtype, target, "Error: Failed to load player stats.")
                 else:
-                    score, health, rating, details = calc_fitness(self._cache.globals, player, server_info)
+                    score, health, rating, details = calc_fitness(self._cache["globals"], player, server_info)
 
                     if self._config.plugins.quality.health_offset:
                         # Offset the health
@@ -174,7 +174,7 @@ class QualityPlugin(BasePlugin):
                 if player is None:
                     self._xmpp.send_message(cmdtype, target, "Error: Failed to load player stats.")
                 else:
-                    score, health, rating, details = calc_fitness(self._cache.globals, player, server_info)
+                    score, health, rating, details = calc_fitness(self._cache["globals"], player, server_info)
 
                     if self._config.plugins.quality.health_offset:
                         # Offset the health
