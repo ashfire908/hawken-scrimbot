@@ -245,7 +245,6 @@ def calc_fitness(globals_info, player, server):
     weight_level = int(globals_info["MMPilotLevelWeight"])
     min_matches = int(globals_info["NoobHandicapCutoff"])
     avg_level = int(server["DeveloperData"]["AveragePilotLevel"])
-    avg_rank = server["ServerRanking"]
 
     # Get threshold
     threshold = {}
@@ -262,7 +261,7 @@ def calc_fitness(globals_info, player, server):
 
     # Calculate score
     score = {}
-    score["rank"] = (avg_rank - rank) * weight_rank
+    score["rank"] = (server["ServerRanking"] - rank) * weight_rank
     score["level"] = (avg_level - int(player["Progress.Pilot.Level"])) * weight_level
     score["sum"] = sum(score.values())
 
@@ -270,7 +269,7 @@ def calc_fitness(globals_info, player, server):
     health = int((abs(score["sum"]) * 100) / threshold["sum"])
 
     # Calculate rating
-    if avg_level <= 0 or avg_rank <= 0:
+    if avg_level <= 0 or server["ServerRanking"] <= 0:
         rating = 3
     elif abs(score["sum"]) > threshold["sum"]:
         rating = 0
@@ -290,3 +289,12 @@ def calc_fitness(globals_info, player, server):
     }
 
     return score["sum"], health, rating, details
+
+
+def gen_composite_player(players, fields):
+    composite = {}
+
+    for field in fields:
+        composite[field] = math.fsum([user[field] for user in players]) / len(players)
+
+    return composite

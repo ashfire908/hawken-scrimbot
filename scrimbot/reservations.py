@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 
 import time
-import math
 import logging
 import threading
 import concurrent.futures
 from abc import ABCMeta, abstractmethod
 import hawkenapi.exceptions
-from scrimbot.util import enum
+from scrimbot.util import enum, gen_composite_player, calc_fitness
 
 logger = logging.getLogger(__name__)
 
@@ -211,19 +210,19 @@ class ServerReservation(BaseReservation):
         else:
             # Server is full
             if self.server["MaxUsers"] < (len(self.server["Users"]) + len(self.users)):
-                issues.append("Warning: Server is full ({0}/{1}) - reservation may fail!".format(len(self.server["Users"]), self.server["MaxUsers"]))
-            # Server outside the users's average rank
-            server_level = int(self.server["DeveloperData"]["AveragePilotLevel"])
-            if server_level > 0:
+                issues.append("Warning: Server does not have enough room for all players ({0}/{1}) - reservation may fail!".format(len(self.server["Users"]) + len(self.users), self.server["MaxUsers"]))
+            # Server outside the users's fitness range
+            if int(self.server["DeveloperData"]["AveragePilotLevel"]) > 0 and int(self.server["ServerRanking"]) > 0:
                 try:
                     data = self._api.get_user_stats(self.users)
                 except hawkenapi.exceptions.InvalidBatch:
                     # No use crying over spilled milk - just ignore the check
                     pass
                 else:
-                    pilot_level = int(math.fsum([int(user["Progress.Pilot.Level"]) for user in data]) / len(self.users))
-                    if pilot_level - int(self._cache["globals"]["MMPilotLevelRange"]) > server_level:
-                        issues.append("Warning: Server outside your skill level ({0} vs {1}) - reservation may fail!".format(pilot_level, server_level))
+                    composite = gen_composite_player(data, ("GameMode.All.TotalMatches", "MatchMaking.Rating", "Progress.Pilot.Level"))
+                    score, health, rating, details = calc_fitness(self._cache["globals"], composite, self.server)
+                    if rating == 0:
+                        issues.append("Warning: Server outside player fitness range ({0}) - reservation may fail!".format(health))
 
         return critical, issues
 
@@ -397,14 +396,20 @@ class SynchronizedServerReservation(SynchronizedReservation):
         self._config = config
         self._cache = cache
         self._api = api
-        self._server = server
 
-        self._user_groups = []
+        self.server = server
+        self.user_groups = []
+
+        # Grab the server info
+        self.server = self._api.get_server(server)
+        if self.server is None:
+            raise NoSuchServer("The specified server does not exist")
 
     @notcreated
     def add(self, users, party=None):
-        reservation = ServerReservation(self._config, self._cache, self._api, self._server, users, party)
+        reservation = ServerReservation(self._config, self._cache, self._api, self.server["Guid"], users, party)
         self._add(reservation)
+        self.user_groups.append(users)
 
     @notcreated
     def remove(self, users, party):
@@ -414,7 +419,38 @@ class SynchronizedServerReservation(SynchronizedReservation):
         critical = False
         issues = []
 
-        # TODO: Perform checks
+        user_count = sum([len(users) for users in self.user_groups])
+
+        # Check for critical issues
+        # Server is too small to hold the number of users
+        if self.server["MaxUsers"] < user_count:
+            issues.append("Error: There are too many users to fit into the server ({0}/{1}).".format(user_count, self.server["MaxUsers"]))
+            critical = True
+        # Check for warnings
+        else:
+            # Server is full
+            if self.server["MaxUsers"] < (len(self.server["Users"]) + user_count):
+                issues.append("Warning: Server does not have enough room for all players ({0}/{1}) - reservation may fail!".format(len(self.server["Users"]) + user_count, self.server["MaxUsers"]))
+            # Load fitness data
+            data = []
+            skip = False
+            for group in self.user_groups:
+                try:
+                    data.append(self._api.get_user_stats(group))
+                except hawkenapi.exceptions.InvalidBatch:
+                    # No use crying over spilled milk - just ignore the check
+                    skip = True
+                    break
+
+            if not skip:
+                composites = [gen_composite_player(group, ("GameMode.All.TotalMatches", "MatchMaking.Rating", "Progress.Pilot.Level")) for group in data]
+
+                # Server outside the group fitness level
+                if int(self.server["DeveloperData"]["AveragePilotLevel"]) > 0 and int(self.server["ServerRanking"]) > 0:
+                    for composite in composites:
+                        score, health, rating, details = calc_fitness(self._cache["globals"], composite, self.server)
+                        if rating == 0:
+                            issues.append("Warning: Server outside a group's fitness range ({0}) - reservation may fail!".format(health))
 
         return critical, issues
 
