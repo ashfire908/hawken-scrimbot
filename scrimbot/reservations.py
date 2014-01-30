@@ -4,6 +4,7 @@ import time
 import math
 import logging
 import threading
+import concurrent.futures
 from abc import ABCMeta, abstractmethod
 import hawkenapi.exceptions
 from scrimbot.util import enum
@@ -29,7 +30,7 @@ def created(f):
 
 def notcreated(f):
     def notcreate_required(self, *args, **kwargs):
-        if self.created is not None:
+        if self.created:
             raise ValueError("Reservation has already been created")
 
         return f(self, *args, **kwargs)
@@ -47,50 +48,58 @@ class BaseReservation(metaclass=ABCMeta):
         self.advertisement = None
         self.result = None
 
+        self._poll_lock = threading.RLock()
+        self._poll_thread = None
+
         self._canceled = threading.Event()
         self._deleted = threading.Event()
         self._finished = threading.Event()
 
-    def _poll(self, rate, limit):
+    def _poll(self, limit):
         try:
             # Start polling the advertisement
             poll = True
             start = time.time()
             while (time.time() - start) < limit:
-                # Check the advertisement
-                try:
-                    self.advertisement = self._api.get_advertisement(self.guid)
-                except hawkenapi.exceptions.RetryLimitExceeded:
-                    # Continue polling the advertisement
-                    pass
-                else:
+                with self._poll_lock:
                     # Check if the advertisement has been canceled
                     if self._canceled.is_set():
                         logger.debug("Reservation {0} has been canceled. Stopped polling.".format(self.guid))
                         self.result = ReservationResult.CANCELED
                         poll = False
                         break
-                    # Check if the advertisement still exists
-                    elif self.advertisement is None:
-                        # Couldn't find reservation
-                        logger.warning("Reservation {0} cannot be found! Stopped polling.".format(self.guid))
-                        self.result = ReservationResult.NOTFOUND
-                        poll = False
-                        break
-                    # Check if the reservation has been completed
-                    elif self.advertisement["ReadyToDeliver"]:
-                        # Ready
-                        self.result = ReservationResult.READY
-                        poll = False
-                        break
+                    else:
+                        # Check the advertisement
+                        try:
+                            self.advertisement = self._api.get_advertisement(self.guid)
+                        except hawkenapi.exceptions.RetryLimitExceeded:
+                            # Continue polling the advertisement
+                            pass
+                        else:
+                            # Check if the advertisement still exists
+                            if self.advertisement is None:
+                                # Couldn't find reservation
+                                logger.warning("Reservation {0} cannot be found! Stopped polling.".format(self.guid))
+                                self.result = ReservationResult.NOTFOUND
+                                poll = False
+                                break
+                            # Check if the reservation has been completed
+                            elif self.advertisement["ReadyToDeliver"]:
+                                # Ready
+                                self.result = ReservationResult.READY
+                                poll = False
+                                break
 
                 if poll:
                     # Wait a bit before checking again
-                    time.sleep(rate)
+                    time.sleep(self._poll_rate())
 
             # Check for a timeout
             if poll:
                 self.result = ReservationResult.TIMEOUT
+                self.delete()
+            # Check for any errors
+            elif self.result != ReservationResult.READY:
                 self.delete()
         except:
             self.result = ReservationResult.ERROR
@@ -100,17 +109,37 @@ class BaseReservation(metaclass=ABCMeta):
             self._finished.set()
 
     @abstractmethod
+    def _poll_rate(self):
+        pass
+
+    @abstractmethod
+    def _reserve(self):
+        pass
+
+    @abstractmethod
     def check(self):
         pass
 
     @notcreated
-    @abstractmethod
     def reserve(self, limit=None):
-        pass
+        if limit is None:
+            limit = self._config.api.advertisement.polling_limit
+
+        # Place the reservation
+        self.guid = self._reserve()
+
+        # Setup the polling thread
+        self._poll_thread = threading.Thread(target=self._poll, args=(limit, ))
 
     @created
     def poll(self, limit=None):
         if not self._finished.is_set():
+            # Check if the polling has started, and if not start it
+            if not self._poll_thread.is_alive():
+                with self._poll_lock:
+                    if not self._finished.is_set() and not self._poll_thread.is_alive():
+                        self._poll_thread.start()
+
             if limit is not None:
                 self._finished.wait(limit)
             else:
@@ -120,17 +149,19 @@ class BaseReservation(metaclass=ABCMeta):
 
     @created
     def cancel(self):
-        # Mark as canceled
-        self._canceled.set()
+        with self._poll_lock:
+            # Mark as canceled
+            self._canceled.set()
 
-        # Delete advertisement
-        self.delete()
+            # Delete advertisement
+            self.delete()
 
     @created
     def delete(self):
-        if self.guid is not None and not self._deleted.is_set():
-            self._api.delete_advertisement(self.guid)
-            self._deleted.set()
+        with self._poll_lock:
+            if self.guid is not None and not self._deleted.is_set():
+                self._api.delete_advertisement(self.guid)
+                self._deleted.set()
 
     @property
     def created(self):
@@ -161,6 +192,12 @@ class ServerReservation(BaseReservation):
         if self.server is None:
             raise NoSuchServer("The specified server does not exist")
 
+    def _poll_rate(self):
+        return self._config.api.advertisement.polling_rate.server
+
+    def _reserve(self):
+        return self._api.post_server_advertisement(self.server["GameVersion"], self.server["Region"], self.server["Guid"], self.users, self.party)
+
     def check(self):
         critical = False
         issues = []
@@ -190,17 +227,6 @@ class ServerReservation(BaseReservation):
 
         return critical, issues
 
-    def reserve(self, limit=None):
-        if limit is None:
-            limit = self._config.api.advertisement.polling_limit
-
-        # Place the reservation
-        self.guid = self._api.post_server_advertisement(self.server["GameVersion"], self.server["Region"], self.server["Guid"], self.users, self.party)
-
-        # Start polling the reservation
-        poll_thread = threading.Thread(target=self._poll, args=(self._config.api.advertisement.polling_rate.server, limit))
-        poll_thread.start()
-
 
 class MatchmakingReservation(BaseReservation):
     def __init__(self, config, cache, api, gameversion, region, users, gametype=None, party=None):
@@ -216,19 +242,185 @@ class MatchmakingReservation(BaseReservation):
         if len(self.users) < 1:
             raise ValueError("No users were given")
 
+    def _poll_rate(self):
+        return self._config.api.advertisement.polling_rate.matchmaking
+
+    def _reserve(self):
+        return self._api.post_matchmaking_advertisement(self.gameversion, self.region, self.gametype, self.users, self.party)
+
     def check(self):
         critical = False
         issues = []
 
+        # TODO: Perform checks
+
         return critical, issues
 
+
+class SynchronizedReservation(metaclass=ABCMeta):
+    def __init__(self):
+        self.reservations = []
+
+        self._created = threading.Event()
+
+    def _add(self, reservation):
+        if reservation in self.reservations:
+            raise ValueError("Reservation already added")
+
+        self.reservations.append(reservation)
+
+    def _remove(self, reservation):
+        self.reservations.remove(reservation)
+
+    @abstractmethod
+    def check(self):
+        pass
+
+    @notcreated
     def reserve(self, limit=None):
-        if limit is None:
-            limit = self._config.api.advertisement.polling_limit
+        # Mark as created
+        self._created.set()
 
-        # Place the reservation
-        self.guid = self._api.post_matchmaking_advertisement(self.gameversion, self.region, self.gametype, self.users, self.party)
+        # Setup a task pool
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(self.reservations)) as executor:
+            # Submit the tasks
+            reservations = {executor.submit(reservation.reserve, limit=limit): reservation for reservation in self.reservations}
 
-        # Start polling the reservation
-        poll_thread = threading.Thread(target=self._poll, args=(self._config.api.advertisemnet.polling_rate.matchmaking, limit))
-        poll_thread.start()
+            abort = False
+            exception = None
+
+            # Check the results as they come in
+            for future in concurrent.futures.as_completed(reservations):
+                try:
+                    # Check the result
+                    future.result()
+                except Exception as e:
+                    logger.exception("Exception while placing reservations.")
+
+                    # If this is the first exception, mark an abort and save the exception
+                    if not abort:
+                        abort = True
+                        exception = e
+
+            # Check if there was an exception
+            if abort:
+                # Delete the reservations and raise the exception
+                self.delete()
+                raise exception
+
+    @created
+    def poll(self, limit=None):
+        abort = False
+        return_code = ReservationResult.READY
+
+        # Setup a task pool
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(self.reservations)) as executor:
+            # Submit the tasks
+            reservations = {executor.submit(reservation.poll, limit=limit): reservation for reservation in self.reservations}
+
+            # Check the results as they come in
+            for future in concurrent.futures.as_completed(reservations):
+                # Check the result
+                try:
+                    code = future.result()
+                except:
+                    logger.exception("Exception while polling reservations.")
+
+                    self.cancel()
+                    raise
+
+                # Check if we already aborted
+                if abort:
+                    # Just throw away the result
+                    pass
+                else:
+                    # Check if the reservation was not successful
+                    if code != ReservationResult.READY:
+                        abort = True
+                        return_code = code
+                        self.cancel()
+
+        return return_code
+
+    @created
+    def cancel(self):
+        # Setup a task pool
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(self.reservations)) as executor:
+            # Submit the tasks
+            for reservation in self.reservations:
+                executor.submit(reservation.cancel)
+
+    @created
+    def delete(self):
+        # Setup a task pool
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(self.reservations)) as executor:
+            # Submit the tasks
+            for reservation in self.reservations:
+                executor.submit(reservation.delete)
+
+    @property
+    def created(self):
+        return self._created.is_set()
+
+    @property
+    def finished(self):
+        finished = False
+
+        for reservation in self.reservations:
+            if not reservation.finished:
+                return False
+            finished = True
+
+        return finished
+
+    @property
+    def deleted(self):
+        deleted = False
+
+        for reservation in self.reservations:
+            if not reservation.deleted:
+                return False
+            deleted = True
+
+        return deleted
+
+    @property
+    @abstractmethod
+    def advertisement(self):
+        pass
+
+
+class SynchronizedServerReservation(SynchronizedReservation):
+    def __init__(self, config, cache, api, server):
+        super().__init__()
+
+        self._config = config
+        self._cache = cache
+        self._api = api
+        self._server = server
+
+        self._user_groups = []
+
+    @notcreated
+    def add(self, users, party=None):
+        reservation = ServerReservation(self._config, self._cache, self._api, self._server, users, party)
+        self._add(reservation)
+
+    @notcreated
+    def remove(self, users, party):
+        raise NotImplementedError("Removing user groups is not implemented")
+
+    def check(self):
+        critical = False
+        issues = []
+
+        # TODO: Perform checks
+
+        return critical, issues
+
+    @property
+    def advertisement(self):
+        try:
+            return self.reservations[0].advertisement
+        except KeyError:
+            return None

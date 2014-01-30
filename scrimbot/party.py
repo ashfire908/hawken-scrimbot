@@ -3,6 +3,7 @@
 import logging
 import time
 import uuid
+from sleekxmpp.plugins.xep_0045.muc import MUCJoinTimeout, MUCJoinError
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ def notjoined(f):
 
 def requireleader(f):
     def leader_required(self, *args, **kwargs):
-        if not self.is_leader():
+        if not self.is_leader:
             raise ValueError("Not the leader of the party.")
 
         return f(self, *args, **kwargs)
@@ -38,17 +39,63 @@ def requireleader(f):
 
 
 class Party:
-    features = []
-
-    def __init__(self, party, config, api, cache, xmpp):
+    def __init__(self, party, config, api, cache, xmpp, guid):
+        # Register handlers
         self.parties = party
         self.config = config
         self.api = api
         self.cache = cache
         self.xmpp = xmpp
 
-        self.guid = None
-        self._init_party()
+        # Init party variables
+        self.guid = guid
+        self.name = None
+        self.features = set()
+
+        # Events
+        self.events = {"joined", "left", "online", "offline", "message"}
+        self.event_handlers = {}
+        for event in self.events:
+            self.event_handlers[event] = set()
+
+        # Init state
+        self._active = False
+        self.joined = False
+        self.players = set()
+        self.join_time = None
+
+    def __register_events(self):
+        self.xmpp.add_event_handler("muc::%s::joined" % self.room_jid, self.__handle_joined)
+        self.xmpp.add_event_handler("muc::%s::left" % self.room_jid, self.__handle_left)
+        self.xmpp.add_event_handler("muc::%s::presence" % self.room_jid, self.__handle_presence)
+        self.xmpp.add_event_handler("muc::%s::message" % self.room_jid, self.__handle_message)
+        self.xmpp.add_event_handler("session_end", self.__handle_session_end)
+
+    def __unregister_events(self):
+        self.xmpp.del_event_handler("muc::%s::joined" % self.room_jid, self.__handle_joined)
+        self.xmpp.del_event_handler("muc::%s::left" % self.room_jid, self.__handle_left)
+        self.xmpp.del_event_handler("muc::%s::presence" % self.room_jid, self.__handle_presence)
+        self.xmpp.del_event_handler("muc::%s::message" % self.room_jid, self.__handle_message)
+        self.xmpp.del_event_handler("session_end", self.__handle_session_end)
+
+    def __handle_joined(self, presence):
+        # Setup party state
+        self.joined = True
+        self.join_time = time.time()
+
+        # Trigger joined event
+        for handler in self.event_handlers["joined"]:
+            handler()
+
+    def __handle_left(self, presence):
+        # Reset party state
+        self.joined = False
+        self.players = set()
+        self.join_time = None
+
+        # Trigger left event
+        for handler in self.event_handlers["left"]:
+            handler()
 
     def __handle_presence(self, presence):
         # Ignore the bot
@@ -59,113 +106,141 @@ class Party:
             # Remove the player to the list
             self.players.remove(presence["muc"]["jid"].user)
 
-            # User is offline
-            self._handle_offline(presence)
+            # Trigger offline event
+            for handler in self.event_handlers["offline"]:
+                handler(presence)
         elif presence["muc"]["jid"].user not in self.players:
             # Add the player to the list
             self.players.add(presence["muc"]["jid"].user)
 
-            # User is online
-            self._handle_online(presence)
+            # Trigger online event
+            for handler in self.event_handlers["online"]:
+                handler(presence)
 
     def __handle_message(self, message):
         # Ignore the bot
-        if message["from"].resource != self._get_callsign():
+        if message["from"].resource == self.callsign:
             return
 
-        self._handle_message(message)
+        # Trigger message event
+        for handler in self.event_handlers["message"]:
+            handler(message)
 
     def __handle_session_end(self, event):
-        self._handle_session_end(event)
-
-    def _init_party(self):
+        # Reset party state
         self.joined = False
         self.players = set()
-        self.create_time = None
+        self.join_time = None
 
-    def _setup_party(self, party):
-        self.guid = party
-        self.create_time = time.time()
+        # Unregister events
+        self.__unregister_events()
 
-    def _room_jid(self):
+        # Trigger left event
+        for handler in self.event_handlers["left"]:
+            handler()
+
+    @property
+    def room_jid(self):
         return "{0}@{1}".format(self.guid, self.xmpp.party_server)
 
-    def _get_callsign(self):
-        return self.parties.get_callsign(self._room_jid())
+    @property
+    def callsign(self):
+        return self.parties.get_callsign(self.room_jid)
 
-    def _register_events(self):
-        self.xmpp.add_event_handler("muc::%s::presence" % self._room_jid(), self.__handle_presence)
-        self.xmpp.add_event_handler("muc::%s::message" % self._room_jid(), self.__handle_message)
-        self.xmpp.add_event_handler("session_end", self.__handle_session_end)
+    @property
+    def active(self):
+        return self._active
 
-    def _unregister_events(self):
-        self.xmpp.del_event_handler("muc::%s::presence" % self._room_jid(), self.__handle_presence)
-        self.xmpp.del_event_handler("muc::%s::message" % self._room_jid(), self.__handle_message)
-        self.xmpp.del_event_handler("session_end", self.__handle_session_end)
+    @active.setter
+    def active(self, value):
+        if value and not self._active:
+            # Register party
+            self.parties.register(self)
+        elif not value and self._active:
+            # Unregister party
+            self.parties.unregister(self)
 
-    def _handle_online(self, presence):
-        pass
+        self._active = value
 
-    def _handle_offline(self, presence):
-        pass
-
-    def _handle_message(self, message):
-        pass
-
-    def _handle_session_end(self, event):
+    @property
+    def is_leader(self):
         if self.joined:
-            # Leave the party
-            self.leave()
+            return self.get_leader() == self.callsign
+        else:
+            return False
+
+    @joined
+    def get_leader(self):
+        if joined:
+            return self.xmpp.plugin["hawken_party"].get_leader(self.room_jid)
+        else:
+            return None
+
+    @joined
+    @requireleader
+    def set_leader(self, user):
+        # Change the leader
+        self.xmpp.plugin["hawken_party"].set_leader(self.room_jid, self.xmpp.format_jid(user))
+
+    def register_feature(self, feature):
+        self.features.add(feature)
+
+    def unregister_feature(self, feature):
+        self.features.remove(feature)
+
+    def register_event(self, event, handler):
+        self.event_handlers[event].add(handler)
+
+    def unregister_event(self, event, handler):
+        self.event_handlers[event].remove(handler)
 
     @notjoined
-    def create(self, party):
-        # Init the party
-        self._setup_party(party)
+    def create(self):
+        # Register events
+        self.__register_events()
 
-        # Register events with the bot
-        self._register_events()
+        try:
+            # Create the party
+            self.xmpp.plugin["hawken_party"].create(self.room_jid, self.api.callsign)
+        except (MUCJoinTimeout, MUCJoinError):
+            # Unregister events
+            self.__unregister_events()
+            raise
 
-        # Create the party
-        self.xmpp.plugin["hawken_party"].create(self._room_jid(), self.api.callsign)
-
-        # Register with active parties
-        self.parties.register(self)
-
-        # Mark as joined
-        self.joined = True
+        # Mark as active
+        self.active = True
 
     @notjoined
-    def join(self, party):
-        # Init the party
-        self._setup_party(party)
+    def join(self):
+        # Register events
+        self.__register_events()
 
-        # Register events with the bot
-        self._register_events()
+        try:
+            # Join the party
+            self.xmpp.plugin["hawken_party"].join(self.room_jid, self.api.callsign)
+        except (MUCJoinTimeout, MUCJoinError):
+            # Unregister events
+            self.__unregister_events()
+            raise
 
-        # Join the party
-        self.xmpp.plugin["hawken_party"].join(self._room_jid(), self.api.callsign)
-
-        # Register with active parties
-        self.parties.register(self)
-
-        # Mark as joined
-        self.joined = True
+        # Mark as active
+        self.active = True
 
     @joined
     def leave(self):
-        # Remove from active parties
-        self.parties.unregister(self)
+        # Mark as inactive
+        self.active = False
 
         # Leave the party
-        self.xmpp.plugin["hawken_party"].leave(self._room_jid())
+        self.xmpp.plugin["hawken_party"].leave(self.room_jid)
 
-        # Reset the state
-        self._init_party()
+        # Unregister events
+        self.__unregister_events()
 
     @joined
     def message(self, message):
         # Send the message
-        self.xmpp.plugin["hawken_party"].message(self._room_jid(), self.xmpp.boundjid, message)
+        self.xmpp.plugin["hawken_party"].message(self.room_jid, self.xmpp.boundjid, message)
 
     @joined
     def invite(self, user):
@@ -173,7 +248,7 @@ class Party:
         callsign = self.cache.get_callsign(user)
 
         # Send the invite
-        self.xmpp.plugin["hawken_party"].invite(self._room_jid(), self.xmpp.boundjid, self.xmpp.format_jid(user), callsign)
+        self.xmpp.plugin["hawken_party"].invite(self.room_jid, self.xmpp.boundjid, self.xmpp.format_jid(user), callsign)
 
     @joined
     @requireleader
@@ -186,7 +261,7 @@ class Party:
         callsign = self.cache.get_callsign(user)
 
         # Send the kick
-        self.xmpp.plugin["hawken_party"].kick(self._room_jid(), callsign)
+        self.xmpp.plugin["hawken_party"].kick(self.room_jid, callsign)
 
     @joined
     @requireleader
@@ -196,7 +271,7 @@ class Party:
             raise ValueError("Cannot ban ourself from a party")
 
         # Send the ban
-        self.xmpp.plugin["hawken_party"].ban(self._room_jid(), user)
+        self.xmpp.plugin["hawken_party"].ban(self.room_jid, user)
 
     @joined
     @requireleader
@@ -206,25 +281,7 @@ class Party:
             raise ValueError("Cannot unban ourself from a party")
 
         # Send the unban
-        self.xmpp.plugin["hawken_party"].unban(self._room_jid(), user)
-
-    @joined
-    def is_leader(self):
-        return self.get_leader() == self._get_callsign()
-
-    @joined
-    def get_leader(self):
-        return self.xmpp.plugin["hawken_party"].get_leader(self._room_jid())
-
-    @joined
-    @requireleader
-    def set_leader(self, user):
-        # Change the leader
-        self.xmpp.plugin["hawken_party"].set_leader(self._room_jid(), self.xmpp.format_jid(user))
-
-    @staticmethod
-    def generate_guid():
-        return str(uuid.uuid4())
+        self.xmpp.plugin["hawken_party"].unban(self.room_jid, user)
 
 
 class PartyManager:
@@ -245,8 +302,8 @@ class PartyManager:
         except KeyError:
             pass
 
-    def new(self, party, *args, **kwargs):
-        return party(self, self.config, self.api, self.cache, self.xmpp, *args, **kwargs)
+    def new(self, party, guid):
+        return party(self, self.config, self.api, self.cache, self.xmpp, guid)
 
     def get_callsign(self, room):
         return self.xmpp.plugin["hawken_party"].get_callsign(room)
@@ -254,3 +311,7 @@ class PartyManager:
     @property
     def joined_rooms(self):
         return self.xmpp.plugin["hawken_party"].get_joined_rooms()
+
+    @staticmethod
+    def generate_guid():
+        return str(uuid.uuid4())
