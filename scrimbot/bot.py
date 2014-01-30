@@ -244,9 +244,6 @@ class ScrimBot:
             time.sleep(self.config.bot.roster_update_rate)
 
     def handle_session_start(self, event):
-        # Signal the plugins that we are connected
-        self.plugins.connected()
-
         # Handle the presence ourselves
         self.xmpp.auto_authorize = None
 
@@ -256,6 +253,9 @@ class ScrimBot:
 
         # Update the roster
         self.update_roster()
+
+        # Signal the plugins that we are connected
+        self.plugins.connected()
 
         # CROWBAR IS READY
         logger.info("Bot connected.")
