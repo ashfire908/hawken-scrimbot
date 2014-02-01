@@ -2,6 +2,7 @@
 
 import logging
 import threading
+from hawkenapi.exceptions import InvalidResponse
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
 from scrimbot.reservations import ReservationResult, ServerReservation
@@ -143,20 +144,27 @@ class SpectatorPlugin(BasePlugin):
         reservation = self.reservation_get(user)
 
         # Poll the reservation
-        result = reservation.poll()
-
-        # Handle the result
-        if result == ReservationResult.READY:
-            message = "\nReservation for server '{2}' complete.\nServer IP: {0}:{1}.\n\nUse '{3}{4} confirm' after joining the server, or '{3}{4} cancel' if you do not plan on joining the server."
-            self._xmpp.send_message(cmdtype, target, message.format(reservation.advertisement["AssignedServerIp"], reservation.advertisement["AssignedServerPort"], reservation.server["ServerName"], self._config.bot.command_prefix, self.name))
-        else:
+        try:
+            result = reservation.poll()
+        except InvalidResponse as e:
             self.reservation_delete(user)
-            if result == ReservationResult.TIMEOUT:
-                self._xmpp.send_message(cmdtype, target, "Time limit reached - reservation canceled.")
-            elif result == ReservationResult.NOTFOUND:
-                self._xmpp.send_message(cmdtype, target, "Error: Could not retrieve advertisement - expired? This is a bug - please report it!")
-            elif result == ReservationResult.ERROR:
-                self._xmpp.send_message(cmdtype, target, "Error: Failed to poll for reservation. This is a bug - please report it!")
+            self._xmpp.send_message(cmdtype, target, "Error: Reservation returned invalid response - {0}.".format(e))
+        except:
+            self.reservation_delete(user)
+            self._xmpp.send_message(cmdtype, target, "Error: Failed to poll for reservation. This is a bug - please report it!")
+        else:
+            # Handle the result
+            if result == ReservationResult.READY:
+                message = "\nReservation for server '{2}' complete.\nServer IP: {0}:{1}.\n\nUse '{3}{4} confirm' after joining the server, or '{3}{4} cancel' if you do not plan on joining the server."
+                self._xmpp.send_message(cmdtype, target, message.format(reservation.advertisement["AssignedServerIp"], reservation.advertisement["AssignedServerPort"], reservation.server["ServerName"], self._config.bot.command_prefix, self.name))
+            else:
+                self.reservation_delete(user)
+                if result == ReservationResult.TIMEOUT:
+                    self._xmpp.send_message(cmdtype, target, "Time limit reached - reservation canceled.")
+                elif result == ReservationResult.NOTFOUND:
+                    self._xmpp.send_message(cmdtype, target, "Error: Could not retrieve advertisement - expired? This is a bug - please report it!")
+                elif result == ReservationResult.ERROR:
+                    self._xmpp.send_message(cmdtype, target, "Error: Failed to poll for reservation. This is a bug - please report it!")
 
     def cancel(self, cmdtype, cmdname, args, target, user, room):
         # Delete the user's server reservation

@@ -51,6 +51,8 @@ class BaseReservation(metaclass=ABCMeta):
         self._poll_lock = threading.RLock()
         self._poll_thread = None
 
+        self._exception = None
+
         self._canceled = threading.Event()
         self._deleted = threading.Event()
         self._finished = threading.Event()
@@ -101,10 +103,10 @@ class BaseReservation(metaclass=ABCMeta):
             # Check for any errors
             elif self.result != ReservationResult.READY:
                 self.delete()
-        except:
+        except Exception as e:
             self.result = ReservationResult.ERROR
             self.delete()
-            raise
+            self._exception = e
         finally:
             self._finished.set()
 
@@ -144,6 +146,10 @@ class BaseReservation(metaclass=ABCMeta):
                 self._finished.wait(limit)
             else:
                 self._finished.wait()
+
+        # Raise the exception encountered during polling
+        if self.result == ReservationResult.ERROR:
+            raise self._exception
 
         return self.result
 
@@ -285,13 +291,12 @@ class SynchronizedReservation(metaclass=ABCMeta):
         # Mark as created
         self._created.set()
 
+        exception = None
+
         # Setup a task pool
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(self.reservations)) as executor:
             # Submit the tasks
             reservations = {executor.submit(reservation.reserve, limit=limit): reservation for reservation in self.reservations}
-
-            abort = False
-            exception = None
 
             # Check the results as they come in
             for future in concurrent.futures.as_completed(reservations):
@@ -301,20 +306,19 @@ class SynchronizedReservation(metaclass=ABCMeta):
                 except Exception as e:
                     logger.exception("Exception while placing reservations.")
 
-                    # If this is the first exception, mark an abort and save the exception
-                    if not abort:
-                        abort = True
+                    # If this is the first exception, save the exception and cancel the other reservations
+                    if exception is None:
                         exception = e
+                        self.delete()
 
-            # Check if there was an exception
-            if abort:
-                # Delete the reservations and raise the exception
-                self.delete()
-                raise exception
+        # Check if there was an exception
+        if exception is not None:
+            raise exception
 
     @created
     def poll(self, limit=None):
         abort = False
+        exception = None
         return_code = ReservationResult.READY
 
         # Setup a task pool
@@ -327,22 +331,24 @@ class SynchronizedReservation(metaclass=ABCMeta):
                 # Check the result
                 try:
                     code = future.result()
-                except:
+                except Exception as e:
                     logger.exception("Exception while polling reservations.")
+                    # If this is the first exception, mark as aborted, save the exception and cancel the other reservations
+                    if not abort:
+                        abort = True
+                        exception = e
+                        self.cancel()
 
-                    self.cancel()
-                    raise
-
-                # Check if we already aborted
-                if abort:
-                    # Just throw away the result
-                    pass
-                else:
+                # Check if we have aborted
+                if not abort:
                     # Check if the reservation was not successful
                     if code != ReservationResult.READY:
                         abort = True
                         return_code = code
                         self.cancel()
+
+        if exception is not None:
+            raise exception
 
         return return_code
 

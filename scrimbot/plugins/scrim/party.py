@@ -2,6 +2,7 @@
 
 import logging
 import threading
+from hawkenapi.exceptions import InvalidResponse
 from hawkenapi.sleekxmpp.party import CancelCode
 from scrimbot.command import CommandType
 from scrimbot.party import Party, joined, requireleader
@@ -167,18 +168,25 @@ class ScrimParty(Party):
 
     def _handle_deployment(self):
         # Poll the reservation
-        result = self.reservation.poll()
-
-        if result == ReservationResult.READY:
-            self._start_deployment()
-        elif result == ReservationResult.TIMEOUT:
-            self.abort(CancelCode.NOMATCH)
-        elif result == ReservationResult.NOTFOUND:
-            self.xmpp.send_message(CommandType.PARTY, self.room_jid, "Error: Could not retrieve advertisement - expired? This is a bug - please report it!")
+        try:
+            result = self.reservation.poll()
+        except InvalidResponse as e:
+            self.xmpp.send_message(CommandType.PARTY, self.room_jid, "Error: Reservation returned invalid response - {0}.".format(e))
             self.abort(CancelCode.PARTYCANCEL)
-        elif result == ReservationResult.ERROR:
+        except:
             self.xmpp.send_message(CommandType.PARTY, self.room_jid, "Error: Failed to poll for reservation. This is a bug - please report it!")
             self.abort(CancelCode.PARTYCANCEL)
+        else:
+            if result == ReservationResult.READY:
+                self._start_deployment()
+            elif result == ReservationResult.TIMEOUT:
+                self.abort(CancelCode.NOMATCH)
+            elif result == ReservationResult.NOTFOUND:
+                self.xmpp.send_message(CommandType.PARTY, self.room_jid, "Error: Could not retrieve advertisement - expired? This is a bug - please report it!")
+                self.abort(CancelCode.PARTYCANCEL)
+            elif result == ReservationResult.ERROR:
+                self.xmpp.send_message(CommandType.PARTY, self.room_jid, "Error: Failed to poll for reservation. This is a bug - please report it!")
+                self.abort(CancelCode.PARTYCANCEL)
 
     def leave(self):
         # Stop the matchmaking
