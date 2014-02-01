@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import itertools
 import time
 import logging
 import threading
@@ -186,10 +187,14 @@ class ServerReservation(BaseReservation):
         if len(self.users) < 1:
             raise ValueError("No users were given")
 
-        # Grab the server info
-        self.server = self._api.get_server(server)
-        if self.server is None:
-            raise NoSuchServer("The specified server does not exist")
+        if isinstance(server, str):
+            # Grab the server info
+            self.server = self._api.get_server(server)
+            if self.server is None:
+                raise NoSuchServer("The specified server does not exist")
+        else:
+            # Assume it's a server object
+            self.server = server
 
     def _poll_rate(self):
         return self._config.api.advertisement.polling_rate.server
@@ -400,14 +405,18 @@ class SynchronizedServerReservation(SynchronizedReservation):
         self.server = server
         self.user_groups = []
 
-        # Grab the server info
-        self.server = self._api.get_server(server)
-        if self.server is None:
-            raise NoSuchServer("The specified server does not exist")
+        if isinstance(server, str):
+            # Grab the server info
+            self.server = self._api.get_server(server)
+            if self.server is None:
+                raise NoSuchServer("The specified server does not exist")
+        else:
+            # Assume it's a server object
+            self.server = server
 
     @notcreated
     def add(self, users, party=None):
-        reservation = ServerReservation(self._config, self._cache, self._api, self.server["Guid"], users, party)
+        reservation = ServerReservation(self._config, self._cache, self._api, self.server, users, party)
         self._add(reservation)
         self.user_groups.append(users)
 
@@ -431,18 +440,18 @@ class SynchronizedServerReservation(SynchronizedReservation):
             # Server is full
             if self.server["MaxUsers"] < (len(self.server["Users"]) + user_count):
                 issues.append("Warning: Server does not have enough room for all players ({0}/{1}) - reservation may fail!".format(len(self.server["Users"]) + user_count, self.server["MaxUsers"]))
-            # Load fitness data
-            data = []
-            skip = False
-            for group in self.user_groups:
-                try:
-                    data.append(self._api.get_user_stats(group))
-                except hawkenapi.exceptions.InvalidBatch:
-                    # No use crying over spilled milk - just ignore the check
-                    skip = True
-                    break
 
-            if not skip:
+            # Load user data
+            try:
+                userdata = {user["Guid"]: user for user in self._api.get_user_stats(set(itertools.chain.from_iterable(self.user_groups)))}
+            except hawkenapi.exceptions.InvalidBatch:
+                # No use crying over spilled milk - just ignore the check
+                pass
+            else:
+                data = []
+                for group in self.user_groups:
+                    data.append([userdata[user] for user in group])
+
                 composites = [gen_composite_player(group, ("GameMode.All.TotalMatches", "MatchMaking.Rating", "Progress.Pilot.Level")) for group in data]
 
                 # Server outside the group fitness level

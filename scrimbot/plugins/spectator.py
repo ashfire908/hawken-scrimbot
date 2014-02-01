@@ -265,7 +265,7 @@ class SpectatorPlugin(BasePlugin):
             else:
                 # Place the reservation
                 self._xmpp.send_message(cmdtype, target, "Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self._config.bot.command_prefix, self.name))
-                self.place_reservation(cmdtype, target, user, servers[0]["Guid"])
+                self.place_reservation(cmdtype, target, user, servers[0])
 
 
 plugin = SpectatorPlugin

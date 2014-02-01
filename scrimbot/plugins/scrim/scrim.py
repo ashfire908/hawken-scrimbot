@@ -361,7 +361,7 @@ class ScrimPlugin(BasePlugin):
             else:
                 if len(party.players) > self._config.plugins.scrim.max_group_size:
                     # Create main reservation
-                    reservation = SynchronizedServerReservation(self._config, self._cache, self._api, server["Guid"])
+                    reservation = SynchronizedServerReservation(self._config, self._cache, self._api, server)
 
                     # Split party into groups
                     groups = chunks(list(party.players), self._config.plugins.scrim.max_group_size)
@@ -371,7 +371,7 @@ class ScrimPlugin(BasePlugin):
                         reservation.add(group, None)
                 else:
                     # Setup the reservation
-                    reservation = ServerReservation(self._config, self._cache, self._api, server["Guid"], list(party.players), party=None)
+                    reservation = ServerReservation(self._config, self._cache, self._api, server, list(party.players), party=None)
 
                 # Check for issues
                 critical, issues = reservation.check()
