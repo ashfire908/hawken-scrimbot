@@ -298,3 +298,11 @@ def gen_composite_player(players, fields):
         composite[field] = math.fsum([user[field] for user in players]) / len(players)
 
     return composite
+
+
+def get_bracket(number, bracket):
+    x = math.floor(number / bracket)
+    low = x * bracket
+    high = (x + 1) * bracket
+
+    return low, high
