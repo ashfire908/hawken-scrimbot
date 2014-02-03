@@ -4,7 +4,7 @@ import logging
 import hawkenapi.exceptions
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
-from scrimbot.util import mmr_stats
+from scrimbot.util import mmr_stats, get_bracket
 
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ class ServerRankPlugin(BasePlugin):
         self.register_config("plugins.serverrank.min_users", 2)
         self.register_config("plugins.serverrank.log_usage", False)
         self.register_config("plugins.serverrank.show_minmax", True)
-        self.register_config("plugins.serverrank.playerrank_integration", False)
+        self.register_config("plugins.serverrank.minmax_bracket", 100)
 
         # Register commands
         self.register_command(CommandType.ALL, "serverrank", self.server_rank)
@@ -35,7 +35,7 @@ class ServerRankPlugin(BasePlugin):
         self.unregister_config("plugins.serverrank.min_users")
         self.unregister_config("plugins.serverrank.log_usage")
         self.unregister_config("plugins.serverrank.show_minmax")
-        self.unregister_config("plugins.serverrank.playerrank_integration")
+        self.unregister_config("plugins.serverrank.minmax_bracket")
 
         # Unregister commands
         self.unregister_command(CommandType.ALL, "serverrank")
@@ -187,13 +187,18 @@ class ServerRankPlugin(BasePlugin):
                         self.record_usage(cmdname, False, server_info, mmr_info)
                     else:
                         # Display stats
-                        if not self._config.plugins.serverrank.show_minmax or \
-                           (self._config.plugins.serverrank.playerrank_integration and "playerrank" in self._plugins.active and self._plugins.active["playerrank"].user_overlimit(user)):
-                            minmax = ""
-                        else:
-                            minmax = "Max MMR: {0[max]:.2f}, Min MMR: {0[min]:.2f}, ".format(mmr_info)
+                        if self._config.plugins.serverrank.show_minmax:
+                            if self._config.plugins.serverrank.minmax_bracket == 0:
+                                minmax = "Min MMR: {0[min]:.2f}, Max MMR: {0[max]:.2f}, ".format(mmr_info)
+                            else:
+                                low = get_bracket(mmr_info["min"], self._config.plugins.serverrank.minmax_bracket)[0]
+                                high = get_bracket(mmr_info["max"], self._config.plugins.serverrank.minmax_bracket)[1]
 
-                        message = "MMR breakdown for {0[ServerName]}: Average MMR: {1[mean]:.2f}, {2}Standard deviation {1[stddev]:.3f}".format(server_info, mmr_info, minmax)
+                                minmax = "MMR Range: {0}-{1}, ".format(low, high)
+                        else:
+                            minmax = ""
+
+                        message = "MMR breakdown for {0[ServerName]}: Average MMR: {1[mean]:.2f}, {2}Standard deviation: {1[stddev]:.3f}".format(server_info, mmr_info, minmax)
                         self._xmpp.send_message(cmdtype, target, message)
 
                         # Log it
