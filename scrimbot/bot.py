@@ -305,7 +305,10 @@ class ScrimBot:
             pass
         # Log broadcast messages
         elif message["from"].bare == self.xmpp.boundjid.host:
-            logger.info("Emergency broadcast received: {0}".format(message["body"]))
+            if message["subject"]:
+                logger.info("Emergency broadcast received: [{0}] {1}".format(message["subject"], message["body"]))
+            else:
+                logger.info("Emergency broadcast received: {0}".format(message["body"]))
         # Drop messages from people not friends with
         elif not self.xmpp.has_jid(message["from"].bare):
             pass
