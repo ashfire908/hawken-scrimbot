@@ -303,6 +303,9 @@ class ScrimBot:
         # Drop messages that were sent while offline
         elif message["delay"]["text"] == "Offline Storage":
             pass
+        # Log broadcast messages
+        elif message["from"].bare == self.xmpp.boundjid.host:
+            logger.info("Emergency broadcast received: {0}".format(message["body"]))
         # Drop messages from people not friends with
         elif not self.xmpp.has_jid(message["from"].bare):
             pass
