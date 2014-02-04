@@ -61,9 +61,7 @@ class SpectatorPlugin(BasePlugin):
         self.unregister_command(CommandType.PM, "clear")
 
     def connected(self):
-        # Delete all pending reservations (for cleanup on dirty restart/reload)
-        for user in self.reservations:
-            self.reservation_delete(user)
+        pass
 
     def disconnected(self):
         # Delete all pending reservations
