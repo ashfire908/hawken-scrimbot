@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class ScrimParty(Party):
-    deploy_time = 12
+    deploy_time = 10
 
     def __init__(self, party, config, api, cache, xmpp, guid):
         super().__init__(party, config, api, cache, xmpp, guid)
