@@ -33,7 +33,7 @@ class InfoPlugin(BasePlugin):
     def botinfo(self, cmdtype, cmdname, args, target, user, room):
         message = """Hello, I am ScrimBot, the Hawken Scrim Bot. I do various competitive-related and utility functions. I am run by Ashfire908.
 
-If you need help with the bot, send a pm to Ashfire908 on the Hawken forums, talk to him on the #hawkenscrim IRC channel, or send an email to: scrimbot@hawkenwiki.com
+If you need help with the bot, send a pm to Ashfire908 on the Hawken forums, talk to him on the #hawkenscrim IRC channel on QuakeNet, or send an email to: scrimbot@hawkenwiki.com
 
 This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Meteor Entertainment."""
 

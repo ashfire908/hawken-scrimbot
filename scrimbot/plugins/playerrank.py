@@ -153,7 +153,7 @@ class PlayerRankPlugin(BasePlugin):
 
     def elo(self, cmdtype, cmdname, args, target, user, room):
         # Easter egg
-        self._xmpp.send_message(cmdtype, target, "Fuck off. (use !mmr)")
+        self._xmpp.send_message(cmdtype, target, "You think you're clever, eh?")
 
 
 plugin = PlayerRankPlugin

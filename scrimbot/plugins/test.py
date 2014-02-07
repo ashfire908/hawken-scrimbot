@@ -49,7 +49,7 @@ class TestPlugin(BasePlugin):
 
         # Check if we got a callsign back
         if callsign is None:
-            message = "Error: Failed to look up your callsign (corrupt account data?)"
+            message = "Error: Failed to look up your callsign."
         else:
             message = "You are '{0}'.".format(callsign)
 
@@ -103,6 +103,7 @@ class TestPlugin(BasePlugin):
             else:
                 # Send the message
                 self._xmpp.send_message(CommandType.PM, "{0}@{1}".format(guid, self._xmpp.boundjid.host), message)
+                self._xmpp.send_message(cmdtype, target, "Message sent.")
 
     def friends(self, cmdtype, cmdname, args, target, user, room):
         # Count the number of friends
@@ -121,7 +122,7 @@ class TestPlugin(BasePlugin):
         # Update the globals cache
 
         self._cache.globals_update()
-        self._xmpp.send_message(cmdtype, target, "Updated the cached globals.")
+        self._xmpp.send_message(cmdtype, target, "Updated globals cache.")
 
 
 plugin = TestPlugin
