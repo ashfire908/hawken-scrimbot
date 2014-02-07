@@ -4,7 +4,7 @@ import logging
 import hawkenapi.exceptions
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
-from scrimbot.util import mmr_stats, get_bracket
+from scrimbot.util import stat_analysis, get_bracket
 
 
 logger = logging.getLogger(__name__)
@@ -164,24 +164,19 @@ class ServerRankPlugin(BasePlugin):
                 except hawkenapi.exceptions.InvalidBatch:
                     self._xmpp.send_message(cmdtype, target, "Error: Failed to load player data.")
                 else:
-                    users = {}
-                    for user_data in data:
-                        try:
-                            mmr = user_data["MatchMaking.Rating"]
-                        except KeyError:
-                            # Handle a quirk of the API where users have no mmr
-                            mmr = None
-
-                        users[user_data["Guid"]] = {"mmr": mmr}
-
-                    min_users = self.min_users(server_info)
-                    ranked_users = len([x for x in users.values() if x["mmr"] is not None])
-
                     # Process stats
-                    mmr_info = mmr_stats(users)
+                    mmr_info = stat_analysis(data, "MatchMaking.Rating")
 
-                    if ranked_users < min_users and not self._permissions.user_check_group(user, "admin"):
-                        self._xmpp.send_message(cmdtype, target, "There needs to be {0} ranked players (i.e. have an MMR set) on the server to use this command - only {1} of the players are currently ranked.".format(min_users, ranked_users))
+                    # Check if we have enough players
+                    min_users = self.min_users(server_info)
+
+                    if not mmr_info:
+                        self._xmpp.send_message(cmdtype, target, "There are no ranked players on the server.")
+
+                        # Log it
+                        self.record_usage(cmdname, False, server_info)
+                    elif len(mmr_info["list"]) < min_users and not self._permissions.user_check_group(user, "admin"):
+                        self._xmpp.send_message(cmdtype, target, "There needs to be at least {0} ranked players on the server - only {1} of the players are currently ranked.".format(min_users, len(mmr_info["list"])))
 
                         # Log it
                         self.record_usage(cmdname, False, server_info, mmr_info)

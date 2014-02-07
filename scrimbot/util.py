@@ -209,33 +209,24 @@ def setup_logging(config):
     logging.config.dictConfig(config)
 
 
-def mmr_stats(users):
-    # TODO: Redo the loop so this isn't needed or such
-    users = deepcopy(users)
-    mmr = {}
+def stat_analysis(data, stat):
+    # Get the list of stats
+    stats = {"list": [item[stat] for item in data if stat in item and item[stat] is not None]}
 
-    # Calculate min/max/mean
-    mmr["list"] = [user["mmr"] for user in users.values() if user["mmr"] is not None]
-    if len(mmr["list"]) > 0:
-        mmr["max"] = max(mmr["list"])
-        mmr["min"] = min(mmr["list"])
-        mmr["mean"] = math.fsum(mmr["list"]) / len(mmr["list"])
-
-        # Process each user's stats
-        for user in users.values():
-            # Check if they have an mmr
-            if not user["mmr"] is None:
-                # Calculate the deviation
-                user["deviation"] = user["mmr"] - mmr["mean"]
+    if len(stats["list"]) > 0:
+        # Calculate min/max/mean
+        stats["max"] = max(stats["list"])
+        stats["min"] = min(stats["list"])
+        stats["mean"] = math.fsum(stats["list"]) / len(stats["list"])
 
         # Calculate standard deviation
-        stddev_list = [user["deviation"] ** 2 for user in users.values() if "deviation" in user]
+        stddev_list = [(item - stats["mean"]) ** 2 for item in stats["list"]]
         if len(stddev_list) > 0:
-            mmr["stddev"] = math.sqrt(math.fsum(stddev_list) / len(stddev_list))
+            stats["stddev"] = math.sqrt(math.fsum(stddev_list) / len(stddev_list))
 
-        return mmr
+        return stats
     else:
-        # Can't pull mmr out of thin air
+        # Can't pull stats out of thin air
         return False
 
 
