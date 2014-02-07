@@ -23,6 +23,8 @@ class AdminPlugin(BasePlugin):
         self.register_command(CommandType.PM, "unload", self.plugin_unload, flags=["permsreq"], permsreq=["admin"])
         self.register_command(CommandType.PM, "shutdown", self.shutdown, flags=["permsreq"], permsreq=["admin"])
         self.register_command(CommandType.PM, "config", self.config, flags=["permsreq"], permsreq=["admin"])
+        self.register_command(CommandType.PM, "friend", self.friend, flags=["permsreq"], permsreq=["admin"])
+        self.register_command(CommandType.PM, "unfriend", self.unfriend, flags=["permsreq"], permsreq=["admin"])
 
     def disable(self):
         # Unregister commands
@@ -37,6 +39,8 @@ class AdminPlugin(BasePlugin):
         self.unregister_command(CommandType.PM, "unload")
         self.unregister_command(CommandType.PM, "shutdown")
         self.unregister_command(CommandType.PM, "config")
+        self.unregister_command(CommandType.PM, "friend")
+        self.unregister_command(CommandType.PM, "unfriend")
 
     def connected(self):
         pass
@@ -234,5 +238,26 @@ class AdminPlugin(BasePlugin):
                     self._config[config] = value
                     self._xmpp.send_message(cmdtype, target, "Config value set.")
 
+    def friend(self, cmdtype, cmdname, args, target, user, room):
+        # Check arguments
+        if len(args) < 1:
+            self._xmpp.send_message(cmdtype, target, "Missing callsign.")
+        else:
+            guid = self._cache.get_guid(args[0])
+
+            if self._xmpp.add_jid(self._xmpp.format_jid(guid)):
+                self._xmpp.send_message(cmdtype, target, "Added {0} as a friend.".format(args[0]))
+            else:
+                self._xmpp.send_message(cmdtype, target, "{0} is already a friend!".format(args[0]))
+
+    def unfriend(self, cmdtype, cmdname, args, target, user, room):
+        # Check arguments
+        if len(args) < 1:
+            self._xmpp.send_message(cmdtype, target, "Missing callsign.")
+        else:
+            guid = self._cache.get_guid(args[0])
+
+            self._xmpp.remove_jid(self._xmpp.format_jid(guid))
+            self._xmpp.send_message(cmdtype, target, "Removed {0} as a friend.".format(args[0]))
 
 plugin = AdminPlugin

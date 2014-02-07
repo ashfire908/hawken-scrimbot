@@ -2,7 +2,6 @@
 
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
-from scrimbot.util import jid_user
 
 
 class TestPlugin(BasePlugin):
@@ -18,10 +17,7 @@ class TestPlugin(BasePlugin):
         self.register_command(CommandType.ALL, "callsign", self.callsign, flags=["hidden"])
         self.register_command(CommandType.ALL, "guid", self.guid, flags=["hidden"])
         self.register_command(CommandType.PM, "tell", self.tell, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "friends", self.friends, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "friendsnamed", self.friends_named, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "friendscount", self.friends_count, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "friendsonline", self.friends_online, flags=["permsreq"], permsreq=["admin"])
+        self.register_command(CommandType.PM, "friends", self.friends, flags=["hidden"])
         self.register_command(CommandType.PM, "updateglobals", self.update_globals, flags=["permsreq"], permsreq=["admin"])
 
     def disable(self):
@@ -33,9 +29,6 @@ class TestPlugin(BasePlugin):
         self.unregister_command(CommandType.ALL, "guid")
         self.unregister_command(CommandType.PM, "tell")
         self.unregister_command(CommandType.PM, "friends")
-        self.unregister_command(CommandType.PM, "friendsnamed")
-        self.unregister_command(CommandType.PM, "friendscount")
-        self.unregister_command(CommandType.PM, "friendsonline")
         self.unregister_command(CommandType.PM, "updateglobals")
 
     def connected(self):
@@ -43,12 +36,6 @@ class TestPlugin(BasePlugin):
 
     def disconnected(self):
         pass
-
-    def get_friends(self):
-        return [jid_user(jid) for jid in self._xmpp.roster_list() if self._xmpp.client_roster[jid]["subscription"] != "none"]
-
-    def get_online_friends(self):
-        return [jid_user(jid) for jid in self._xmpp.roster_list() if len(self._xmpp.client_roster[jid].resources) > 0]
 
     def test_exception(self, cmdtype, cmdname, args, target, user, room):
         raise Exception("Test Exception")
@@ -118,34 +105,17 @@ class TestPlugin(BasePlugin):
                 self._xmpp.send_message(CommandType.PM, "{0}@{1}".format(guid, self._xmpp.boundjid.host), message)
 
     def friends(self, cmdtype, cmdname, args, target, user, room):
-        # Get the friends list
-        friends = self.get_friends()
-        self._xmpp.send_message(cmdtype, target, "Friends list ({1}): {0}".format(", ".join(friends), len(friends)))
+        # Count the number of friends
+        count = 0
+        online = 0
+        for jid in self._xmpp.roster_list():
+            if self._xmpp.client_roster[jid]["subscription"] != "none":
+                count += 1
 
-    def friends_named(self, cmdtype, cmdname, args, target, user, room):
-        # Get the friends list
-        friends = self.get_friends()
+            if len(self._xmpp.client_roster[jid].resources) > 0:
+                online += 1
 
-        # Grab all the callsigns
-        names = []
-        for guid in friends:
-            callsign = self._cache.get_callsign(guid)
-            if callsign is None:
-                names.append(guid)
-            else:
-                names.append(callsign)
-
-        self._xmpp.send_message(cmdtype, target, "Friends list ({1}): {0}".format(", ".join(sorted(names, key=str.lower)), len(friends)))
-
-    def friends_count(self, cmdtype, cmdname, args, target, user, room):
-        # Get the friends list total
-        count = len(self.get_friends())
-        self._xmpp.send_message(cmdtype, target, "Current number of friends: {0}".format(count))
-
-    def friends_online(self, cmdtype, cmdname, args, target, user, room):
-        # Get the total number of online friends
-        count = len(self.get_online_friends())
-        self._xmpp.send_message(cmdtype, target, "Number of friends online: {0}".format(count))
+        self._xmpp.send_message(cmdtype, target, "Total friends: {0} Online Friends: {1}".format(count, online))
 
     def update_globals(self, cmdtype, cmdname, args, target, user, room):
         # Update the globals cache
