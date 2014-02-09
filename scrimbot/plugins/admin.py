@@ -74,7 +74,7 @@ class AdminPlugin(BasePlugin):
         # Looks ok!
         return True, callsign, guid, group
 
-    def authorize(self, cmdtype, cmdname, args, target, user, room):
+    def authorize(self, cmdtype, cmdname, args, target, user, party):
         # Verify arguments
         result = self.check_authorize_args(args, user)
 
@@ -90,7 +90,7 @@ class AdminPlugin(BasePlugin):
                 self._permissions.user_group_add(guid, group)
                 self._xmpp.send_message(cmdtype, target, "'{0}' has been added to the '{1}' group.".format(callsign, group))
 
-    def deauthorize(self, cmdtype, cmdname, args, target, user, room):
+    def deauthorize(self, cmdtype, cmdname, args, target, user, party):
         # Verify arguments
         result = self.check_authorize_args(args, user)
 
@@ -106,7 +106,7 @@ class AdminPlugin(BasePlugin):
                 self._permissions.user_group_remove(guid, group)
                 self._xmpp.send_message(cmdtype, target, "'{0}' has been removed from the '{1}' group.".format(callsign, group))
 
-    def group(self, cmdtype, cmdname, args, target, user, room):
+    def group(self, cmdtype, cmdname, args, target, user, party):
         # Check if we are looking up a specific group
         if len(args) > 0:
             group = args[0].lower()
@@ -127,7 +127,7 @@ class AdminPlugin(BasePlugin):
             # Display the groups
             self._xmpp.send_message(cmdtype, target, "Groups: {0}".format(", ".join(sorted(self._permissions.group_list()))))
 
-    def user_group(self, cmdtype, cmdname, args, target, user, room):
+    def user_group(self, cmdtype, cmdname, args, target, user, party):
         # Check if we have a specific user
         if len(args) > 0:
             callsign = args[0]
@@ -161,7 +161,7 @@ class AdminPlugin(BasePlugin):
         else:
             self._xmpp.send_message(cmdtype, target, "{0} not in any groups.".format(identifier))
 
-    def save_data(self, cmdtype, cmdname, args, target, user, room):
+    def save_data(self, cmdtype, cmdname, args, target, user, party):
         self._xmpp.send_message(cmdtype, target, "Saving bot config and cache.")
 
         # Save the current permissions, config, and cache
@@ -169,7 +169,7 @@ class AdminPlugin(BasePlugin):
         self._config.save()
         self._cache.save()
 
-    def plugin_load(self, cmdtype, cmdname, args, target, user, room):
+    def plugin_load(self, cmdtype, cmdname, args, target, user, party):
         # Check arguments
         if len(args) < 1:
             self._xmpp.send_message(cmdtype, target, "Missing plugin name.")
@@ -192,7 +192,7 @@ class AdminPlugin(BasePlugin):
                 else:
                     self._xmpp.send_message(cmdtype, target, "Error: Failed to load plugin. Please check the logs for more information.")
 
-    def plugin_unload(self, cmdtype, cmdname, args, target, user, room):
+    def plugin_unload(self, cmdtype, cmdname, args, target, user, party):
         # Check arguments
         if len(args) < 1:
             self._xmpp.send_message(cmdtype, target, "Missing plugin name.")
@@ -212,12 +212,12 @@ class AdminPlugin(BasePlugin):
                 else:
                     self._xmpp.send_message(cmdtype, target, "Error: Failed to unload plugin. Please check the logs for more information.")
 
-    def shutdown(self, cmdtype, cmdname, args, target, user, room):
+    def shutdown(self, cmdtype, cmdname, args, target, user, party):
         # Send out the confirm message immediately so it doesn't get lost in the shutdown
         self._xmpp.send_message(cmdtype, target, "Shutting down the bot.", now=True)
         self._client.shutdown()
 
-    def config(self, cmdtype, cmdname, args, target, user, room):
+    def config(self, cmdtype, cmdname, args, target, user, party):
         # Check arguments
         if len(args) < 1:
             self._xmpp.send_message(cmdtype, target, "Missing config name.")
@@ -238,7 +238,7 @@ class AdminPlugin(BasePlugin):
                     self._config[config] = value
                     self._xmpp.send_message(cmdtype, target, "Config value set.")
 
-    def friend(self, cmdtype, cmdname, args, target, user, room):
+    def friend(self, cmdtype, cmdname, args, target, user, party):
         # Check arguments
         if len(args) < 1:
             self._xmpp.send_message(cmdtype, target, "Missing callsign.")
@@ -250,7 +250,7 @@ class AdminPlugin(BasePlugin):
             else:
                 self._xmpp.send_message(cmdtype, target, "{0} is already a friend!".format(args[0]))
 
-    def unfriend(self, cmdtype, cmdname, args, target, user, room):
+    def unfriend(self, cmdtype, cmdname, args, target, user, party):
         # Check arguments
         if len(args) < 1:
             self._xmpp.send_message(cmdtype, target, "Missing callsign.")

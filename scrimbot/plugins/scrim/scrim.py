@@ -4,6 +4,7 @@ import time
 import logging
 import threading
 from hawkenapi.sleekxmpp.party import CancelCode
+from scrimbot.cache import CacheDict
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
 from scrimbot.plugins.scrim.party import ScrimParty, DeploymentState
@@ -24,18 +25,16 @@ class ScrimPlugin(BasePlugin):
         self.register_config("plugins.scrim.polling_limit", 30)
         self.register_config("plugins.scrim.max_group_size", 6)
 
+        # Register cache
+        self.register_cache("scrims")
+
         # Register group
         self.register_group("scrim")
 
         # Register commands
-        self.register_command(CommandType.PM, "create", self.party_create, flags=["permsreq"], permsreq=["admin", "scrim"])
         self.register_command(CommandType.PM, "list", self.party_list, flags=["permsreq"], permsreq=["admin", "scrim"])
-        self.register_command(CommandType.PM, "invite", self.party_invite, flags=["permsreq"], permsreq=["admin", "scrim"])
-        self.register_command(CommandType.PM, "kick", self.party_kick, flags=["permsreq"], permsreq=["admin", "scrim"])
-        self.register_command(CommandType.PM, "deploy", self.party_deploy, flags=["permsreq"], permsreq=["admin", "scrim"])
-        self.register_command(CommandType.PM, "cancel", self.party_cancel, flags=["permsreq"], permsreq=["admin", "scrim"])
-        self.register_command(CommandType.PM, "leave", self.party_leave, flags=["permsreq"], permsreq=["admin", "scrim"])
-        self.register_command(CommandType.PM, "transfer", self.party_transfer, flags=["permsreq"], permsreq=["admin", "scrim"], partyfeat=["scrim"])
+        self.register_command(CommandType.PM, "create", self.party_create, flags=["permsreq"], permsreq=["admin", "scrim"])
+        self.register_command(CommandType.PM, "join", self.party_join, flags=["permsreq"], permsreq=["admin", "scrim"])
         self.register_command(CommandType.PARTY, "invite", self.party_invite, flags=["permsreq", "partyfeat"], permsreq=["admin", "scrim"], partyfeat=["scrim"])
         self.register_command(CommandType.PARTY, "kick", self.party_kick, flags=["permsreq", "partyfeat"], permsreq=["admin", "scrim"], partyfeat=["scrim"])
         self.register_command(CommandType.PARTY, "deploy", self.party_deploy, flags=["permsreq", "partyfeat"], permsreq=["admin", "scrim"], partyfeat=["scrim"])
@@ -44,8 +43,11 @@ class ScrimPlugin(BasePlugin):
         self.register_command(CommandType.PARTY, "transfer", self.party_transfer, flags=["permsreq", "partyfeat"], permsreq=["admin", "scrim"], partyfeat=["scrim"])
 
         # Setup party tracking
-        self.scrims = {}
-        self.scrim_count = 1
+        if "parties" not in self._cache["scrims"]:
+            self.parties = CacheDict()
+
+        if "count" not in self._cache["scrims"]:
+            self.count = 1
 
     def disable(self):
         # Unregister config
@@ -53,18 +55,16 @@ class ScrimPlugin(BasePlugin):
         self.unregister_config("plugins.scrim.polling_limit")
         self.unregister_config("plugins.scrim.max_group_size")
 
+        # Unregister cache
+        self.unregister_cache("scrims")
+
         # Unregister group
         self.unregister_group("scrim")
 
         # Unregister commands
-        self.unregister_command(CommandType.PM, "create")
         self.unregister_command(CommandType.PM, "list")
-        self.unregister_command(CommandType.PM, "invite")
-        self.unregister_command(CommandType.PM, "kick")
-        self.unregister_command(CommandType.PM, "deploy")
-        self.unregister_command(CommandType.PM, "cancel")
-        self.unregister_command(CommandType.PM, "leave")
-        self.unregister_command(CommandType.PM, "transfer")
+        self.unregister_command(CommandType.PM, "create")
+        self.unregister_command(CommandType.PM, "join")
         self.unregister_command(CommandType.PARTY, "invite")
         self.unregister_command(CommandType.PARTY, "kick")
         self.unregister_command(CommandType.PARTY, "deploy")
@@ -73,15 +73,24 @@ class ScrimPlugin(BasePlugin):
         self.unregister_command(CommandType.PARTY, "transfer")
 
     def connected(self):
-        def rejoin(party):
+        def rejoin(self, guid, name):
+            party = self._parties.new(ScrimParty, guid, name)
+
             if not party.join():
-                party.active = False
-                logger.error("Failed to rejoin party {0}, marking inactive.".format(party.name or party.guid))
+                # Could not join
+                logger.error("Failed to rejoin party {0}.".format(party.name or party.guid))
+                del self._cache["scrims"]["parties"][guid]
+
+            if len(party.players) < 1:
+                # No one is in the party
+                party.leave()
+                logger.info("No one was in party {0} on rejoin; left party.".format(party.name or party.guid))
+                del self._cache["scrims"]["parties"][guid]
 
         # Rejoin parties
-        for party in self.scrims.values():
-            if party.active:
-                threading.Thread(target=rejoin, args=[party.join]).start()
+        for guid, party in self._cache["scrims"]["parties"].items():
+            if guid not in self._parties.active:
+                threading.Thread(target=rejoin, args=[self, guid, party["name"]]).start()
 
         # Start cleanup thread
         self.register_task("cleanup_thread", self._config.plugins.scrim.cleanup_period, self.cleanup, repeat=True)
@@ -90,9 +99,25 @@ class ScrimPlugin(BasePlugin):
         # Stop cleanup thread
         self.unregister_task("cleanup_thread")
 
+    @property
+    def parties(self):
+        return self._cache["scrims"]["parties"]
+
+    @parties.setter
+    def parties(self, value):
+        self._cache["scrims"]["parties"] = value
+
+    @property
+    def count(self):
+        return self._cache["scrims"]["count"]
+
+    @count.setter
+    def count(self, value):
+        self._cache["scrims"]["count"] = value
+
     def _generate_name(self):
-        name = "Scrim-{0}".format(self.scrim_count)
-        self.scrim_count += 1
+        name = "Scrim-{0}".format(self.count)
+        self.count += 1
 
         return name
 
@@ -104,232 +129,187 @@ class ScrimPlugin(BasePlugin):
         return False
 
     def _name_exists(self, name):
-        for _name in self.scrims:
-            if _name.lower() == name:
+        name = name.lower()
+        for party in self.parties.values():
+            if party["name"].lower() == name:
                 return True
 
         return False
 
-    def _get_party_id(self, identifier):
+    def check_party(self, party):
+        if "scrim" not in party.features:
+            return False
+        else:
+            return True
+
+    def get_party_guid(self, identifier):
         identifier = identifier.lower()
 
         # Look for party by name or guid
-        for name, party in self.scrims.items():
-            if name.lower() == identifier:
-                # Found party by name
-                return name
-            if party.guid == identifier:
+        for guid, party in self.parties.items():
+            if guid == identifier:
                 # Found party by guid
-                return name
-
-        # Look for party in all parties
-        for jid in self._xmpp.plugin["xep_0045"].getJoinedRooms():
-            if jid_user(jid) == identifier:
-                # The party exists, but it is not managed by this plugin.
-                return False
+                return guid
+            if party["name"].lower() == identifier:
+                # Found party by name
+                return guid
 
         # The party does not exist
         return None
 
-    def _handle_args_party(self, cmdtype, args, target, room):
-        # Check the arguments
-        if cmdtype == CommandType.PM:
-            if len(args) < 1:
-                self._xmpp.send_message(cmdtype, target, "Missing target party.")
-                return False, None
-
-            party = self.get_party(args[0])
+    def get_party(self, guid):
+        try:
+            party = self._parties.active[guid]
+        except KeyError:
+            return None
         else:
-            # This is a party
-            party = self.get_party(room)
+            if not self.check_party(party):
+                return False
+            else:
+                return party
 
-        # Check values given
-        if party is None:
-            self._xmpp.send_message(cmdtype, target, "No such party.")
-        elif party is False:
-            self._xmpp.send_message(cmdtype, target, "Error: The party exists, but it is not managed by the scrim plugin.")
-        else:
-            return True, party
-        return False, None
-
-    def _handle_args_party_user(self, cmdtype, args, target, room):
-        # Check the arguments
-        if cmdtype == CommandType.PM:
-            if len(args) < 2:
-                self._xmpp.send_message(cmdtype, target, "Missing target party and/or user.")
-                return False, None, None
-
-            target_user = self._cache.get_guid(args[1])
-            party = self.get_party(args[0])
-        else:
-            # This is a party
-            if len(args) < 1:
-                self._xmpp.send_message(cmdtype, target, "Missing target user.")
-                return False, None, None
-
-            target_user = self._cache.get_guid(args[0])
-            party = self.get_party(room)
-
-        # Check values given
-        if target_user is None:
-            self._xmpp.send_message(cmdtype, target, "No such user.")
-        elif party is None:
-            self._xmpp.send_message(cmdtype, target, "No such party.")
-        elif party is False:
-            self._xmpp.send_message(cmdtype, target, "Error: The party exists, but it is not managed by the scrim plugin.")
-        else:
-            return True, target_user, party
-        return False, None, None
-
-    def _handle_args_party_server(self, cmdtype, args, target, room):
-        # Check the arguments
-        if cmdtype == CommandType.PM:
-            if len(args) < 2:
-                self._xmpp.send_message(cmdtype, target, "Missing target party and/or server.")
-                return False, None, None
-
-            servers = self._api.get_server_by_name(args[1])
-            party = self.get_party(args[0])
-        else:
-            # This is a party
-            if len(args) < 1:
-                self._xmpp.send_message(cmdtype, target, "Missing target server.")
-                return False, None, None
-
-            servers = self._api.get_server_by_name(args[0])
-            party = self.get_party(room)
-
-        # Check values given
-        if servers is False:
-            self._xmpp.send_message(cmdtype, target, "Error: Failed to load server list.")
-        elif len(servers) < 1:
-            self._xmpp.send_message(cmdtype, target, "No such server.")
-        elif len(servers) > 1:
-            self._xmpp.send_message(cmdtype, target, "Error: Server name is ambiguous.")
-        elif party is None:
-            self._xmpp.send_message(cmdtype, target, "No such party.")
-        elif party is False:
-            self._xmpp.send_message(cmdtype, target, "Error: The party exists, but it is not managed by the scrim plugin.")
-        else:
-            return True, servers[0], party
-        return False, None, None
-
-    def create_party(self, name=None):
+    def create_party(self, name):
         # Generate the guid (and name, if needed)
         guid = self._parties.generate_guid()
-        if name is None:
-            name = self._generate_name()
 
         # Check if the party already exists
         assert not self._guid_exists(guid)
         if self._name_exists(name):
-            return False
+            return None
 
         # Create the party
-        party = self._parties.new(ScrimParty, guid)
-        party.name = name
-        party.create()
+        party = self._parties.new(ScrimParty, guid, name)
+        if party.create():
+            # Add the party to the list
+            self.parties[guid] = {"name": name}
 
-        # Add the party to the list
-        self.scrims[name] = party
+            return party
+        else:
+            return False
 
-        return name
+    def leave_party(self, guid):
+        try:
+            # Get the party
+            party = self._parties.active[guid]
 
-    def get_party(self, identifier):
-        # Get the party's guid
-        name = self._get_party_id(identifier)
+            # Check if this is our party
+            if self.check_party(party):
+                # Leave the party
+                party.leave()
+        except KeyError:
+            pass
 
-        if not name:
-            return name
-
-        return self.scrims[name]
-
-    def leave_party(self, identifier):
-        # Get the party's guid
-        name = self._get_party_id(identifier)
-
-        # Leave the party and delete it
-        self.scrims[name].leave()
-        del self.scrims[name]
+        try:
+            # Purge the party from the list
+            del self.parties[guid]
+        except KeyError:
+            pass
 
     def cleanup(self):
         time_check = time.time() - self._config.plugins.scrim.cleanup_period
 
-        # Check for empty parties
-        targets = [k for k, v in self.scrims.items() if len(v.players) == 0 and v.join_time < time_check]
+        # Check for parties to cleanup
+        targets = []
+        for guid in self.parties:
+            try:
+                party = self._parties.active[guid]
+            except KeyError:
+                # Party does not actually exist, purge it
+                targets.append(guid)
+            else:
+                if len(party.players) == 0 and party.join_time < time_check:
+                    # Party is empty, purge it
+                    targets.append(guid)
 
         if len(targets) > 0:
-            # Purge all empty parties
-            logger.info("Purging {0} empty parties.".format(len(targets)))
-            for name in targets:
-                self.leave_party(name)
+            # Purge all targeted parties
+            logger.debug("Purging {0} empty partie(s).".format(len(targets)))
+            for guid in targets:
+                self.leave_party(guid)
 
-    def party_list(self, cmdtype, cmdname, args, target, user, room):
-        if len(self.scrims) > 0:
-            self._xmpp.send_message(cmdtype, target, "Current parties: {0}".format(", ".join(self.scrims)))
+    def party_list(self, cmdtype, cmdname, args, target, user, party):
+        if len(self.parties) > 0:
+            self._xmpp.send_message(cmdtype, target, "Current scrims: {0}".format(", ".join([v["name"] for v in self.parties.values()])))
         else:
-            self._xmpp.send_message(cmdtype, target, "There are no active parties.")
+            self._xmpp.send_message(cmdtype, target, "There are no active scrims.")
 
-    def party_create(self, cmdtype, cmdname, args, target, user, room):
+    def party_create(self, cmdtype, cmdname, args, target, user, party):
         # Check the arguments
         if len(args) > 0:
             name = args[0]
         else:
-            name = None
+            name = self._generate_name()
 
         # Create a party
-        party_name = self.create_party(name)
-        if not party_name:
+        party = self.create_party(name)
+        if party is None:
             # Party already exists
-            self._xmpp.send_message(cmdtype, target, "Error: Party already exists!")
+            self._xmpp.send_message(cmdtype, target, "Error: Party already exists.")
+        elif party is False:
+            # Party already exists
+            self._xmpp.send_message(cmdtype, target, "Error: Failed to create party.")
         else:
             # Party created
-            self._xmpp.send_message(cmdtype, target, "Created new party '{0}'. Inviting you to it...".format(party_name))
+            self._xmpp.send_message(cmdtype, target, "Created new party '{0}'. Inviting you to it...".format(party.name))
+
             # Invite the user
-            self.get_party(party_name).invite(user)
+            party.invite(user)
 
-    def party_leave(self, cmdtype, cmdname, args, target, user, room):
+    def party_join(self, cmdtype, cmdname, args, target, user, party):
         # Check the arguments
-        result = self._handle_args_party(cmdtype, args, target, room)
+        if len(args) < 1:
+            self._xmpp.send_message(cmdtype, target, "Missing target scrim.")
+        else:
+            # Get the party
+            party = self.get_party_guid(args[0])
+            if party:
+                party = self.get_party(party)
 
-        if result[0]:
-            party = result[1]
-
-            if cmdtype == CommandType.PM:
-                self._xmpp.send_message(cmdtype, target, "Leaving the party.")
+            # Check if the party exists
+            if not party:
+                self._xmpp.send_message(cmdtype, target, "Error: Party does not exist.")
+            # Check the party state
+            elif party.state == DeploymentState.DEPLOYED:
+                self._xmpp.send_message(cmdtype, target, "Error: Party has already been deployed.")
             else:
-                self._xmpp.send_message(cmdtype, target, "Leaving the party, have a nice day.")
+                # Invite the user
+                party.invite(user)
 
-            self.leave_party(party.guid)
-
-    def party_invite(self, cmdtype, cmdname, args, target, user, room):
+    def party_invite(self, cmdtype, cmdname, args, target, user, party):
         # Check the arguments
-        result = self._handle_args_party_user(cmdtype, args, target, room)
+        if len(args) < 1:
+            self._xmpp.send_message(cmdtype, target, "Missing target user.")
+        else:
+            target_user = self._cache.get_guid(args[0])
 
-        if result[0]:
-            target_user, party = result[1:]
-
-            # Check party state
-            if party.state == DeploymentState.DEPLOYED:
-                self._xmpp.send_message(cmdtype, target, "Error: Players cannot be invited after the party has been deployed.")
+            # Check if the user exists
+            if target_user is None:
+                self._xmpp.send_message(cmdtype, target, "Error: No such user.")
+            # Check the party state
+            elif party.state == DeploymentState.DEPLOYED:
+                self._xmpp.send_message(cmdtype, target, "Error: Players cannot be invited after the scrim has been deployed.")
+            # Check if the user is in the party
+            elif target_user in party.players:
+                self._xmpp.send_message(cmdtype, target, "{0} is already in the party.".format(args[0]))
             else:
                 if party.state != DeploymentState.IDLE:
                     self._xmpp.send_message(cmdtype, target, "Warning: Party is currently matchmaking.")
 
                 # Send an invite to the target
                 party.invite(target_user)
-                if cmdtype == CommandType.PM:
-                    self._xmpp.send_message(cmdtype, target, "Invited {0} to the party.".format(self._cache.get_callsign(target_user)))
 
-    def party_kick(self, cmdtype, cmdname, args, target, user, room):
+    def party_kick(self, cmdtype, cmdname, args, target, user, party):
         # Check the arguments
-        result = self._handle_args_party_user(cmdtype, args, target, room)
+        if len(args) < 1:
+            self._xmpp.send_message(cmdtype, target, "Missing target user.")
+        else:
+            target_user = self._cache.get_guid(args[0])
 
-        if result[0]:
-            target_user, party = result[1:]
-
+            # Check if the user exists
+            if target_user is None:
+                self._xmpp.send_message(cmdtype, target, "Error: No such user.")
             # Check if we are the leader
-            if not party.is_leader:
+            elif not party.is_leader:
                 self._xmpp.send_message(cmdtype, target, "Error: I am not the leader of the party.")
             # Check if we are kicking ourselves
             elif target_user == self._api.guid:
@@ -340,28 +320,33 @@ class ScrimPlugin(BasePlugin):
             else:
                 # Kick the player from the party
                 party.kick(target_user)
-                if cmdtype == CommandType.PM:
-                    self._xmpp.send_message(cmdtype, target, "{0} has been kicked from the party.".format(self._cache.get_callsign(target_user)))
 
-    def party_deploy(self, cmdtype, cmdname, args, target, user, room):
+    def party_deploy(self, cmdtype, cmdname, args, target, user, party):
         # Check the arguments
-        result = self._handle_args_party_server(cmdtype, args, target, room)
+        if len(args) < 1:
+            self._xmpp.send_message(cmdtype, target, "Missing target server.")
+        # Check if we are the leader
+        elif not party.is_leader:
+            self._xmpp.send_message(cmdtype, target, "Error: I am not the leader of the party.")
+        else:
+            servers = self._api.get_server_by_name(args[0])
 
-        if result[0]:
-            server, party = result[1:]
-
-            # Check if we are the leader
-            if not party.is_leader:
-                self._xmpp.send_message(cmdtype, target, "Error: I am not the leader of the party.")
-            # Check that there are users to deploy
+            # Check the given server
+            if servers is False:
+                self._xmpp.send_message(cmdtype, target, "Error: Failed to load server list.")
+            elif len(servers) < 1:
+                self._xmpp.send_message(cmdtype, target, "No such server.")
+            elif len(servers) > 1:
+                self._xmpp.send_message(cmdtype, target, "Error: Server name is ambiguous.")
+            # Check how many users are being deployed
             elif len(party.players) < 1:
                 self._xmpp.send_message(cmdtype, target, "Error: There are no users in the party to deploy.")
-            elif len(party.players) > server["MaxUsers"]:
+            elif len(party.players) > servers[0]["MaxUsers"]:
                 self._xmpp.send_message(cmdtype, target, "Error: The party is too large to fit on the server.")
             else:
                 if len(party.players) > self._config.plugins.scrim.max_group_size:
                     # Create main reservation
-                    reservation = SynchronizedServerReservation(self._config, self._cache, self._api, server)
+                    reservation = SynchronizedServerReservation(self._config, self._cache, self._api, servers[0])
 
                     # Split party into groups
                     groups = chunks(list(party.players), self._config.plugins.scrim.max_group_size)
@@ -371,63 +356,61 @@ class ScrimPlugin(BasePlugin):
                         reservation.add(group, None)
                 else:
                     # Setup the reservation
-                    reservation = ServerReservation(self._config, self._cache, self._api, server, list(party.players), party=None)
+                    reservation = ServerReservation(self._config, self._cache, self._api, servers[0], list(party.players), party=None)
 
                 # Check for issues
                 critical, issues = reservation.check()
 
+                # Display issues
                 for issue in issues:
                     self._xmpp.send_message(cmdtype, target, issue)
 
                 if critical:
                     return
 
-                # Notify deployment
-                if cmdtype == CommandType.PM:
-                    self._xmpp.send_message(cmdtype, target, "Deploying to server... '{0}scrim cancel {1}' to abort.".format(self._config.bot.command_prefix, args[0]))
-
                 # Place the reservation
                 reservation.reserve(limit=self._config.plugins.scrim.polling_limit)
 
                 try:
+                    # Deploy the party
                     party.deploy(reservation)
                 except ValueError:
+                    # Cancel the reservation
                     reservation.cancel()
 
-    def party_cancel(self, cmdtype, cmdname, args, target, user, room):
+    def party_cancel(self, cmdtype, cmdname, args, target, user, party):
+        # Check if we are the leader
+        if not party.is_leader:
+            self._xmpp.send_message(cmdtype, target, "Error: I am not the leader of the party.")
+        # Abort the deployment
+        elif not party.abort(CancelCode.LEADERCANCEL):
+            # Could not abort
+            self._xmpp.send_message(cmdtype, target, "Party is not deploying - nothing to cancel.")
+
+    def party_leave(self, cmdtype, cmdname, args, target, user, party):
+        self._xmpp.send_message(cmdtype, target, "Leaving the party, have a nice day.")
+
+        party.abort(CancelCode.LEADERCHANGE)
+        self.leave_party(party.guid)
+
+    def party_transfer(self, cmdtype, cmdname, args, target, user, party):
         # Check the arguments
-        result = self._handle_args_party(cmdtype, args, target, room)
+        if len(args) < 1:
+            self._xmpp.send_message(cmdtype, target, "Missing target user.")
+        else:
+            target_user = self._cache.get_guid(args[0])
 
-        if result[0]:
-            party = result[1]
-
-            # Check if we are the leader
-            if not party.is_leader:
-                self._xmpp.send_message(cmdtype, target, "Error: I am not the leader of the party.")
-            elif party.abort(CancelCode.LEADERCANCEL):
-                if cmdtype == CommandType.PM:
-                    self._xmpp.send_message(cmdtype, target, "Canceled party deployment.")
-            else:
-                self._xmpp.send_message(cmdtype, target, "Party is not deploying - nothing to cancel.")
-
-    def party_transfer(self, cmdtype, cmdname, args, target, user, room):
-        # Check the arguments
-        result = self._handle_args_party_user(cmdtype, args, target, room)
-
-        if result[0]:
-            target_user, party = result[1:]
-
-            # Check if we are the leader
-            if not party.is_leader:
-                self._xmpp.send_message(cmdtype, target, "Error: I am not the leader of the party.")
+            # Check if the user exists
+            if target_user is None:
+                self._xmpp.send_message(cmdtype, target, "Error: No such user.")
             # Check if the user is in the party
             elif target_user not in party.players:
-                self._xmpp.send_message(cmdtype, target, "{0} is not in the party.".format(self._cache.get_callsign(target_user)))
+                self._xmpp.send_message(cmdtype, target, "{0} is not in the party.".format(args[0]))
+            # Check if we are the leader
+            elif not party.is_leader:
+                self._xmpp.send_message(cmdtype, target, "Error: I am not the leader of the party.")
             else:
-                if cmdtype == CommandType.PM:
-                    self._xmpp.send_message(cmdtype, target, "Transfering control over to {0} and leaving the party.".format(self._cache.get_callsign(target_user)))
-                else:
-                    self._xmpp.send_message(cmdtype, target, "Transfering control over to {0}. Have a nice day.".format(self._cache.get_callsign(target_user)))
+                self._xmpp.send_message(cmdtype, target, "Transfering control over to {0}. Have a nice day.".format(self._cache.get_callsign(target_user)))
 
                 party.set_leader(target_user)
                 self.leave_party(party.guid)

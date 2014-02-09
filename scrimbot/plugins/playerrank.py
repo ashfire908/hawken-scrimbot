@@ -94,7 +94,7 @@ class PlayerRankPlugin(BasePlugin):
             # Increment the usage
             self._cache["mmr_usage"][user].append(time.time())
 
-    def mmr(self, cmdtype, cmdname, args, target, user, room):
+    def mmr(self, cmdtype, cmdname, args, target, user, party):
         # Check if the user can perform a mmr lookup
         if self._config.plugins.playerrank.restricted.mmr and not self._permissions.user_check_groups(user, ("admin", "mmr")):
             self._xmpp.send_message(cmdtype, target, "Access to looking up a player's MMR is restricted.")
@@ -151,7 +151,7 @@ class PlayerRankPlugin(BasePlugin):
 
                 self._xmpp.send_message(cmdtype, target, message)
 
-    def elo(self, cmdtype, cmdname, args, target, user, room):
+    def elo(self, cmdtype, cmdname, args, target, user, party):
         # Easter egg
         self._xmpp.send_message(cmdtype, target, "You think you're clever, eh?")
 

@@ -114,7 +114,7 @@ class ServerRankPlugin(BasePlugin):
 
         return True, None
 
-    def server_rank(self, cmdtype, cmdname, args, target, user, room):
+    def server_rank(self, cmdtype, cmdname, args, target, user, party):
         # Get the server info
         result = self.load_server_info(args, user)
 
@@ -138,7 +138,7 @@ class ServerRankPlugin(BasePlugin):
                 message = "Ranking info for {0[ServerName]}: MMR Average: {0[ServerRanking]}, Average Pilot Level: {0[DeveloperData][AveragePilotLevel]}".format(server_info)
                 self._xmpp.send_message(cmdtype, target, message)
 
-    def server_rank_detailed(self, cmdtype, cmdname, args, target, user, room):
+    def server_rank_detailed(self, cmdtype, cmdname, args, target, user, party):
         # Get the server info
         result = self.load_server_info(args, user)
 

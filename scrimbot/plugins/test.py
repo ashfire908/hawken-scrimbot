@@ -37,13 +37,13 @@ class TestPlugin(BasePlugin):
     def disconnected(self):
         pass
 
-    def test_exception(self, cmdtype, cmdname, args, target, user, room):
+    def test_exception(self, cmdtype, cmdname, args, target, user, party):
         raise Exception("Test Exception")
 
-    def hammertime(self, cmdtype, cmdname, args, target, user, room):
+    def hammertime(self, cmdtype, cmdname, args, target, user, party):
         self._xmpp.send_message(cmdtype, target, "STOP! HAMMER TIME!")
 
-    def whoami(self, cmdtype, cmdname, args, target, user, room):
+    def whoami(self, cmdtype, cmdname, args, target, user, party):
         # Get the callsign
         callsign = self._cache.get_callsign(user)
 
@@ -55,7 +55,7 @@ class TestPlugin(BasePlugin):
 
         self._xmpp.send_message(cmdtype, target, message)
 
-    def callsign(self, cmdtype, cmdname, args, target, user, room):
+    def callsign(self, cmdtype, cmdname, args, target, user, party):
         # Check args
         if len(args) < 1:
             self._xmpp.send_message(cmdtype, target, "Missing target user guid.")
@@ -71,7 +71,7 @@ class TestPlugin(BasePlugin):
 
             self._xmpp.send_message(cmdtype, target, message)
 
-    def guid(self, cmdtype, cmdname, args, target, user, room):
+    def guid(self, cmdtype, cmdname, args, target, user, party):
         # Check args
         if len(args) < 1:
             self._xmpp.send_message(cmdtype, target, "Missing target user callsign.")
@@ -87,7 +87,7 @@ class TestPlugin(BasePlugin):
 
             self._xmpp.send_message(cmdtype, target, message)
 
-    def tell(self, cmdtype, cmdname, args, target, user, room):
+    def tell(self, cmdtype, cmdname, args, target, user, party):
         # Check the arguments
         if len(args) < 2:
             self._xmpp.send_message(cmdtype, target, "Missing target user and/or message.")
@@ -105,7 +105,7 @@ class TestPlugin(BasePlugin):
                 self._xmpp.send_message(CommandType.PM, "{0}@{1}".format(guid, self._xmpp.boundjid.host), message)
                 self._xmpp.send_message(cmdtype, target, "Message sent.")
 
-    def friends(self, cmdtype, cmdname, args, target, user, room):
+    def friends(self, cmdtype, cmdname, args, target, user, party):
         # Count the number of friends
         count = 0
         online = 0
@@ -118,7 +118,7 @@ class TestPlugin(BasePlugin):
 
         self._xmpp.send_message(cmdtype, target, "Total friends: {0} Online Friends: {1}".format(count, online))
 
-    def update_globals(self, cmdtype, cmdname, args, target, user, room):
+    def update_globals(self, cmdtype, cmdname, args, target, user, party):
         # Update the globals cache
 
         self._cache.globals_update()

@@ -164,14 +164,14 @@ class SpectatorPlugin(BasePlugin):
                 elif result == ReservationResult.ERROR:
                     self._xmpp.send_message(cmdtype, target, "Error: Failed to poll for reservation. This is a bug - please report it!")
 
-    def cancel(self, cmdtype, cmdname, args, target, user, room):
+    def cancel(self, cmdtype, cmdname, args, target, user, party):
         # Delete the user's server reservation
         if self.reservation_delete(user):
             self._xmpp.send_message(cmdtype, target, "Canceled server reservation.")
         else:
             self._xmpp.send_message(cmdtype, target, "No reservation found to cancel.")
 
-    def confirm(self, cmdtype, cmdname, args, target, user, room):
+    def confirm(self, cmdtype, cmdname, args, target, user, party):
         # Grab the reservation for the user
         reservation = self.reservation_get(user)
 
@@ -186,7 +186,7 @@ class SpectatorPlugin(BasePlugin):
             # Delete the server reservation (as it's fulfilled now)
             self.reservation_delete(user)
 
-    def save(self, cmdtype, cmdname, args, target, user, room):
+    def save(self, cmdtype, cmdname, args, target, user, party):
         # Check that the user isn't already joining a server
         if self.reservation_get(user):
             self._xmpp.send_message(cmdtype, target, "Error: You cannot save a server while joining another.")
@@ -201,14 +201,14 @@ class SpectatorPlugin(BasePlugin):
                 self.saved_server_set(user, server[0])
                 self._xmpp.send_message(cmdtype, target, "Current server saved for future use.")
 
-    def clear(self, cmdtype, cmdname, args, target, user, room):
+    def clear(self, cmdtype, cmdname, args, target, user, party):
         # Clear data for user
         self.reservation_delete(user)
         self.saved_server_delete(user)
 
         self._xmpp.send_message(cmdtype, target, "Cleared stored spectator data for your user.")
 
-    def renew(self, cmdtype, cmdname, args, target, user, room):
+    def renew(self, cmdtype, cmdname, args, target, user, party):
         # Check if the user has a saved server
         if not self.saved_server_has(user):
             self._xmpp.send_message(cmdtype, target, "No saved server on file.")
@@ -224,7 +224,7 @@ class SpectatorPlugin(BasePlugin):
                 self._xmpp.send_message(cmdtype, target, "Renewing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self._config.bot.command_prefix, self.name))
                 self.place_reservation(cmdtype, target, user, server)
 
-    def user(self, cmdtype, cmdname, args, target, user, room):
+    def user(self, cmdtype, cmdname, args, target, user, party):
         # Check arguments
         if len(args) < 1:
             self._xmpp.send_message(cmdtype, target, "Missing target user")
@@ -253,7 +253,7 @@ class SpectatorPlugin(BasePlugin):
                         self._xmpp.send_message(cmdtype, target, "Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self._config.bot.command_prefix, self.name))
                         self.place_reservation(cmdtype, target, user, server)
 
-    def server(self, cmdtype, cmdname, args, target, user, room):
+    def server(self, cmdtype, cmdname, args, target, user, party):
         # Check arguments
         if len(args) < 1:
             self._xmpp.send_message(cmdtype, target, "Missing target server.")

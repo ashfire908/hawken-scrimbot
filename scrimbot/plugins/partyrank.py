@@ -70,94 +70,80 @@ class PartyRankPlugin(BasePlugin):
 
         return True, None
 
-    def party_rank(self, cmdtype, cmdname, args, target, user, room):
-        # Get the party
-        try:
-            party = self._parties.active[room]
-        except KeyError:
-            self._xmpp.send_message(cmdtype, target, "Error: Couldn't find party object. This is a bug, please report it!")
-            logger.warn("Could not find active party object for {0}.".format(room))
+    def party_rank(self, cmdtype, cmdname, args, target, user, party):
+        # Check the party
+        result = self.check_party(party, user)
+
+        # Check the response
+        if not result[0]:
+            self._xmpp.send_message(cmdtype, target, result[1])
         else:
-            # Check the party
-            result = self.check_party(party, user)
-
-            # Check the response
-            if not result[0]:
-                self._xmpp.send_message(cmdtype, target, result[1])
+            try:
+                data = self._api.get_user_stats(party.players)
+            except hawkenapi.exceptions.InvalidBatch:
+                self._xmpp.send_message(cmdtype, target, "Error: Failed to load player data.")
             else:
-                try:
-                    data = self._api.get_user_stats(party.players)
-                except hawkenapi.exceptions.InvalidBatch:
-                    self._xmpp.send_message(cmdtype, target, "Error: Failed to load player data.")
+                mmr_info = stat_analysis(data, "MatchMaking.Rating")
+                pilot_level = stat_analysis(data, "Progress.Pilot.Level")
+
+                if not mmr_info:
+                    self._xmpp.send_message(cmdtype, target, "There are no ranked players in the party.")
+
+                    # Log it
+                    self.record_usage(cmdname, False, party)
+                elif len(mmr_info["list"]) < self._config.plugins.partyrank.min_users and not self._permissions.user_check_group(user, "admin"):
+                    self._xmpp.send_message(cmdtype, target, "There needs to be at least {0} ranked players in the party - only {1} of the players are currently ranked.".format(self._config.plugins.partyrank.min_users, len(mmr_info["list"])))
+
+                    # Log it
+                    self.record_usage(cmdname, False, party, mmr_info)
                 else:
-                    mmr_info = stat_analysis(data, "MatchMaking.Rating")
-                    pilot_level = stat_analysis(data, "Progress.Pilot.Level")
+                    # Display the simple party rank info
+                    message = "Ranking info for the party: MMR Average: {0[mean]:.2f}, Average Pilot Level: {1[mean]:.0f}".format(mmr_info, pilot_level)
+                    self._xmpp.send_message(cmdtype, target, message)
 
-                    if not mmr_info:
-                        self._xmpp.send_message(cmdtype, target, "There are no ranked players in the party.")
+                    # Log it
+                    self.record_usage(cmdname, True, party, mmr_info)
 
-                        # Log it
-                        self.record_usage(cmdname, False, party)
-                    elif len(mmr_info["list"]) < self._config.plugins.partyrank.min_users and not self._permissions.user_check_group(user, "admin"):
-                        self._xmpp.send_message(cmdtype, target, "There needs to be at least {0} ranked players in the party - only {1} of the players are currently ranked.".format(self._config.plugins.partyrank.min_users, len(mmr_info["list"])))
+    def party_rank_detailed(self, cmdtype, cmdname, args, target, user, party):
+        # Check the party
+        result = self.check_party(party, user)
 
-                        # Log it
-                        self.record_usage(cmdname, False, party, mmr_info)
-                    else:
-                        # Display the simple party rank info
-                        message = "Ranking info for the party: MMR Average: {0[mean]:.2f}, Average Pilot Level: {1[mean]:.0f}".format(mmr_info, pilot_level)
-                        self._xmpp.send_message(cmdtype, target, message)
-
-                        # Log it
-                        self.record_usage(cmdname, True, party, mmr_info)
-
-    def party_rank_detailed(self, cmdtype, cmdname, args, target, user, room):
-        # Get the party
-        try:
-            party = self._parties.active[room]
-        except KeyError:
-            self._xmpp.send_message(cmdtype, target, "Error: Couldn't find party object. This is a bug, please report it!")
-            logger.warn("Could not find active party object for {0}.".format(room))
+        # Check the response
+        if not result[0]:
+            self._xmpp.send_message(cmdtype, target, result[1])
         else:
-            # Check the party
-            result = self.check_party(party, user)
-
-            # Check the response
-            if not result[0]:
-                self._xmpp.send_message(cmdtype, target, result[1])
+            try:
+                data = self._api.get_user_stats(party.players)
+            except hawkenapi.exceptions.InvalidBatch:
+                self._xmpp.send_message(cmdtype, target, "Error: Failed to load player data.")
             else:
-                try:
-                    data = self._api.get_user_stats(party.players)
-                except hawkenapi.exceptions.InvalidBatch:
-                    self._xmpp.send_message(cmdtype, target, "Error: Failed to load player data.")
+                mmr_info = stat_analysis(data, "MatchMaking.Rating")
+
+                if not mmr_info:
+                    self._xmpp.send_message(cmdtype, target, "There are no ranked players in the party.")
+
+                    # Log it
+                    self.record_usage(cmdname, False, party)
+                elif len(mmr_info["list"]) < self._config.plugins.partyrank.min_users and not self._permissions.user_check_group(user, "admin"):
+                    self._xmpp.send_message(cmdtype, target, "There needs to be at least {0} ranked players in the party - only {1} of the players are currently ranked.".format(self._config.plugins.partyrank.min_users, len(mmr_info["list"])))
+
+                    # Log it
+                    self.record_usage(cmdname, False, party, mmr_info)
                 else:
-                    mmr_info = stat_analysis(data, "MatchMaking.Rating")
-
-                    if not mmr_info:
-                        self._xmpp.send_message(cmdtype, target, "There are no ranked players in the party.")
-
-                        # Log it
-                        self.record_usage(cmdname, False, party)
-                    elif len(mmr_info["list"]) < self._config.plugins.partyrank.min_users and not self._permissions.user_check_group(user, "admin"):
-                        self._xmpp.send_message(cmdtype, target, "There needs to be at least {0} ranked players in the party - only {1} of the players are currently ranked.".format(self._config.plugins.partyrank.min_users, len(mmr_info["list"])))
-
-                        # Log it
-                        self.record_usage(cmdname, False, party, mmr_info)
-                    else:
-                        # Display stats
-                        if self._config.plugins.partyrank.show_minmax:
-                            if self._config.plugins.partyrank.minmax_bracket == 0:
-                                minmax = "Min MMR: {0[min]:.2f}, Max MMR: {0[max]:.2f}, ".format(mmr_info)
-                            else:
-                                low = get_bracket(mmr_info["min"], self._config.plugins.partyrank.minmax_bracket)[0]
-                                high = get_bracket(mmr_info["max"], self._config.plugins.partyrank.minmax_bracket)[1]
-
-                                minmax = "MMR Range: {0}-{1}, ".format(low, high)
+                    # Display stats
+                    if self._config.plugins.partyrank.show_minmax:
+                        if self._config.plugins.partyrank.minmax_bracket == 0:
+                            minmax = "Min MMR: {0[min]:.2f}, Max MMR: {0[max]:.2f}, ".format(mmr_info)
                         else:
-                            minmax = ""
+                            low = get_bracket(mmr_info["min"], self._config.plugins.partyrank.minmax_bracket)[0]
+                            high = get_bracket(mmr_info["max"], self._config.plugins.partyrank.minmax_bracket)[1]
 
-                        message = "MMR breakdown for the party: Average MMR: {0[mean]:.2f}, {1}Standard deviation: {0[stddev]:.3f}".format(mmr_info, minmax)
-                        self._xmpp.send_message(cmdtype, target, message)
+                            minmax = "MMR Range: {0}-{1}, ".format(low, high)
+                    else:
+                        minmax = ""
+
+                    message = "MMR breakdown for the party: Average MMR: {0[mean]:.2f}, {1}Standard deviation: {0[stddev]:.3f}".format(mmr_info, minmax)
+                    self._xmpp.send_message(cmdtype, target, message)
 
 
 plugin = PartyRankPlugin

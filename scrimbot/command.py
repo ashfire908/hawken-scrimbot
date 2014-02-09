@@ -116,10 +116,16 @@ class CommandManager:
         target = message["from"].bare
         if cmdtype == CommandType.PM:
             user = message["from"].user
-            room = None
+            party = None
         elif cmdtype == CommandType.PARTY:
             user = message["stormid"]
-            room = message["from"].user
+            if message["from"].user in self.parties.active:
+                party = self.parties.active[message["from"].user]
+            else:
+                # Can't identify party!
+                logger.warn("Command called by {0} from unknown party - room was {1}. Rejecting!".format(user, message["from"].user))
+                self.xmpp.send_message(cmdtype, target, "Error: Could not find party data. This is a bug, please report it (see {0}foundabug)!".format(self.config.bot.command_prefix))
+                return
         else:
             # O_o
             raise NotImplementedError("Unsupported message type.")
@@ -164,9 +170,8 @@ class CommandManager:
                 # Check if party features are required
                 if handler.flags.b.partyfeat:
                     # Check the party supports the features
-                    party_features = self.parties.active[room].features
                     for feature in handler.flags.data.partyfeat:
-                        if feature not in party_features:
+                        if feature not in party.features:
                             return False
 
                 return True
@@ -200,9 +205,9 @@ class CommandManager:
             self._handle_ambiguous(cmdtype, command, target, user, plugins)
         else:
             # Call the matching command
-            self.call_command(potential_commands[0], cmdtype, command, arguments, target, user, room)
+            self.call_command(potential_commands[0], cmdtype, command, arguments, target, user, party)
 
-    def call_command(self, handler, cmdtype, cmdname, arguments, target, user, room):
+    def call_command(self, handler, cmdtype, cmdname, arguments, target, user, party):
         # Check if command is marked 'safe'
         if handler.flags.b.safe:
             assert not handler.flags.b.permsreq
@@ -234,10 +239,9 @@ class CommandManager:
             # Check if party features are required
             if handler.flags.b.partyfeat:
                 # Check the party supports the features
-                party_features = self.parties.active[room].features
                 for feature in handler.flags.data.partyfeat:
-                    if feature not in party_features:
-                        logger.info("Command {1} {0} called by {3} via {2} - party {4} does not support required features [{5}]. Rejecting!".format(cmdname, handler.plugin.name, cmdtype, user, room, ", ".join(handler.flags.data.partyfeat)))
+                    if feature not in party.features:
+                        logger.info("Command {1} {0} called by {3} via {2} - party {4} does not support required features [{5}]. Rejecting!".format(cmdname, handler.plugin.name, cmdtype, user, party.guid, ", ".join(handler.flags.data.partyfeat)))
                         self.xmpp.send_message(cmdtype, target, "Error: The party does not support the feature(s) required by this command.")
                         return
 
@@ -245,11 +249,11 @@ class CommandManager:
         logger.info("Command {1} {0} called by {3} via {2}.".format(cmdname, handler.plugin.name, cmdtype, user))
 
         try:
-            handler.call(cmdtype, cmdname, arguments, target, user, room)
+            handler.call(cmdtype, cmdname, arguments, target, user, party)
         except Exception as e:
             # Log the error
             logger.exception("""Command {1} {0} (called via {2}) has failed due to an exception: {3} {4}
-Handler: {5} Arguments: {6} Target: {7} User: {8} Room: {9}""".format(cmdname, handler.plugin.name, cmdtype, type(e), e, handler.fullid, arguments, target, user, room))
+Handler: {5} Arguments: {6} Target: {7} User: {8} Party: {9}""".format(cmdname, handler.plugin.name, cmdtype, type(e), e, handler.fullid, arguments, target, user, party.guid))
 
             # Report back to the user
             if isinstance(e, hawkenapi.exceptions.RetryLimitExceeded):
@@ -310,12 +314,16 @@ class Command:
         if self.flags.b.safe and self.flags.b.permsreq:
             raise ValueError("Flags 'safe' and 'permsreq' cannot be enabled at once.")
 
+        # Safe and Permission Required conflict
+        if self.flags.b.safe and self.flags.b.partyfeat:
+            raise ValueError("Flags 'safe' and 'partyfeat' cannot be enabled at once.")
+
         # Party Feature cannot be used for non-party handlers
         if self.flags.b.partyfeat and self.cmdtype != CommandType.PARTY:
             raise ValueError("Flag 'partyfeat' cannot be enabled for non-party commands.")
 
-    def call(self, cmdtype, cmdname, args, target, user, room=None):
-        self.handler(cmdtype, cmdname, args, target, user, room)
+    def call(self, cmdtype, cmdname, args, target, user, party=None):
+        self.handler(cmdtype, cmdname, args, target, user, party)
 
     @staticmethod
     def format_id(cmdtype, cmdname):

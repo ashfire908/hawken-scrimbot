@@ -30,7 +30,7 @@ class InfoPlugin(BasePlugin):
     def disconnected(self):
         pass
 
-    def botinfo(self, cmdtype, cmdname, args, target, user, room):
+    def botinfo(self, cmdtype, cmdname, args, target, user, party):
         message = """Hello, I am ScrimBot, the Hawken Scrim Bot. I do various competitive-related and utility functions. I am run by Ashfire908.
 
 If you need help with the bot, send a pm to Ashfire908 on the Hawken forums, talk to him on the #hawkenscrim IRC channel on QuakeNet, or send an email to: scrimbot@hawkenwiki.com
@@ -39,7 +39,7 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
 
         self._xmpp.send_message(cmdtype, target, message)
 
-    def foundabug(self, cmdtype, cmdname, args, target, user, room):
+    def foundabug(self, cmdtype, cmdname, args, target, user, party):
         message = """If you have encounter an error with the bot, please send in an error report. Either send a pm to Ashfire908 on the Hawken forums, talk to him on the #hawkenscrim IRC channel, or send an email to: scrimbot@hawkenwiki.com
 
 The error report should contain your callsign, what you were doing, the command you were using, what time is was (including timezone), and the error you recieved.
@@ -48,7 +48,7 @@ Not every bit of information is required, but at the very least you need to send
 
         self._xmpp.send_message(cmdtype, target, message)
 
-    def commands(self, cmdtype, cmdname, args, target, user, room):
+    def commands(self, cmdtype, cmdname, args, target, user, party):
         if len(args) > 0:
             plugin_name = args[0].lower()
             if plugin_name in self._plugins.active:
@@ -81,9 +81,8 @@ Not every bit of information is required, but at the very least you need to send
             # Filter out parties lacking the needed feature(s)
             if handler.flags.b.partyfeat:
                 missing = False
-                party_features = self._parties.active[room].features
                 for feature in handler.flags.data.partyfeat:
-                    if feature not in party_features:
+                    if feature not in party.features:
                         missing = True
                         break
 
@@ -106,7 +105,7 @@ Not every bit of information is required, but at the very least you need to send
         else:
             self._xmpp.send_message(cmdtype, target, "No available commands found.")
 
-    def plugin_list(self, cmdtype, cmdname, args, target, user, room):
+    def plugin_list(self, cmdtype, cmdname, args, target, user, party):
         self._xmpp.send_message(cmdtype, target, "Loaded plugins: {0}".format(", ".join(sorted([plugin.name for plugin in self._plugins.active.values()]))))
 
 

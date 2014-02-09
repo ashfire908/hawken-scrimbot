@@ -109,7 +109,7 @@ class QualityPlugin(BasePlugin):
 
         return True, None
 
-    def quality(self, cmdtype, cmdname, args, target, user, room):
+    def quality(self, cmdtype, cmdname, args, target, user, party):
         # Get the server info
         result = self.load_server_info(args, user)
 
@@ -148,7 +148,7 @@ class QualityPlugin(BasePlugin):
                     # Log it
                     self.record_usage(cmdname, result[0], server_info, data=details)
 
-    def quality_explain(self, cmdtype, cmdname, args, target, user, room):
+    def quality_explain(self, cmdtype, cmdname, args, target, user, party):
         # Get the server info
         result = self.load_server_info(args, user)
 
