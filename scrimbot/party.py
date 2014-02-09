@@ -39,7 +39,7 @@ def requireleader(f):
 
 
 class Party:
-    def __init__(self, party, config, api, cache, xmpp, guid):
+    def __init__(self, party, config, api, cache, xmpp, guid, name):
         # Register handlers
         self.parties = party
         self.config = config
@@ -49,7 +49,7 @@ class Party:
 
         # Init party variables
         self.guid = guid
-        self.name = None
+        self.name = name
         self.features = set()
 
         # Events
@@ -308,8 +308,8 @@ class PartyManager:
         except KeyError:
             pass
 
-    def new(self, party, guid):
-        return party(self, self.config, self.api, self.cache, self.xmpp, guid)
+    def new(self, party, guid, name=None):
+        return party(self, self.config, self.api, self.cache, self.xmpp, guid, name)
 
     def get_callsign(self, room):
         return self.xmpp.plugin["hawken_party"].get_callsign(room)

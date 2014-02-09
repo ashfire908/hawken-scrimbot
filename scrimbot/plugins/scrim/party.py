@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 class ScrimParty(Party):
     deploy_time = 10
 
-    def __init__(self, party, config, api, cache, xmpp, guid):
-        super().__init__(party, config, api, cache, xmpp, guid)
+    def __init__(self, party, config, api, cache, xmpp, guid, name):
+        super().__init__(party, config, api, cache, xmpp, guid, name)
 
         # Init
         self.register_feature("scrim")
