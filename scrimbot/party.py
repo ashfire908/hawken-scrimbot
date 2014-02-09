@@ -205,10 +205,13 @@ class Party:
         except (MUCJoinTimeout, MUCJoinError):
             # Unregister events
             self.__unregister_events()
-            raise
 
-        # Mark as active
-        self.active = True
+            return False
+        else:
+            # Mark as active
+            self.active = True
+
+            return True
 
     @notjoined
     def join(self):
@@ -221,10 +224,13 @@ class Party:
         except (MUCJoinTimeout, MUCJoinError):
             # Unregister events
             self.__unregister_events()
-            raise
 
-        # Mark as active
-        self.active = True
+            return False
+        else:
+            # Mark as active
+            self.active = True
+
+            return True
 
     @joined
     def leave(self):
