@@ -223,7 +223,7 @@ class ScrimPlugin(BasePlugin):
 
         if len(targets) > 0:
             # Purge all targeted parties
-            logger.debug("Purging {0} empty partie(s).".format(len(targets)))
+            logger.debug("Purging {0} empty parties.".format(len(targets)))
             for guid in targets:
                 self.leave_party(guid)
 
