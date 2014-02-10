@@ -30,18 +30,7 @@ class ServerRankPlugin(BasePlugin):
         self.register_command(CommandType.ALL, "srd", self.server_rank_detailed, flags=["alias"])
 
     def disable(self):
-        # Unregister config
-        self.unregister_config("plugins.serverrank.arbitrary_servers")
-        self.unregister_config("plugins.serverrank.min_users")
-        self.unregister_config("plugins.serverrank.log_usage")
-        self.unregister_config("plugins.serverrank.show_minmax")
-        self.unregister_config("plugins.serverrank.minmax_bracket")
-
-        # Unregister commands
-        self.unregister_command(CommandType.ALL, "serverrank")
-        self.unregister_command(CommandType.ALL, "serverrankdetailed")
-        self.unregister_command(CommandType.ALL, "sr")
-        self.unregister_command(CommandType.ALL, "srd")
+        pass
 
     def connected(self):
         pass

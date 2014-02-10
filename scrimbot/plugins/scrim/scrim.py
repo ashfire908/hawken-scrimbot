@@ -50,27 +50,7 @@ class ScrimPlugin(BasePlugin):
             self.count = 1
 
     def disable(self):
-        # Unregister config
-        self.unregister_config("plugins.scrim.cleanup_period")
-        self.unregister_config("plugins.scrim.polling_limit")
-        self.unregister_config("plugins.scrim.max_group_size")
-
-        # Unregister cache
-        self.unregister_cache("scrims")
-
-        # Unregister group
-        self.unregister_group("scrim")
-
-        # Unregister commands
-        self.unregister_command(CommandType.PM, "list")
-        self.unregister_command(CommandType.PM, "create")
-        self.unregister_command(CommandType.PM, "join")
-        self.unregister_command(CommandType.PARTY, "invite")
-        self.unregister_command(CommandType.PARTY, "kick")
-        self.unregister_command(CommandType.PARTY, "deploy")
-        self.unregister_command(CommandType.PARTY, "cancel")
-        self.unregister_command(CommandType.PARTY, "leave")
-        self.unregister_command(CommandType.PARTY, "transfer")
+        pass
 
     def connected(self):
         def rejoin(self, guid, name):
@@ -93,7 +73,7 @@ class ScrimPlugin(BasePlugin):
                 threading.Thread(target=rejoin, args=[self, guid, party["name"]]).start()
 
         # Start cleanup thread
-        self.register_task("cleanup_thread", self._config.plugins.scrim.cleanup_period, self.cleanup, repeat=True)
+        self.register_task("cleanup_thread", self._config.plugins.scrim.cleanup_period, self.cleanup_parties, repeat=True)
 
     def disconnected(self):
         # Stop cleanup thread
@@ -205,7 +185,7 @@ class ScrimPlugin(BasePlugin):
         except KeyError:
             pass
 
-    def cleanup(self):
+    def cleanup_parties(self):
         time_check = time.time() - self._config.plugins.scrim.cleanup_period
 
         # Check for parties to cleanup

@@ -27,17 +27,7 @@ class QualityPlugin(BasePlugin):
         self.register_command(CommandType.ALL, "qae", self.quality_explain, flags=["alias"])
 
     def disable(self):
-        # Unregister config
-        self.unregister_config("plugins.quality.arbitrary_servers")
-        self.unregister_config("plugins.quality.min_users")
-        self.unregister_config("plugins.quality.log_usage")
-        self.unregister_config("plugins.quality.health_offset")
-
-        # Unregister commands
-        self.unregister_command(CommandType.ALL, "quality")
-        self.unregister_command(CommandType.ALL, "qualityexplain")
-        self.unregister_command(CommandType.ALL, "qa")
-        self.unregister_command(CommandType.ALL, "qae")
+        pass
 
     def connected(self):
         pass

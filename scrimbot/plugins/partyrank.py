@@ -28,17 +28,7 @@ class PartyRankPlugin(BasePlugin):
         self.register_command(CommandType.PARTY, "prd", self.party_rank_detailed, flags=["alias"])
 
     def disable(self):
-        # Unregister config
-        self.unregister_config("plugins.partyrank.min_users")
-        self.unregister_config("plugins.partyrank.log_usage")
-        self.unregister_config("plugins.partyrank.show_minmax")
-        self.unregister_config("plugins.partyrank.minmax_bracket")
-
-        # Unregister commands
-        self.unregister_command(CommandType.PARTY, "partyrank")
-        self.unregister_command(CommandType.PARTY, "partyrankdetailed")
-        self.unregister_command(CommandType.PARTY, "pr")
-        self.unregister_command(CommandType.PARTY, "prd")
+        pass
 
     def connected(self):
         pass

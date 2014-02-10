@@ -18,11 +18,7 @@ class InfoPlugin(BasePlugin):
         self.register_command(CommandType.ALL, "plugins", self.plugin_list, flags=["safe"])
 
     def disable(self):
-        # Unregister commands
-        self.unregister_command(CommandType.PM, "botinfo")
-        self.unregister_command(CommandType.PM, "foundabug")
-        self.unregister_command(CommandType.ALL, "commands")
-        self.unregister_command(CommandType.ALL, "plugins")
+        pass
 
     def connected(self):
         pass

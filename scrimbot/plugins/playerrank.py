@@ -35,22 +35,7 @@ class PlayerRankPlugin(BasePlugin):
         self.register_command(CommandType.PM, "elo", self.elo, flags=["hidden", "safe"])
 
     def disable(self):
-        # Unregister config
-        self.unregister_config("plugins.playerrank.limit.count")
-        self.unregister_config("plugins.playerrank.limit.period")
-        self.unregister_config("plugins.playerrank.restricted.mmr")
-        self.unregister_config("plugins.playerrank.bracket_range")
-
-        # Unregister cache
-        self.unregister_cache("mmr_usage")
-
-        # Unregister group
-        self.unregister_group("mmr")
-
-        # Unregister commands
-        self.unregister_command(CommandType.PM, "mmr")
-        self.unregister_command(CommandType.PM, "glicko")
-        self.unregister_command(CommandType.PM, "elo")
+        pass
 
     def connected(self):
         pass

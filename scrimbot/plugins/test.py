@@ -21,15 +21,7 @@ class TestPlugin(BasePlugin):
         self.register_command(CommandType.PM, "updateglobals", self.update_globals, flags=["permsreq"], permsreq=["admin"])
 
     def disable(self):
-        # Unregister commands
-        self.unregister_command(CommandType.PM, "testexception")
-        self.unregister_command(CommandType.ALL, "hammertime")
-        self.unregister_command(CommandType.ALL, "whoami")
-        self.unregister_command(CommandType.ALL, "callsign")
-        self.unregister_command(CommandType.ALL, "guid")
-        self.unregister_command(CommandType.PM, "tell")
-        self.unregister_command(CommandType.PM, "friends")
-        self.unregister_command(CommandType.PM, "updateglobals")
+        pass
 
     def connected(self):
         pass

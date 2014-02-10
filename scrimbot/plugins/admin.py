@@ -27,20 +27,7 @@ class AdminPlugin(BasePlugin):
         self.register_command(CommandType.PM, "unfriend", self.unfriend, flags=["permsreq"], permsreq=["admin"])
 
     def disable(self):
-        # Unregister commands
-        self.unregister_command(CommandType.PM, "authorize")
-        self.unregister_command(CommandType.PM, "auth")
-        self.unregister_command(CommandType.PM, "deauthorize")
-        self.unregister_command(CommandType.PM, "deauth")
-        self.unregister_command(CommandType.PM, "group")
-        self.unregister_command(CommandType.PM, "usergroup")
-        self.unregister_command(CommandType.PM, "save")
-        self.unregister_command(CommandType.PM, "load")
-        self.unregister_command(CommandType.PM, "unload")
-        self.unregister_command(CommandType.PM, "shutdown")
-        self.unregister_command(CommandType.PM, "config")
-        self.unregister_command(CommandType.PM, "friend")
-        self.unregister_command(CommandType.PM, "unfriend")
+        pass
 
     def connected(self):
         pass

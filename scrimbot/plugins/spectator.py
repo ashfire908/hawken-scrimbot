@@ -40,25 +40,7 @@ class SpectatorPlugin(BasePlugin):
         self.reservations = {}
 
     def disable(self):
-        # Unregister config
-        self.unregister_config("plugins.spectator.polling_limit")
-
-        # Unregister cache
-        self.unregister_cache("spectators")
-
-        # Unregister group
-        self.unregister_group("spectator")
-
-        # Unregister commands
-        self.unregister_command(CommandType.PM, "server")
-        self.unregister_command(CommandType.PM, "spectate")
-        self.unregister_command(CommandType.PM, "spec")
-        self.unregister_command(CommandType.PM, "user")
-        self.unregister_command(CommandType.PM, "cancel")
-        self.unregister_command(CommandType.PM, "confirm")
-        self.unregister_command(CommandType.PM, "save")
-        self.unregister_command(CommandType.PM, "renew")
-        self.unregister_command(CommandType.PM, "clear")
+        pass
 
     def connected(self):
         pass
