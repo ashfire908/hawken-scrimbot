@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import hawkenapi
+import hawkenapi.sleekxmpp
 
 
 class ApiClient(hawkenapi.Client):
