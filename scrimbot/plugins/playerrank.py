@@ -142,7 +142,7 @@ class PlayerRankPlugin(BasePlugin):
 
     def glicko(self, cmdtype, cmdname, args, target, user, party):
         # Discontinued
-        self._xmpp.send_message(cmdtype, target, "This command's functionality has been intergrated into {0}mmr. Please use that command instead.".format(self._config.bot.command_prefix))
+        self._xmpp.send_message(cmdtype, target, "This command's functionality has been integrated into {0}mmr. Please use that command instead.".format(self._config.bot.command_prefix))
 
 
 plugin = PlayerRankPlugin
