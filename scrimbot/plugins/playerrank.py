@@ -31,7 +31,7 @@ class PlayerRankPlugin(BasePlugin):
 
         # Register commands
         self.register_command(CommandType.PM, "mmr", self.mmr)
-        self.register_command(CommandType.PM, "glicko", self.mmr, flags=["alias"])
+        self.register_command(CommandType.PM, "glicko", self.glicko, flags=["hidden", "safe"])
         self.register_command(CommandType.PM, "elo", self.elo, flags=["hidden", "safe"])
 
     def disable(self):
@@ -139,6 +139,10 @@ class PlayerRankPlugin(BasePlugin):
     def elo(self, cmdtype, cmdname, args, target, user, party):
         # Easter egg
         self._xmpp.send_message(cmdtype, target, "You think you're clever, eh?")
+
+    def glicko(self, cmdtype, cmdname, args, target, user, party):
+        # Discontinued
+        self._xmpp.send_message(cmdtype, target, "This command's functionality has been intergrated into {0}mmr. Please use that command instead.".format(self._config.bot.command_prefix))
 
 
 plugin = PlayerRankPlugin
