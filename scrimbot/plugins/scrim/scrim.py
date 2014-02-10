@@ -22,7 +22,6 @@ class ScrimPlugin(BasePlugin):
     def enable(self):
         # Register config
         self.register_config("plugins.scrim.cleanup_period", 60 * 15)
-        self.register_config("plugins.scrim.polling_limit", 30)
         self.register_config("plugins.scrim.max_group_size", 6)
 
         # Register cache
@@ -349,7 +348,7 @@ class ScrimPlugin(BasePlugin):
                     return
 
                 # Place the reservation
-                reservation.reserve(limit=self._config.plugins.scrim.polling_limit)
+                reservation.reserve()
 
                 try:
                     # Deploy the party

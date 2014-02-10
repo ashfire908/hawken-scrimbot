@@ -115,6 +115,10 @@ class BaseReservation(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def _poll_limit(self):
+        pass
+
+    @abstractmethod
     def _reserve(self):
         pass
 
@@ -125,7 +129,7 @@ class BaseReservation(metaclass=ABCMeta):
     @notcreated
     def reserve(self, limit=None):
         if limit is None:
-            limit = self._config.api.advertisement.polling_limit
+            limit = self._poll_limit()
 
         # Place the reservation
         self.guid = self._reserve()
@@ -205,6 +209,9 @@ class ServerReservation(BaseReservation):
     def _poll_rate(self):
         return self._config.api.advertisement.polling_rate.server
 
+    def _poll_limit(self):
+        return self._config.api.advertisement.polling_limit.server
+
     def _reserve(self):
         return self._api.post_server_advertisement(self.server["GameVersion"], self.server["Region"], self.server["Guid"], self.users, self.party)
 
@@ -254,6 +261,9 @@ class MatchmakingReservation(BaseReservation):
 
     def _poll_rate(self):
         return self._config.api.advertisement.polling_rate.matchmaking
+
+    def _poll_limit(self):
+        return self._config.api.advertisement.polling_limit.matchmaking
 
     def _reserve(self):
         return self._api.post_matchmaking_advertisement(self.gameversion, self.region, self.gametype, self.users, self.party)

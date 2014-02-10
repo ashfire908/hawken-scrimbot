@@ -16,9 +16,6 @@ class SpectatorPlugin(BasePlugin):
         return "spectator"
 
     def enable(self):
-        # Register config
-        self.register_config("plugins.spectator.polling_limit", 30)
-
         # Register cache
         self.register_cache("spectators")
 
@@ -112,7 +109,7 @@ class SpectatorPlugin(BasePlugin):
             return
 
         # Submit the reservation
-        reservation.reserve(limit=self._config.plugins.spectator.polling_limit)
+        reservation.reserve()
         self.reservation_set(user, reservation)
 
         # Set up the polling in another thread
