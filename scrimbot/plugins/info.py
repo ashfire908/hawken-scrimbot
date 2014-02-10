@@ -15,6 +15,7 @@ class InfoPlugin(BasePlugin):
         self.register_command(CommandType.PM, "botinfo", self.botinfo, flags=["safe"])
         self.register_command(CommandType.PM, "foundabug", self.foundabug, flags=["safe"])
         self.register_command(CommandType.ALL, "commands", self.commands)
+        self.register_command(CommandType.ALL, "?", self.commands, flags=["alias"])
         self.register_command(CommandType.ALL, "plugins", self.plugin_list, flags=["safe"])
 
     def disable(self):
