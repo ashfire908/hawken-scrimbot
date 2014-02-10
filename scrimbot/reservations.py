@@ -213,7 +213,7 @@ class ServerReservation(BaseReservation):
         return self._config.api.advertisement.polling_limit.server
 
     def _reserve(self):
-        return self._api.post_server_advertisement(self.server["GameVersion"], self.server["Region"], self.server["Guid"], self.users, self.party)
+        return self._api.post_server_advertisement(self.server["GameVersion"], self.server["Region"], self.server["Guid"], self.users, party=self.party)
 
     def check(self):
         critical = False
@@ -266,7 +266,7 @@ class MatchmakingReservation(BaseReservation):
         return self._config.api.advertisement.polling_limit.matchmaking
 
     def _reserve(self):
-        return self._api.post_matchmaking_advertisement(self.gameversion, self.region, self.gametype, self.users, self.party)
+        return self._api.post_matchmaking_advertisement(self.gameversion, self.region, self.users, gametype=self.gametype, party=self.party)
 
     def check(self):
         critical = False
