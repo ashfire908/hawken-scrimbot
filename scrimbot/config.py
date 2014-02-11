@@ -73,13 +73,18 @@ class Config:
     def save(self):
         logger.info("Saving config.")
 
+        # Serialize the config
+        try:
+            output = json.dumps(self._config, indent=2, sort_keys=True)
+        except ValueError:
+            # Failed to serialize the config to JSON
+            logger.exception("Failed to serialize the config to JSON!")
+            return False
+
         # Write the config to file
         try:
-            config_file = open(self.filename, "w")
-            try:
-                json.dump(self._config, config_file, indent=2, sort_keys=True)
-            finally:
-                config_file.close()
+            with open(self.filename, "w") as config_file:
+                config_file.write(output)
         except IOError:
             # Error
             logger.exception("Failed to write config file!")
