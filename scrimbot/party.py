@@ -131,6 +131,7 @@ class Party:
         self.joined = False
         self.players = set()
         self.join_time = None
+        self.active = False
 
         # Unregister events
         self.__unregister_events()
