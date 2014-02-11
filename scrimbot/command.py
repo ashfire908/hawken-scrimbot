@@ -251,9 +251,14 @@ class CommandManager:
         try:
             handler.call(cmdtype, cmdname, arguments, target, user, party)
         except Exception as e:
+            if party is None:
+                party_name = None
+            else:
+                party_name = party.guid
+
             # Log the error
             logger.exception("""Command {1} {0} (called via {2}) has failed due to an exception: {3} {4}
-Handler: {5} Arguments: {6} Target: {7} User: {8} Party: {9}""".format(cmdname, handler.plugin.name, cmdtype, type(e), e, handler.fullid, arguments, target, user, party.guid))
+Handler: {5} Arguments: {6} Target: {7} User: {8} Party: {9}""".format(cmdname, handler.plugin.name, cmdtype, type(e), e, handler.fullid, arguments, target, user, party_name))
 
             # Report back to the user
             if isinstance(e, hawkenapi.exceptions.RetryLimitExceeded):
