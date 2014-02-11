@@ -129,6 +129,7 @@ class ScrimBot:
     def __init__(self, config="config.json"):
         # Init bot data
         self.scheduler = Scheduler()
+        self.connected = False
 
         # Init the config
         self.config = Config(config)
@@ -243,27 +244,33 @@ class ScrimBot:
             time.sleep(self.config.bot.roster_update_rate)
 
     def handle_session_start(self, event):
-        # Handle the presence ourselves
-        self.xmpp.auto_authorize = None
+        if not self.connected:
+            self.connected = True
 
-        # Send presence info, retrieve roster
-        self.xmpp.send_presence()
-        self.xmpp.get_roster()
+            # Handle the presence ourselves
+            self.xmpp.auto_authorize = None
 
-        # Update the roster
-        self.update_roster()
+            # Send presence info, retrieve roster
+            self.xmpp.send_presence()
+            self.xmpp.get_roster()
 
-        # Signal the plugins that we are connected
-        self.plugins.connected()
+            # Update the roster
+            self.update_roster()
 
-        # CROWBAR IS READY
-        logger.info("Bot connected.")
+            # Signal the plugins that we are connected
+            self.plugins.connected()
+
+            # CROWBAR IS READY
+            logger.info("Bot connected.")
 
     def handle_session_end(self, event):
-        logger.info("Bot disconnected.")
+        if self.connected:
+            self.connected = False
 
-        # Signal the plugins that we are not connected anymore
-        self.plugins.disconnected()
+            logger.info("Bot disconnected.")
+
+            # Signal the plugins that we are not connected anymore
+            self.plugins.disconnected()
 
     def handle_killed(self, event):
         logger.info("Bot shutting down.")
