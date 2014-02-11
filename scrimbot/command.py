@@ -107,7 +107,7 @@ class CommandManager:
                 return []
         else:
             try:
-                return [self.plugins.active[plugin].registered_commands[cmdid]]
+                return [self.plugins.active[plugin].registered["commands"][cmdid]]
             except KeyError:
                 return []
 

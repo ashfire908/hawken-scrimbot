@@ -112,8 +112,8 @@ class TestPlugin(BasePlugin):
 
     def update_globals(self, cmdtype, cmdname, args, target, user, party):
         # Update the globals cache
-
         self._cache.globals_update()
+
         self._xmpp.send_message(cmdtype, target, "Updated globals cache.")
 
 

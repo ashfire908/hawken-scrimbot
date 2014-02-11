@@ -49,7 +49,7 @@ Not every bit of information is required, but at the very least you need to send
         if len(args) > 0:
             plugin_name = args[0].lower()
             if plugin_name in self._plugins.active:
-                targets = self._plugins.active[plugin_name].registered_commands.values()
+                targets = self._plugins.active[plugin_name].registered["commands"].values()
             else:
                 self._xmpp.send_message(cmdtype, target, "Error: No such plugin.")
                 return
