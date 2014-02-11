@@ -32,7 +32,7 @@ class ScrimParty(Party):
         self.register_event("left", self._handle_left)
         self.register_event("online", self._handle_online)
         self.register_event("offline", self._handle_offline)
-        self.register_event("message", self._handle_message)
+        self.register_event("partymemberdata", self._handle_partymemberdata)
 
     def _handle_joined(self):
         if not self.is_leader:
@@ -66,21 +66,19 @@ class ScrimParty(Party):
             # Stop any active deployment
             self.abort(CancelCode.MEMBERLEFT)
 
-    def _handle_message(self, message):
-        # Check if there is party data attached to this message
-        if "partymemberdata" in message:
-            # Update the party state
-            if message["partymemberdata"]["infoName"] == "PartyMatchmakingStart":
-                self.state = DeploymentState.MATCHMAKING
-                if not self.is_leader:
-                    self.message("Leaving the party to avoid issues with matchmaking the bot.")
-                    self.leave()
-            elif message["partymemberdata"]["infoName"] == "PartyMatchmakingCancel":
-                self.state = DeploymentState.IDLE
-            elif message["partymemberdata"]["infoName"] == "DeployPartyData":
-                self.state = DeploymentState.DEPLOYING
-            elif message["partymemberdata"]["infoName"] == "DeployCancelData":
-                self.state = DeploymentState.IDLE
+    def _handle_partymemberdata(self, message):
+        # Update the party state
+        if message["partymemberdata"]["infoName"] == "PartyMatchmakingStart":
+            self.state = DeploymentState.MATCHMAKING
+            if not self.is_leader:
+                self.message("Leaving the party to avoid issues with matchmaking the bot.")
+                self.leave()
+        elif message["partymemberdata"]["infoName"] == "PartyMatchmakingCancel":
+            self.state = DeploymentState.IDLE
+        elif message["partymemberdata"]["infoName"] == "DeployPartyData":
+            self.state = DeploymentState.DEPLOYING
+        elif message["partymemberdata"]["infoName"] == "DeployCancelData":
+            self.state = DeploymentState.IDLE
 
     def _thread_timer_start(self):
         self._thread_timer = threading.Timer(self.deploy_time, self._complete_deployment)

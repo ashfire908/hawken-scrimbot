@@ -53,9 +53,8 @@ class Party:
         self.features = set()
 
         # Events
-        self.events = {"joined", "left", "online", "offline", "message"}
         self.event_handlers = {}
-        for event in self.events:
+        for event in ("joined", "left", "online", "offline", "message", "partymemberdata"):
             self.event_handlers[event] = set()
 
         # Init state
@@ -69,6 +68,7 @@ class Party:
         self.xmpp.add_event_handler("muc::%s::left" % self.room_jid, self.__handle_left)
         self.xmpp.add_event_handler("muc::%s::presence" % self.room_jid, self.__handle_presence)
         self.xmpp.add_event_handler("muc::%s::message" % self.room_jid, self.__handle_message)
+        self.xmpp.add_event_handler("muc::%s::partymemberdata" % self.room_jid, self.__handle_partymemberdata)
         self.xmpp.add_event_handler("session_end", self.__handle_session_end)
 
     def __unregister_events(self):
@@ -76,6 +76,7 @@ class Party:
         self.xmpp.del_event_handler("muc::%s::left" % self.room_jid, self.__handle_left)
         self.xmpp.del_event_handler("muc::%s::presence" % self.room_jid, self.__handle_presence)
         self.xmpp.del_event_handler("muc::%s::message" % self.room_jid, self.__handle_message)
+        self.xmpp.del_event_handler("muc::%s::partymemberdata" % self.room_jid, self.__handle_partymemberdata)
         self.xmpp.del_event_handler("session_end", self.__handle_session_end)
 
     def __handle_joined(self, presence):
@@ -124,6 +125,15 @@ class Party:
 
         # Trigger message event
         for handler in self.event_handlers["message"]:
+            handler(message)
+
+    def __handle_partymemberdata(self, message):
+        # Ignore the bot
+        if message["from"].resource == self.callsign:
+            return
+
+        # Trigger partymemberdata event
+        for handler in self.event_handlers["partymemberdata"]:
             handler(message)
 
     def __handle_session_end(self, event):
