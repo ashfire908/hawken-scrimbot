@@ -157,6 +157,7 @@ class ScrimBot:
         self.commands = CommandManager(self.config, self.xmpp, self.permissions, self.parties, self.plugins)
 
         # Load plugins
+        self.config.bot.plugins = list(set(self.config.bot.plugins))
         for plugin in self.config.bot.plugins:
             self.plugins.load(plugin)
 

@@ -75,8 +75,9 @@ class ScrimPlugin(BasePlugin):
         self.register_task("cleanup_thread", self._config.plugins.scrim.cleanup_period, self.cleanup_parties, repeat=True)
 
     def disconnected(self):
-        # Stop cleanup thread
-        self.unregister_task("cleanup_thread")
+        if "cleanup_thread" in self.registered["tasks"]:
+            # Stop cleanup thread
+            self.unregister_task("cleanup_thread")
 
     @property
     def parties(self):

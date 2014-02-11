@@ -125,8 +125,12 @@ class PluginManager:
         self.blacklist = {"base", }
 
     def load(self, name):
-        # Check if this module is blacklisted
+        # Check if the plugin is blacklisted
         if name in self.blacklist:
+            return None
+
+        # Check if the plugin is already loaded
+        if name in self.active:
             return None
 
         # Load the module
@@ -148,12 +152,18 @@ class PluginManager:
         self.active[plugin.name] = plugin
         try:
             self.active[plugin.name].enable()
+
+            if self.client.connected:
+                self.active[plugin.name].connected()
         except:
             logger.exception("Failed to load plugin: {0} - Error while enabling plugin.".format(name))
 
             # Attempt to unload the plugin
             try:
-                self.active[plugin.name].disable()
+                try:
+                    self.active[plugin.name].disable()
+                finally:
+                    self.active[plugin.name].cleanup()
             except:
                 # Welp.
                 logger.exception("Failed to unload plugin after failed load!")
@@ -164,18 +174,21 @@ class PluginManager:
 
             return False
 
+        # Plugin loaded
         logger.info("Loaded plugin: {0}".format(plugin.name))
 
         return True
 
     def unload(self, name):
+        # Check if the plugin is loaded
         if not name in self.active:
-            return False
+            return None
 
         # Disable plugin and remove
         error = False
         try:
-            self.active[name].disconnected()
+            if self.client.connected:
+                self.active[name].disconnected()
         except:
             logger.exception("Failed to unload plugin: {0} - Error while signaling a disconnect.".format(name))
             error = True
@@ -194,6 +207,7 @@ class PluginManager:
         if error:
             return False
 
+        # Plugin unloaded
         logger.info("Unloaded plugin: {0}".format(name))
 
         return True

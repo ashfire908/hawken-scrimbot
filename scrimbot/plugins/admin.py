@@ -170,12 +170,10 @@ class AdminPlugin(BasePlugin):
                 self._xmpp.send_message(cmdtype, target, "Error: Specified plugin is blacklisted from being loaded.")
             else:
                 if self._plugins.load(name):
-                    # Start the plugin, enable it in the config and save it
-                    self._plugins.active[name].connected()
-                    self._config.bot.plugins.append(name)
-                    self._config.save()
-
                     self._xmpp.send_message(cmdtype, target, "Loaded plugin.")
+
+                    self._config.bot.plugins = [plugin for plugin in self._plugins.active]
+                    self._config.save()
                 else:
                     self._xmpp.send_message(cmdtype, target, "Error: Failed to load plugin. Please check the logs for more information.")
 
@@ -191,13 +189,12 @@ class AdminPlugin(BasePlugin):
                 self._xmpp.send_message(cmdtype, target, "Plugin is not loaded.")
             else:
                 if self._plugins.unload(name):
-                    # Disable the plugin in the config and save it
-                    self._config.bot.plugins.remove(name)
-                    self._config.save()
-
                     self._xmpp.send_message(cmdtype, target, "Unloaded plugin.")
                 else:
                     self._xmpp.send_message(cmdtype, target, "Error: Failed to unload plugin. Please check the logs for more information.")
+
+                self._config.bot.plugins = [plugin for plugin in self._plugins.active]
+                self._config.save()
 
     def shutdown(self, cmdtype, cmdname, args, target, user, party):
         # Send out the confirm message immediately so it doesn't get lost in the shutdown
