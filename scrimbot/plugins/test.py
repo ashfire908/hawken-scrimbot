@@ -11,12 +11,12 @@ class TestPlugin(BasePlugin):
 
     def enable(self):
         # Register commands
-        self.register_command(CommandType.PM, "testexception", self.test_exception, flags=["hidden", "safe"])
-        self.register_command(CommandType.ALL, "callsign", self.callsign, flags=["hidden"])
-        self.register_command(CommandType.ALL, "guid", self.guid, flags=["hidden"])
-        self.register_command(CommandType.PM, "tell", self.tell, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "updateglobals", self.update_globals, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "reconnect", self.reconnect, flags=["permsreq"], permsreq=["admin"])
+        self.register_command(CommandType.PM, "testexception", self.test_exception, hidden=True, safe=True)
+        self.register_command(CommandType.ALL, "callsign", self.callsign, hidden=True)
+        self.register_command(CommandType.ALL, "guid", self.guid, hidden=True)
+        self.register_command(CommandType.PM, "tell", self.tell, permsreq=["admin"])
+        self.register_command(CommandType.PM, "updateglobals", self.update_globals, permsreq=["admin"])
+        self.register_command(CommandType.PM, "reconnect", self.reconnect, permsreq=["admin"])
 
     def disable(self):
         pass

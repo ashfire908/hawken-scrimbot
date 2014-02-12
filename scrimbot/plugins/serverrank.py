@@ -24,10 +24,8 @@ class ServerRankPlugin(BasePlugin):
         self.register_config("plugins.serverrank.minmax_bracket", 100)
 
         # Register commands
-        self.register_command(CommandType.ALL, "serverrank", self.server_rank)
-        self.register_command(CommandType.ALL, "serverrankdetailed", self.server_rank_detailed)
-        self.register_command(CommandType.ALL, "sr", self.server_rank, flags=["alias"])
-        self.register_command(CommandType.ALL, "srd", self.server_rank_detailed, flags=["alias"])
+        self.register_command(CommandType.ALL, "serverrank", self.server_rank, alias=["sr"])
+        self.register_command(CommandType.ALL, "serverrankdetailed", self.server_rank_detailed, alias=["srd"])
 
     def disable(self):
         pass

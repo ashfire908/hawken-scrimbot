@@ -31,8 +31,8 @@ class PlayerRankPlugin(BasePlugin):
 
         # Register commands
         self.register_command(CommandType.PM, "mmr", self.mmr)
-        self.register_command(CommandType.PM, "glicko", self.glicko, flags=["hidden", "safe"])
-        self.register_command(CommandType.PM, "elo", self.elo, flags=["hidden", "safe"])
+        self.register_command(CommandType.PM, "glicko", self.glicko, hidden=True, safe=True)
+        self.register_command(CommandType.PM, "elo", self.elo, hidden=True, safe=True)
 
     def disable(self):
         pass

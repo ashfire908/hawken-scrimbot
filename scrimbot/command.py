@@ -73,29 +73,68 @@ class CommandManager:
             logger.info("Ambiguous command {0} called by {2} via {1}.".format(command, cmdtype, user))
 
     def register(self, handler):
+        # Register handler
         if handler.id not in self.registered:
             # Add the handler for the command
             self.registered[handler.id] = [handler]
         else:
             # Check if the handler isn't already registered
             for registered_handler in self.registered[handler.id]:
-                if registered_handler.fullid == handler.fullid:
-                    raise ValueError("Handler {0} is already registered".format(handler.fullid))
+                if registered_handler.plugin.name == handler.plugin.name:
+                    raise ValueError("Handler {0} is already registered by {1}".format(handler.id, registered_handler.fullid))
 
             # Add the handler for the command
             self.registered[handler.id].append(handler)
 
         logger.debug("Registered command: {0}".format(handler.fullid))
 
+        # Register aliases
+        if handler.flags.b.alias:
+            for alias in handler.flags.data.alias:
+                cmdid = Command.format_id(handler.cmdtype, alias)
+                if cmdid not in self.registered:
+                    # Add the handler for the command
+                    self.registered[cmdid] = [handler]
+                else:
+                    # Check if the handler isn't already registered
+                    for registered_handler in self.registered[cmdid]:
+                        if registered_handler.plugin.name == handler.plugin.name:
+                            raise ValueError("Handler {0} is already registered by {1}".format(cmdid, registered_handler.fullid))
+
+                    # Add the handler for the command
+                    self.registered[cmdid].append(handler)
+
+                logger.debug("Registered alias: {0} by {1}".format(cmdid, handler.fullid))
+
     def unregister(self, handler):
-        # Remove the command from the registered commands list
-        self.registered[handler.id][:] = [cmdhandler for cmdhandler in self.registered[handler.id] if cmdhandler.fullid != handler.fullid]
+        try:
+            # Remove the command from the registered commands list
+            self.registered[handler.id][:] = [cmdhandler for cmdhandler in self.registered[handler.id] if cmdhandler.fullid != handler.fullid]
 
-        # Cleanup the list if it's empty
-        if len(self.registered[handler.id]) == 0:
-            del self.registered[handler.id]
+            # Cleanup the list if it's empty
+            if len(self.registered[handler.id]) == 0:
+                del self.registered[handler.id]
 
-        logger.debug("Unregistered command: {0}".format(handler.fullid))
+            logger.debug("Unregistered command: {0}".format(handler.fullid))
+        except KeyError:
+            pass
+
+        # Unregister aliases
+        if handler.flags.b.alias:
+            for alias in handler.flags.data.alias:
+                cmdid = Command.format_id(handler.cmdtype, alias)
+
+                try:
+                    # Remove the command from the registered commands list
+                    self.registered[cmdid][:] = [cmdhandler for cmdhandler in self.registered[cmdid] if cmdhandler.fullid != handler.fullid]
+
+                    # Cleanup the list if it's empty
+                    if len(self.registered[cmdid]) == 0:
+                        del self.registered[cmdid]
+
+                    logger.debug("Unregistered alias: {0} by {1}".format(cmdid, handler.fullid))
+                except KeyError:
+                    pass
 
     def get_handlers(self, cmdtype, cmdname, plugin=None):
         cmdid = Command.format_id(cmdtype, cmdname)
@@ -296,7 +335,7 @@ Handler: {5} Arguments: {6} Target: {7} User: {8} Party: {9}""".format(cmdname, 
 
 
 class Command:
-    def __init__(self, plugin, cmdtype, cmdname, handler, flags=None, **metadata):
+    def __init__(self, plugin, cmdtype, cmdname, handler, **flags):
         self.plugin = plugin
         self.cmdtype = cmdtype
         self.cmdname = cmdname
@@ -305,12 +344,10 @@ class Command:
         self.handler = handler
 
         self.flags = CommandFlags()
-        if flags is not None:
-            for flag in flags:
+        for flag, value in flags.items():
+            if value:
                 setattr(self.flags.b, flag, 1)
-
-        for name, value in metadata.items():
-            setattr(self.flags.data, name, value)
+                setattr(self.flags.data, flag, value)
 
         self._verify_flags()
 

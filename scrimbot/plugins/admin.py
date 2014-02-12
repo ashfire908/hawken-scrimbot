@@ -12,20 +12,18 @@ class AdminPlugin(BasePlugin):
 
     def enable(self):
         # Register commands
-        self.register_command(CommandType.PM, "authorize", self.authorize, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "auth", self.authorize, flags=["permsreq", "alias"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "deauthorize", self.deauthorize, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "deauth", self.deauthorize, flags=["permsreq", "alias"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "group", self.group, flags=["permsreq"], permsreq=["admin"])
+        self.register_command(CommandType.PM, "authorize", self.authorize, permsreq=["admin"], alias=["auth"])
+        self.register_command(CommandType.PM, "deauthorize", self.deauthorize, permsreq=["admin"], alias=["deauth"])
+        self.register_command(CommandType.PM, "group", self.group, permsreq=["admin"])
         self.register_command(CommandType.PM, "usergroup", self.user_group)
-        self.register_command(CommandType.PM, "load", self.plugin_load, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "unload", self.plugin_unload, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "save", self.save_data, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "config", self.config, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "shutdown", self.shutdown, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "friends", self.friends, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "friend", self.friend, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "unfriend", self.unfriend, flags=["permsreq"], permsreq=["admin"])
+        self.register_command(CommandType.PM, "load", self.plugin_load, permsreq=["admin"])
+        self.register_command(CommandType.PM, "unload", self.plugin_unload, permsreq=["admin"])
+        self.register_command(CommandType.PM, "save", self.save_data, permsreq=["admin"])
+        self.register_command(CommandType.PM, "config", self.config, permsreq=["admin"])
+        self.register_command(CommandType.PM, "shutdown", self.shutdown, permsreq=["admin"])
+        self.register_command(CommandType.PM, "friends", self.friends, permsreq=["admin"])
+        self.register_command(CommandType.PM, "friend", self.friend, permsreq=["admin"])
+        self.register_command(CommandType.PM, "unfriend", self.unfriend, permsreq=["admin"])
 
     def disable(self):
         pass

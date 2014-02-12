@@ -21,10 +21,8 @@ class QualityPlugin(BasePlugin):
         self.register_config("plugins.quality.health_offset", 100)
 
         # Register commands
-        self.register_command(CommandType.ALL, "quality", self.quality)
-        self.register_command(CommandType.ALL, "qualityexplain", self.quality_explain)
-        self.register_command(CommandType.ALL, "qa", self.quality, flags=["alias"])
-        self.register_command(CommandType.ALL, "qae", self.quality_explain, flags=["alias"])
+        self.register_command(CommandType.ALL, "quality", self.quality, alias=["qa"])
+        self.register_command(CommandType.ALL, "qualityexplain", self.quality_explain, alias=["qae"])
 
     def disable(self):
         pass

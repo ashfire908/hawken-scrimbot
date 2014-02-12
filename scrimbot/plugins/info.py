@@ -12,13 +12,12 @@ class InfoPlugin(BasePlugin):
 
     def enable(self):
         # Register commands
-        self.register_command(CommandType.PM, "botinfo", self.botinfo, flags=["safe"])
-        self.register_command(CommandType.PM, "foundabug", self.foundabug, flags=["safe"])
-        self.register_command(CommandType.ALL, "commands", self.commands)
-        self.register_command(CommandType.ALL, "?", self.commands, flags=["alias"])
-        self.register_command(CommandType.ALL, "plugins", self.plugin_list, flags=["safe"])
+        self.register_command(CommandType.PM, "botinfo", self.botinfo, safe=True)
+        self.register_command(CommandType.PM, "foundabug", self.foundabug, safe=True)
+        self.register_command(CommandType.ALL, "commands", self.commands, alias=["?"])
+        self.register_command(CommandType.ALL, "plugins", self.plugin_list, safe=True)
         self.register_command(CommandType.ALL, "whoami", self.whoami)
-        self.register_command(CommandType.ALL, "hammertime", self.hammertime, flags=["hidden", "safe"])
+        self.register_command(CommandType.ALL, "hammertime", self.hammertime, hidden=True, safe=True)
 
     def disable(self):
         pass
@@ -71,10 +70,6 @@ Not every bit of information is required, but at the very least you need to send
 
             # Filter out commands by required permission
             if handler.flags.b.permsreq and not self._permissions.user_check_groups(user, handler.flags.data.permsreq):
-                continue
-
-            # Filter out aliases
-            if handler.flags.b.alias:
                 continue
 
             # Filter out parties lacking the needed feature(s)

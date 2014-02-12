@@ -23,15 +23,13 @@ class SpectatorPlugin(BasePlugin):
         self.register_group("spectator")
 
         # Register commands
-        self.register_command(CommandType.PM, "server", self.server, flags=["permsreq"], permsreq=["admin", "spectator"])
-        self.register_command(CommandType.PM, "spectate", self.server, flags=["permsreq", "alias"], permsreq=["admin", "spectator"])
-        self.register_command(CommandType.PM, "spec", self.server, flags=["permsreq", "alias"], permsreq=["admin", "spectator"])
-        self.register_command(CommandType.PM, "user", self.user, flags=["permsreq"], permsreq=["admin", "spectator"])
-        self.register_command(CommandType.PM, "cancel", self.cancel, flags=["permsreq"], permsreq=["admin", "spectator"])
-        self.register_command(CommandType.PM, "confirm", self.confirm, flags=["permsreq"], permsreq=["admin", "spectator"])
-        self.register_command(CommandType.PM, "save", self.save, flags=["permsreq"], permsreq=["admin", "spectator"])
-        self.register_command(CommandType.PM, "renew", self.renew, flags=["permsreq"], permsreq=["admin", "spectator"])
-        self.register_command(CommandType.PM, "clear", self.clear, flags=["permsreq"], permsreq=["admin", "spectator"])
+        self.register_command(CommandType.PM, "server", self.server, permsreq=["admin", "spectator"], alias=["spectate", "spec"])
+        self.register_command(CommandType.PM, "user", self.user, permsreq=["admin", "spectator"])
+        self.register_command(CommandType.PM, "cancel", self.cancel, permsreq=["admin", "spectator"])
+        self.register_command(CommandType.PM, "confirm", self.confirm, permsreq=["admin", "spectator"])
+        self.register_command(CommandType.PM, "save", self.save, permsreq=["admin", "spectator"])
+        self.register_command(CommandType.PM, "renew", self.renew, permsreq=["admin", "spectator"])
+        self.register_command(CommandType.PM, "clear", self.clear, permsreq=["admin", "spectator"])
 
         # Setup reservation tracking
         self.reservations = {}

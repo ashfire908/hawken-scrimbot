@@ -22,10 +22,8 @@ class PartyRankPlugin(BasePlugin):
         self.register_config("plugins.partyrank.minmax_bracket", 100)
 
         # Register commands
-        self.register_command(CommandType.PARTY, "partyrank", self.party_rank)
-        self.register_command(CommandType.PARTY, "partyrankdetailed", self.party_rank_detailed)
-        self.register_command(CommandType.PARTY, "pr", self.party_rank, flags=["alias"])
-        self.register_command(CommandType.PARTY, "prd", self.party_rank_detailed, flags=["alias"])
+        self.register_command(CommandType.PARTY, "partyrank", self.party_rank, alias=["pr"])
+        self.register_command(CommandType.PARTY, "partyrankdetailed", self.party_rank_detailed, alias=["prd"])
 
     def disable(self):
         pass
