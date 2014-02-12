@@ -12,13 +12,11 @@ class TestPlugin(BasePlugin):
     def enable(self):
         # Register commands
         self.register_command(CommandType.PM, "testexception", self.test_exception, flags=["hidden", "safe"])
-        self.register_command(CommandType.ALL, "hammertime", self.hammertime, flags=["hidden", "safe"])
-        self.register_command(CommandType.ALL, "whoami", self.whoami)
         self.register_command(CommandType.ALL, "callsign", self.callsign, flags=["hidden"])
         self.register_command(CommandType.ALL, "guid", self.guid, flags=["hidden"])
         self.register_command(CommandType.PM, "tell", self.tell, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "friends", self.friends, flags=["hidden"])
         self.register_command(CommandType.PM, "updateglobals", self.update_globals, flags=["permsreq"], permsreq=["admin"])
+        self.register_command(CommandType.PM, "reconnect", self.reconnect, flags=["permsreq"], permsreq=["admin"])
 
     def disable(self):
         pass
@@ -31,21 +29,6 @@ class TestPlugin(BasePlugin):
 
     def test_exception(self, cmdtype, cmdname, args, target, user, party):
         raise Exception("Test Exception")
-
-    def hammertime(self, cmdtype, cmdname, args, target, user, party):
-        self._xmpp.send_message(cmdtype, target, "STOP! HAMMER TIME!")
-
-    def whoami(self, cmdtype, cmdname, args, target, user, party):
-        # Get the callsign
-        callsign = self._cache.get_callsign(user)
-
-        # Check if we got a callsign back
-        if callsign is None:
-            message = "Error: Failed to look up your callsign."
-        else:
-            message = "You are '{0}'.".format(callsign)
-
-        self._xmpp.send_message(cmdtype, target, message)
 
     def callsign(self, cmdtype, cmdname, args, target, user, party):
         # Check args
@@ -97,24 +80,17 @@ class TestPlugin(BasePlugin):
                 self._xmpp.send_message(CommandType.PM, "{0}@{1}".format(guid, self._xmpp.boundjid.host), message)
                 self._xmpp.send_message(cmdtype, target, "Message sent.")
 
-    def friends(self, cmdtype, cmdname, args, target, user, party):
-        # Count the number of friends
-        count = 0
-        online = 0
-        for jid in self._xmpp.roster_list():
-            if self._xmpp.client_roster[jid]["subscription"] != "none":
-                count += 1
-
-            if len(self._xmpp.client_roster[jid].resources) > 0:
-                online += 1
-
-        self._xmpp.send_message(cmdtype, target, "Total friends: {0} Online Friends: {1}".format(count, online))
-
     def update_globals(self, cmdtype, cmdname, args, target, user, party):
         # Update the globals cache
         self._cache.globals_update()
 
         self._xmpp.send_message(cmdtype, target, "Updated globals cache.")
+
+    def reconnect(self, cmdtype, cmdname, args, target, user, party):
+        self._xmpp.send_message(cmdtype, target, "Reconnecting to chat...", now=True)
+
+        # Reconnect
+        self._xmpp.disconnect(reconnect=True)
 
 
 plugin = TestPlugin

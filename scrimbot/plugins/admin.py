@@ -18,11 +18,12 @@ class AdminPlugin(BasePlugin):
         self.register_command(CommandType.PM, "deauth", self.deauthorize, flags=["permsreq", "alias"], permsreq=["admin"])
         self.register_command(CommandType.PM, "group", self.group, flags=["permsreq"], permsreq=["admin"])
         self.register_command(CommandType.PM, "usergroup", self.user_group)
-        self.register_command(CommandType.PM, "save", self.save_data, flags=["permsreq"], permsreq=["admin"])
         self.register_command(CommandType.PM, "load", self.plugin_load, flags=["permsreq"], permsreq=["admin"])
         self.register_command(CommandType.PM, "unload", self.plugin_unload, flags=["permsreq"], permsreq=["admin"])
-        self.register_command(CommandType.PM, "shutdown", self.shutdown, flags=["permsreq"], permsreq=["admin"])
+        self.register_command(CommandType.PM, "save", self.save_data, flags=["permsreq"], permsreq=["admin"])
         self.register_command(CommandType.PM, "config", self.config, flags=["permsreq"], permsreq=["admin"])
+        self.register_command(CommandType.PM, "shutdown", self.shutdown, flags=["permsreq"], permsreq=["admin"])
+        self.register_command(CommandType.PM, "friends", self.friends, flags=["permsreq"], permsreq=["admin"])
         self.register_command(CommandType.PM, "friend", self.friend, flags=["permsreq"], permsreq=["admin"])
         self.register_command(CommandType.PM, "unfriend", self.unfriend, flags=["permsreq"], permsreq=["admin"])
 
@@ -221,6 +222,19 @@ class AdminPlugin(BasePlugin):
                     # Set the config value
                     self._config[config] = value
                     self._xmpp.send_message(cmdtype, target, "Config value set.")
+
+    def friends(self, cmdtype, cmdname, args, target, user, party):
+        # Count the number of friends
+        count = 0
+        online = 0
+        for jid in self._xmpp.roster_list():
+            if self._xmpp.client_roster[jid]["subscription"] != "none":
+                count += 1
+
+            if len(self._xmpp.client_roster[jid].resources) > 0:
+                online += 1
+
+        self._xmpp.send_message(cmdtype, target, "Total friends: {0} Online Friends: {1}".format(count, online))
 
     def friend(self, cmdtype, cmdname, args, target, user, party):
         # Check arguments

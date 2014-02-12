@@ -17,6 +17,8 @@ class InfoPlugin(BasePlugin):
         self.register_command(CommandType.ALL, "commands", self.commands)
         self.register_command(CommandType.ALL, "?", self.commands, flags=["alias"])
         self.register_command(CommandType.ALL, "plugins", self.plugin_list, flags=["safe"])
+        self.register_command(CommandType.ALL, "whoami", self.whoami)
+        self.register_command(CommandType.ALL, "hammertime", self.hammertime, flags=["hidden", "safe"])
 
     def disable(self):
         pass
@@ -105,5 +107,19 @@ Not every bit of information is required, but at the very least you need to send
     def plugin_list(self, cmdtype, cmdname, args, target, user, party):
         self._xmpp.send_message(cmdtype, target, "Loaded plugins: {0}".format(", ".join(sorted([plugin.name for plugin in self._plugins.active.values()]))))
 
+    def whoami(self, cmdtype, cmdname, args, target, user, party):
+        # Get the callsign
+        callsign = self._cache.get_callsign(user)
+
+        # Check if we got a callsign back
+        if callsign is None:
+            message = "Error: Failed to look up your callsign."
+        else:
+            message = "You are '{0}'.".format(callsign)
+
+        self._xmpp.send_message(cmdtype, target, message)
+
+    def hammertime(self, cmdtype, cmdname, args, target, user, party):
+        self._xmpp.send_message(cmdtype, target, "STOP! HAMMER TIME!")
 
 plugin = InfoPlugin
