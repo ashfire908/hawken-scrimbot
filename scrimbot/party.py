@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 def joined(f):
     def join_required(self, *args, **kwargs):
         if not self.joined:
-            raise ValueError("Party has not been joined yet.")
+            raise ValueError("Party has not been joined yet")
 
         return f(self, *args, **kwargs)
 
@@ -21,7 +21,7 @@ def joined(f):
 def notjoined(f):
     def notjoin_required(self, *args, **kwargs):
         if self.joined:
-            raise ValueError("Party has already been joined.")
+            raise ValueError("Party has already been joined")
 
         return f(self, *args, **kwargs)
 
@@ -31,7 +31,7 @@ def notjoined(f):
 def requireleader(f):
     def leader_required(self, *args, **kwargs):
         if not self.is_leader:
-            raise ValueError("Not the leader of the party.")
+            raise ValueError("Not the leader of the party")
 
         return f(self, *args, **kwargs)
 

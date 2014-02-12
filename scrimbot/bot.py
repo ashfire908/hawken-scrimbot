@@ -51,7 +51,7 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
         elif mtype == CommandType.PARTY:
             self.plugin["hawken_party"].message(mto, self.boundjid, mbody)
         else:
-            raise NotImplementedError("Unsupported message type.")
+            raise NotImplementedError("Unsupported message type")
 
     def roster_list(self):
         return [jid for jid in self.client_roster if jid_user(jid) != self.boundjid.user]
@@ -145,7 +145,7 @@ class ScrimBot:
         # Load config
         config_loaded = self.config.load()
         if config_loaded is False:
-            raise RuntimeError("Failed to load config.")
+            raise RuntimeError("Failed to load config")
 
         # Init the API, cache, XMPP, permissions, plugins, and commands
         self.api = ApiClient(self.config)
@@ -168,7 +168,7 @@ class ScrimBot:
 
         # Save the config before we setup the bot
         if not self.config.save():
-            raise RuntimeError("Could not save config file.")
+            raise RuntimeError("Could not save config file")
 
         # Setup the API and cache
         self.api.setup()

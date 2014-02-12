@@ -54,15 +54,15 @@ class Config:
         except IOError as e:
             if e.errno == errno.ENOENT:
                 # File not found, soft error
-                logger.warn("Could not find config file.")
+                logger.warn("Could not find the config file.")
                 return None
             else:
                 # Other error, fail
-                logger.exception("Failed to read config file!")
+                logger.exception("Failed to read the config file.")
                 return False
         except ValueError:
             # Failed to parse and load JSON
-            logger.exception("Failed to load config file! (Corrupt data?)")
+            logger.exception("Failed to load the config file.")
             return False
 
         # Load in the config
@@ -78,7 +78,7 @@ class Config:
             output = json.dumps(self._config, indent=2, sort_keys=True)
         except ValueError:
             # Failed to serialize the config to JSON
-            logger.exception("Failed to serialize the config to JSON!")
+            logger.exception("Failed to serialize the config.")
             return False
 
         # Write the config to file
@@ -87,7 +87,7 @@ class Config:
                 config_file.write(output)
         except IOError:
             # Error
-            logger.exception("Failed to write config file!")
+            logger.exception("Failed to write the config file.")
             return False
 
         return True

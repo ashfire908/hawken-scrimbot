@@ -78,15 +78,15 @@ class Cache:
         except IOError as e:
             if e.errno == errno.ENOENT:
                 # File not found, soft error
-                logger.warn("Could not find cache file.")
+                logger.warn("Could not find the cache file.")
                 return None
             else:
                 # Other error, fail
-                logger.exception("Failed to read cache file!")
+                logger.exception("Failed to read the cache file.")
                 return False
         except ValueError:
             # Failed to parse and load JSON
-            logger.exception("Failed to load cache file! (Corrupt data?)")
+            logger.exception("Failed to load the cache file.")
             return False
 
         self._cache.update(cache)
@@ -107,16 +107,21 @@ class Cache:
 
         logger.info("Saving cache.")
 
+        # Serialize the cache
+        try:
+            output = json.dumps(self._cache)
+        except ValueError:
+            # Failed to serialize the cache
+            logger.exception("Failed to serialize the cache.")
+            return False
+
         # Write the cache to file
         try:
-            cache_file = open(self.config.cache.filename, "w")
-            try:
-                json.dump(self._cache, cache_file)
-            finally:
-                cache_file.close()
+            with open(self.config.cache.filename, "w") as cache_file:
+                cache_file.write(output)
         except IOError:
             # Error
-            logger.exception("Failed to write cache file!")
+            logger.exception("Failed to write the cache file.")
             return False
 
         cache_flag.commit()

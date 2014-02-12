@@ -24,9 +24,7 @@ def bootstrap_logging(config):
             config_data = json.load(config_file)
         finally:
             config_file.close()
-    except IOError:
-        log_config = default_logging()
-    except ValueError:
+    except (IOError, ValueError):
         log_config = default_logging()
     else:
         try:

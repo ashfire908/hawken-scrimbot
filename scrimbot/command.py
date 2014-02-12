@@ -317,15 +317,15 @@ class Command:
     def _verify_flags(self):
         # Safe and Permission Required conflict
         if self.flags.b.safe and self.flags.b.permsreq:
-            raise ValueError("Flags 'safe' and 'permsreq' cannot be enabled at once.")
+            raise ValueError("Flags 'safe' and 'permsreq' cannot be enabled at once")
 
         # Safe and Permission Required conflict
         if self.flags.b.safe and self.flags.b.partyfeat:
-            raise ValueError("Flags 'safe' and 'partyfeat' cannot be enabled at once.")
+            raise ValueError("Flags 'safe' and 'partyfeat' cannot be enabled at once")
 
         # Party Feature cannot be used for non-party handlers
         if self.flags.b.partyfeat and self.cmdtype != CommandType.PARTY:
-            raise ValueError("Flag 'partyfeat' cannot be enabled for non-party commands.")
+            raise ValueError("Flag 'partyfeat' cannot be enabled for non-party commands")
 
     def call(self, cmdtype, cmdname, args, target, user, party=None):
         self.handler(cmdtype, cmdname, args, target, user, party)

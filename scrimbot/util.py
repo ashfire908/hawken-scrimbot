@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 
 import math
-from copy import deepcopy
 import ctypes
 import logging.config
 
 
 def enum(**enums):
-    return type('Enum', (), enums)
+    return type("Enum", (), enums)
 
 
 def chunks(l, n):
