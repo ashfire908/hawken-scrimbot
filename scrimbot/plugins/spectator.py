@@ -130,7 +130,7 @@ class SpectatorPlugin(BasePlugin):
         else:
             # Handle the result
             if result == ReservationResult.READY:
-                message = "\nReservation for server '{2}' complete.\nServer IP: {0}:{1}.\n\nUse '{3}{4} confirm' after joining the server, or '{3}{4} cancel' if you do not plan on joining the server."
+                message = "\nReservation for server '{2}' complete.\nServer IP: {0}:{1}\nCommand: openip {0}:{1}?spectatorOnly=1\n\nUse '{3}{4} confirm' after joining the server, or '{3}{4} cancel' if you do not plan on joining the server."
                 self._xmpp.send_message(cmdtype, target, message.format(reservation.advertisement["AssignedServerIp"], reservation.advertisement["AssignedServerPort"], reservation.server["ServerName"], self._config.bot.command_prefix, self.name))
             else:
                 self.reservation_delete(user)
