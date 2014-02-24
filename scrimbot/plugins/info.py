@@ -11,6 +11,9 @@ class InfoPlugin(BasePlugin):
         return "info"
 
     def enable(self):
+        # Register config
+        self.register_config("plugins.info.arbitrary_servers", True)
+
         # Register commands
         self.register_command(CommandType.PM, "botinfo", self.botinfo, safe=True)
         self.register_command(CommandType.PM, "foundabug", self.foundabug, safe=True)
@@ -18,6 +21,7 @@ class InfoPlugin(BasePlugin):
         self.register_command(CommandType.ALL, "plugins", self.plugin_list, safe=True)
         self.register_command(CommandType.ALL, "whoami", self.whoami)
         self.register_command(CommandType.ALL, "hammertime", self.hammertime, hidden=True, safe=True)
+        self.register_command(CommandType.PM, "serverinfo", self.server_info, alias=["srv"])
 
     def disable(self):
         pass
@@ -116,5 +120,35 @@ Not every bit of information is required, but at the very least you need to send
 
     def hammertime(self, cmdtype, cmdname, args, target, user, party):
         self._xmpp.send_message(cmdtype, target, "STOP! HAMMER TIME!")
+
+    def server_info(self, cmdtype, cmdname, args, target, user, party):
+        if len(args) > 0:
+            # Check if this user is allowed to pick what server to check
+            if self._config.plugins.info.arbitrary_servers or self._permissions.user_check_group(user, "admin"):
+                self._xmpp.send_message(cmdtype, target, "Info for arbitrary servers is disabled.")
+                return
+
+            # Load the server info by name
+            servers = self._api.get_server_by_name(args[0])
+            if len(servers) < 1:
+                self._xmpp.send_message(cmdtype, target, "No such server.")
+                return
+            if len(servers) > 1:
+                self._xmpp.send_message(cmdtype, target, "Server name is ambiguous.")
+                return
+
+            server = servers[0]
+        else:
+            # Find the server the user is on
+            servers = self._api.get_user_server(user)
+            if servers is None:
+                self._xmpp.send_message(cmdtype, target, "You are not on a server.")
+                return
+
+            # Load the server info
+            server = self._api.get_server(servers[0])
+
+        # Return the server info
+        self._xmpp.send_message(cmdtype, target, "Server {0[ServerName]}: Map {0[Map]} - Gametype {0[GameType]} - Region {0[Region]} - Users {1}/{0[MaxUsers]} - Rating {0[ServerRanking]}".format(server, len(server["Users"])))
 
 plugin = InfoPlugin
