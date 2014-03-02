@@ -67,7 +67,7 @@ class PartyRankPlugin(BasePlugin):
             self._xmpp.send_message(cmdtype, target, result[1])
         else:
             try:
-                data = self._api.get_user_stats(party.players)
+                data = self._api.get_user_stats(list(party.players))
             except hawkenapi.exceptions.InvalidBatch:
                 self._xmpp.send_message(cmdtype, target, "Error: Failed to load player data.")
             else:
@@ -101,7 +101,7 @@ class PartyRankPlugin(BasePlugin):
             self._xmpp.send_message(cmdtype, target, result[1])
         else:
             try:
-                data = self._api.get_user_stats(party.players)
+                data = self._api.get_user_stats(list(party.players))
             except hawkenapi.exceptions.InvalidBatch:
                 self._xmpp.send_message(cmdtype, target, "Error: Failed to load player data.")
             else:
