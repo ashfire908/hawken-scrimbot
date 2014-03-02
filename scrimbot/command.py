@@ -300,18 +300,23 @@ class CommandManager:
 Handler: {5} Arguments: {6} Target: {7} User: {8} Party: {9}""".format(cmdname, handler.plugin.name, cmdtype, type(e), e, handler.fullid, arguments, target, user, party_name))
 
             # Report back to the user
-            if isinstance(e, hawkenapi.exceptions.RetryLimitExceeded):
-                # Try using the subexception's message
-                msg = self.exception_message(e.last_exception)
-                if msg is None:
-                    # Temp error encountered, retry limit reached
-                    msg = "Error: The command you attempted to run has failed due to a temporary issue with the Hawken servers. Please try again later. If the error persists, please report it (see {0}foundabug)!".format(self.config.bot.command_prefix)
-            else:
-                # Get the exception message
-                msg = self.exception_message(e)
-                if msg is None:
-                    # Generic error
-                    msg = "Error: The command you attempted to run has encountered an unhandled exception. This is a bug, please report it (see {1}foundabug)! {0} This error has been logged.".format(type(e), self.config.bot.command_prefix)
+            try:
+                if isinstance(e, hawkenapi.exceptions.RetryLimitExceeded):
+                    # Try using the subexception's message
+                    msg = self.exception_message(e.last_exception)
+                    if msg is None:
+                        # Temp error encountered, retry limit reached
+                        msg = "Error: The command you attempted to run has failed due to a temporary issue with the Hawken servers. Please try again later. If the error persists, please report it (see {0}foundabug)!".format(self.config.bot.command_prefix)
+                else:
+                        # Get the exception message
+                    msg = self.exception_message(e)
+                    if msg is None:
+                        # Generic error
+                        msg = "Error: The command you attempted to run has encountered an unhandled exception. This is a bug, please report it (see {1}foundabug)! {0} This error has been logged.".format(type(e), self.config.bot.command_prefix)
+            except:
+                logger.exception("Exception encountered while formatting error message to user.")
+                msg = "Error: The command you attempted to run has encountered an unhandled exception. This is a bug. Such a bug, that even the proper error message cannot be displayed! Please report it! This error has been logged."
+
             self.xmpp.send_message(cmdtype, target, msg)
 
     def exception_message(self, exception):
