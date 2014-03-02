@@ -323,7 +323,7 @@ Handler: {5} Arguments: {6} Target: {7} User: {8} Party: {9}""".format(cmdname, 
         if isinstance(exception, (hawkenapi.exceptions.AuthenticationFailure, hawkenapi.exceptions.NotAuthenticated, hawkenapi.exceptions.NotAuthorized)):
             # Auth error encountered
             message = "Error: The command you attempted to run has failed due to a authentication failure. If the error persists, please report it (see {0}foundabug)!".format(self.config.bot.command_prefix)
-        elif isinstance(exception, (hawkenapi.exceptions.NotAllowed, hawkenapi.exceptions.WrongOwner, hawkenapi.exceptions.InvalidRequest, hawkenapi.exceptions.InvalidBatch)):
+        elif isinstance(exception, (hawkenapi.exceptions.NotAllowed, hawkenapi.exceptions.WrongUser, hawkenapi.exceptions.InvalidRequest, hawkenapi.exceptions.InvalidBatch)):
             # Bad request, probably a bug
             message = "Error: The command you attempted to run has failed due to an issue between the bot and the Hawken servers. This is a bug, please report it! See {0}foundabug for more information.".format(self.config.bot.command_prefix)
         elif isinstance(exception, (hawkenapi.exceptions.InternalServerError, hawkenapi.exceptions.RequestError)):
