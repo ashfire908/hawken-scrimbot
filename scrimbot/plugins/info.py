@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import itertools
+from scrimbot.api import region_names, map_names, gametype_names
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
 
@@ -21,7 +22,7 @@ class InfoPlugin(BasePlugin):
         self.register_command(CommandType.ALL, "plugins", self.plugin_list, safe=True)
         self.register_command(CommandType.ALL, "whoami", self.whoami)
         self.register_command(CommandType.ALL, "hammertime", self.hammertime, hidden=True, safe=True)
-        self.register_command(CommandType.PM, "serverinfo", self.server_info, alias=["srv"])
+        self.register_command(CommandType.PM, "serverinfo", self.server_info, alias=["srv", "si"])
 
     def disable(self):
         pass
@@ -149,6 +150,7 @@ Not every bit of information is required, but at the very least you need to send
             server = self._api.get_server(servers[0])
 
         # Return the server info
-        self._xmpp.send_message(cmdtype, target, "Server {0[ServerName]}: Map {0[Map]} - Gametype {0[GameType]} - Region {0[Region]} - Users {1}/{0[MaxUsers]} - Rating {0[ServerRanking]}".format(server, len(server["Users"])))
+        message = "Server {0[ServerName]}: {1} on {2} in {3} - Users {4}/{0[MaxUsers]} - Rating {5}".format(server, gametype_names.get(server["GameType"], server["GameType"]), map_names.get(server["Map"], server["Map"]), region_names.get(server["Region"], server["Region"]), len(server["Users"]), server["ServerRanking"] or "<None>")
+        self._xmpp.send_message(cmdtype, target, message)
 
 plugin = InfoPlugin
