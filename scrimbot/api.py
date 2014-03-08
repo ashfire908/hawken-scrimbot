@@ -2,6 +2,41 @@
 
 import hawkenapi
 import hawkenapi.sleekxmpp
+from scrimbot.util import CaseInsensitiveDict
+
+
+region_names = CaseInsensitiveDict({
+    "US-East": "US East",
+    "US-West": "US West",
+    "UK": "UK",
+    "Japan": "Asia North",
+    "Singapore": "Asia South",
+    "Australia": "Oceania",
+    "Comp-US-East": "Comp US East",
+    "Comp-US-West": "Comp US West"
+})
+
+map_names = CaseInsensitiveDict({
+    "VS-Alleys": "Uptown",
+    "VS-Andromeda": "Prosk",
+    "VS-Bunker": "Bunker",
+    "VS-Facility": "Facility",
+    "VS-LastEco": "Last Eco",
+    "VS-Sahara": "Bazaar",
+    "VS-Titan": "Origin",
+    "VS-Valkirie": "Front Line",
+    "VS-Wreckage": "Wreckage",
+    "CO-Facility": "Co-Op Facility",
+    "CO-Valkirie": "Co-Op Front Line"
+})
+
+gametype_names = CaseInsensitiveDict({
+    "HawkenTDM": "Team Deathmatch",
+    "HawkenDM": "Deathmatch",
+    "HawkenSG": "Siege",
+    "HawkenMA": "Missile Assault",
+    "HawkenCoOp": "Co-Op Bot Destruction"
+})
 
 
 class ApiClient(hawkenapi.Client):
