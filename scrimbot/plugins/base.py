@@ -148,6 +148,9 @@ class PluginManager:
             logger.error("Failed to load plugin: {0} - Plugin does not have a defined main class.".format(name))
             return False
 
+        if plugin.name != name:
+            logger.warning("Path for plugin {0} does not match it's name ({1}).".format(name, plugin.name))
+
         # Enable the plugin
         self.active[plugin.name] = plugin
         try:
