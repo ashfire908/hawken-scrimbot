@@ -124,7 +124,7 @@ Not every bit of information is required, but at the very least you need to send
     def server_info(self, cmdtype, cmdname, args, target, user, party):
         if len(args) > 0:
             # Check if this user is allowed to pick what server to check
-            if self._config.plugins.info.arbitrary_servers or self._permissions.user_check_group(user, "admin"):
+            if not self._config.plugins.info.arbitrary_servers and not self._permissions.user_check_group(user, "admin"):
                 self._xmpp.send_message(cmdtype, target, "Info for arbitrary servers is disabled.")
                 return
 
