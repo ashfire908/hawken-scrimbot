@@ -32,6 +32,9 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
         # Disable whitespace keepalives
         self.whitespace_keepalive = False
 
+        # Handle the presence ourselves
+        self.auto_authorize = None
+
         # Register the signal handlers
         self.use_signals()
 
@@ -247,9 +250,6 @@ class ScrimBot:
     def handle_session_start(self, event):
         if not self.connected:
             self.connected = True
-
-            # Handle the presence ourselves
-            self.xmpp.auto_authorize = None
 
             # Send presence info, retrieve roster
             self.xmpp.send_presence()
