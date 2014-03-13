@@ -363,14 +363,14 @@ class ScrimPlugin(BasePlugin):
         if not party.is_leader:
             self._xmpp.send_message(cmdtype, target, "Error: I am not the leader of the party.")
         # Abort the deployment
-        elif not party.abort(CancelCode.LEADERCANCEL):
+        elif not party.abort(CancelCode.leadercancel):
             # Could not abort
             self._xmpp.send_message(cmdtype, target, "Party is not deploying - nothing to cancel.")
 
     def party_leave(self, cmdtype, cmdname, args, target, user, party):
         self._xmpp.send_message(cmdtype, target, "Leaving the party, have a nice day.")
 
-        party.abort(CancelCode.LEADERCHANGE)
+        party.abort(CancelCode.leaderchange)
         self.leave_party(party.guid)
 
     def party_transfer(self, cmdtype, cmdname, args, target, user, party):

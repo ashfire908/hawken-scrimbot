@@ -2,6 +2,7 @@
 
 import shlex
 import logging
+import requests.exceptions
 import hawkenapi.exceptions
 from scrimbot.util import enum, create_bitfield
 
@@ -301,42 +302,29 @@ Handler: {5} Arguments: {6} Target: {7} User: {8} Party: {9}""".format(cmdname, 
 
             # Report back to the user
             try:
-                if isinstance(e, hawkenapi.exceptions.RetryLimitExceeded):
-                    # Try using the subexception's message
-                    msg = self.exception_message(e.last_exception)
-                    if msg is None:
-                        # Temp error encountered, retry limit reached
-                        msg = "Error: The command you attempted to run has failed due to a temporary issue with the Hawken servers. Please try again later. If the error persists, please report it (see {0}foundabug)!".format(self.config.bot.command_prefix)
+                if isinstance(e, (requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+                    # Connection error/timeout
+                    msg = "Error: The command you attempted to run has failed due to an issue contacting the Hawken servers. Please try again later. If the error persists, please report it (see {0}foundabug)!".format(self.config.bot.command_prefix)
+                elif isinstance(e, (hawkenapi.exceptions.AuthenticationFailure, hawkenapi.exceptions.NotAuthenticated, hawkenapi.exceptions.NotAuthorized)):
+                    # Auth error encountered
+                    msg = "Error: The command you attempted to run has failed due to an authentication failure. If the error persists, please report it (see {0}foundabug)!".format(self.config.bot.command_prefix)
+                elif isinstance(e, (hawkenapi.exceptions.NotAllowed, hawkenapi.exceptions.WrongUser, hawkenapi.exceptions.InvalidRequest, hawkenapi.exceptions.InvalidBatch, requests.exceptions.RequestException)):
+                    # Bad request or request error, probably a bug
+                    msg = "Error: The command you attempted to run has failed due to an issue between the bot and the Hawken servers. This is a bug, please report it! See {0}foundabug for more information.".format(self.config.bot.command_prefix)
+                elif isinstance(e, hawkenapi.exceptions.InternalServerError):
+                    # Services error
+                    msg = "Error: The command you attempted to run has failed due to an issue encountered with the Hawken servers. If the error persists, please report it (see {0}foundabug)!".format(self.config.bot.command_prefix)
+                elif isinstance(e, hawkenapi.exceptions.ServiceUnavailable):
+                    # Services unavailable/overloaded
+                    msg = "Error: The command you attempted to run has failed due to the Hawken servers being unavailable. Please try again later. If the error persists, please report it (see {0}foundabug)!".format(self.config.bot.command_prefix)
                 else:
-                        # Get the exception message
-                    msg = self.exception_message(e)
-                    if msg is None:
-                        # Generic error
-                        msg = "Error: The command you attempted to run has encountered an unhandled exception. This is a bug, please report it (see {1}foundabug)! {0} This error has been logged.".format(type(e), self.config.bot.command_prefix)
+                    # Generic error
+                    msg = "Error: The command you attempted to run has encountered an unhandled exception. This is a bug, please report it (see {1}foundabug)! {0} This error has been logged.".format(type(e), self.config.bot.command_prefix)
             except:
-                logger.exception("Exception encountered while formatting error message to user.")
+                logger.exception("Exception encountered while formatting error message for the user.")
                 msg = "Error: The command you attempted to run has encountered an unhandled exception. This is a bug. Such a bug, that even the proper error message cannot be displayed! Please report it! This error has been logged."
 
             self.xmpp.send_message(cmdtype, target, msg)
-
-    def exception_message(self, exception):
-        if isinstance(exception, (hawkenapi.exceptions.AuthenticationFailure, hawkenapi.exceptions.NotAuthenticated, hawkenapi.exceptions.NotAuthorized)):
-            # Auth error encountered
-            message = "Error: The command you attempted to run has failed due to a authentication failure. If the error persists, please report it (see {0}foundabug)!".format(self.config.bot.command_prefix)
-        elif isinstance(exception, (hawkenapi.exceptions.NotAllowed, hawkenapi.exceptions.WrongUser, hawkenapi.exceptions.InvalidRequest, hawkenapi.exceptions.InvalidBatch)):
-            # Bad request, probably a bug
-            message = "Error: The command you attempted to run has failed due to an issue between the bot and the Hawken servers. This is a bug, please report it! See {0}foundabug for more information.".format(self.config.bot.command_prefix)
-        elif isinstance(exception, (hawkenapi.exceptions.InternalServerError, hawkenapi.exceptions.RequestError)):
-            # Request error
-            message = "Error: The command you attempted to run has failed due to an issue encountered with the Hawken servers. If the error persists, please report it (see {0}foundabug)!".format(self.config.bot.command_prefix)
-        elif isinstance(exception, hawkenapi.exceptions.ServiceUnavailable):
-            # Service failure
-            message = "Error: The command you attempted to run has failed due to the Hawken servers being unavailable. Please try again later. If the error persists, please report it (see {0}foundabug)!".format(self.config.bot.command_prefix)
-        else:
-            # Unknown
-            message = None
-
-        return message
 
 
 class Command:

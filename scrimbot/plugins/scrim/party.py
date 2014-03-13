@@ -59,12 +59,12 @@ class ScrimParty(Party):
     def _handle_online(self, presence):
         if self.joined:
             # Stop any active deployment
-            self.abort(CancelCode.MEMBERJOIN)
+            self.abort(CancelCode.memberjoin)
 
     def _handle_offline(self, presence):
         if self.joined:
             # Stop any active deployment
-            self.abort(CancelCode.MEMBERLEFT)
+            self.abort(CancelCode.memberleft)
 
     def _handle_partymemberdata(self, message):
         # Update the party state
@@ -170,37 +170,37 @@ class ScrimParty(Party):
             result = self.reservation.poll()
         except InvalidResponse as e:
             self.xmpp.send_message(CommandType.PARTY, self.room_jid, "Error: Reservation returned invalid response - {0}.".format(e))
-            self.abort(CancelCode.PARTYCANCEL)
+            self.abort(CancelCode.partycancel)
         except:
             self.xmpp.send_message(CommandType.PARTY, self.room_jid, "Error: Failed to poll for reservation. This is a bug - please report it!")
-            self.abort(CancelCode.PARTYCANCEL)
+            self.abort(CancelCode.partycancel)
         else:
             if result == ReservationResult.READY:
                 self._start_deployment()
             elif result == ReservationResult.TIMEOUT:
-                self.abort(CancelCode.NOMATCH)
+                self.abort(CancelCode.nomatch)
             elif result == ReservationResult.NOTFOUND:
                 self.xmpp.send_message(CommandType.PARTY, self.room_jid, "Error: Could not retrieve advertisement - expired? This is a bug - please report it!")
-                self.abort(CancelCode.PARTYCANCEL)
+                self.abort(CancelCode.partycancel)
             elif result == ReservationResult.ERROR:
                 self.xmpp.send_message(CommandType.PARTY, self.room_jid, "Error: Failed to poll for reservation. This is a bug - please report it!")
-                self.abort(CancelCode.PARTYCANCEL)
+                self.abort(CancelCode.partycancel)
 
     def leave(self):
         # Stop the matchmaking
-        self.abort(CancelCode.LEADERCANCEL)
+        self.abort(CancelCode.leadercancel)
 
         super().leave()
 
     def kick(self, user):
         # Stop any active deployment
-        self.abort(CancelCode.MEMBERKICK)
+        self.abort(CancelCode.memberkick)
 
         super().kick(user)
 
     def set_leader(self, user):
         # Stop any active deployment
-        self.abort(CancelCode.LEADERCHANGE)
+        self.abort(CancelCode.leaderchange)
 
         super().set_leader(user)
 
@@ -214,7 +214,7 @@ class ScrimParty(Party):
         self._start_matchmaking(reservation)
 
     @joined
-    def abort(self, code=CancelCode.PARTYCANCEL):
+    def abort(self, code=CancelCode.partycancel):
         if not self.is_leader:
             return False
         elif self.state == DeploymentState.MATCHMAKING:

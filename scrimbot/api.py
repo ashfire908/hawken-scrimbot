@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import hawkenapi
+import hawkenapi.client
 import hawkenapi.sleekxmpp
 from scrimbot.util import CaseInsensitiveDict
 
@@ -39,7 +39,7 @@ gametype_names = CaseInsensitiveDict({
 })
 
 
-class ApiClient(hawkenapi.Client):
+class ApiClient(hawkenapi.client.Client):
     def __init__(self, config):
         self.config = config
 
@@ -48,8 +48,7 @@ class ApiClient(hawkenapi.Client):
         self.config.register("api.password", None)
         self.config.register("api.host", None)
         self.config.register("api.scheme", None)
-        self.config.register("api.retry_max", 5)
-        self.config.register("api.retry_delay", 1)
+        self.config.register("api.retry_max", 2)
         self.config.register("api.advertisement.polling_rate.server", 0.5)
         self.config.register("api.advertisement.polling_rate.matchmaking", 1)
         self.config.register("api.advertisement.polling_limit.server", 15.0)
@@ -63,9 +62,7 @@ class ApiClient(hawkenapi.Client):
         if self.config.api.scheme is not None:
             kwargs["scheme"] = self.config.api.scheme
         if self.config.api.retry_max is not None:
-            kwargs["retry_attempts"] = self.config.api.retry_max
-        if self.config.api.retry_delay is not None:
-            kwargs["retry_delay"] = self.config.api.retry_delay
+            kwargs["max_retries"] = self.config.api.retry_max
 
         super().__init__(**kwargs)
 
