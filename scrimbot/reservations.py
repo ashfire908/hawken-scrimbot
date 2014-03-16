@@ -7,6 +7,7 @@ import threading
 import concurrent.futures
 from abc import ABCMeta, abstractmethod
 import hawkenapi.exceptions
+from hawkenapi.mappings import MatchState
 from scrimbot.util import enum, gen_composite_player, calc_fitness
 
 logger = logging.getLogger(__name__)
@@ -224,6 +225,10 @@ class ServerReservation(BaseReservation):
         if self.server["MaxUsers"] < len(self.users):
             issues.append("Error: There are too many users to fit into the server ({0}/{1}).".format(len(self.users), self.server["MaxUsers"]))
             critical = True
+        # Server marked as unavailable
+        if int(self.server["DeveloperData"]["MatchState"]) == MatchState.unavailable:
+            issues.append("Error: The server is currently not available. It may be switching maps or otherwise not ready for new players.")
+            critical = True
         # Check for warnings
         else:
             # Server is full
@@ -241,6 +246,9 @@ class ServerReservation(BaseReservation):
                     score, health, rating, details = calc_fitness(self._cache["globals"], composite, self.server)
                     if rating == 0:
                         issues.append("Warning: Server outside player fitness range ({0}) - reservation may fail!".format(health))
+            # Match is in progress
+            if int(self.server["DeveloperData"]["MatchState"]) == MatchState.inprogress:
+                issues.append("Warning: Match already underway.")
 
         return critical, issues
 
