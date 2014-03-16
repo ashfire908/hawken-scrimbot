@@ -225,12 +225,13 @@ class AdminPlugin(BasePlugin):
         # Count the number of friends
         count = 0
         online = 0
-        for jid in self._xmpp.roster_list():
-            if self._xmpp.client_roster[jid]["subscription"] != "none":
+
+        for jid, item in self._xmpp.roster_items():
+            if item["subscription"] == "both":
                 count += 1
 
-            if len(self._xmpp.client_roster[jid].resources) > 0:
-                online += 1
+                if len(item.resources) > 0:
+                    online += 1
 
         self._xmpp.send_message(cmdtype, target, "Total friends: {0} Online Friends: {1}".format(count, online))
 

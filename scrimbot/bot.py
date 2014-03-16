@@ -59,11 +59,16 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
     def roster_list(self):
         return [jid for jid in self.client_roster if jid_user(jid) != self.boundjid.user]
 
+    def roster_items(self):
+        for jid, item in self.client_roster._jids.items():
+            if jid_user(jid) != self.boundjid.user:
+                yield jid, item
+
     def format_jid(self, user):
         return "{0}@{1}".format(user, self.boundjid.host)
 
     def has_jid(self, jid):
-        return jid in self.roster_list() and self.client_roster[jid]["subscription"] != "none"
+        return jid_user(jid) != self.boundjid.user and jid in self.client_roster and self.client_roster[jid]["subscription"] != "none"
 
     def add_jid(self, jid):
         added = True
