@@ -38,6 +38,66 @@ gametype_names = CaseInsensitiveDict({
     "HawkenCoOp": "Co-Op Bot Destruction"
 })
 
+region_map = {
+    "US-East": ("USEast", "USE"),
+    "US-West": ("USWest", "USW"),
+    "UK": ("UK", ),
+    "Japan": ("AsiaNorth", "AN"),
+    "Singapore": ("AsiaSouth", "AS"),
+    "Australia": ("Oceania", ),
+    "Comp-US-East": ("CompUSEast", "CompUSE"),
+    "Comp-US-West": ("CompUSWest", "CompUSW")
+}
+
+map_map = {
+    "VS-Alleys": ("Uptown", "Alleys"),
+    "VS-Andromeda": ("Prosk", "Andromeda"),
+    "VS-Bunker": ("Bunker", ),
+    "VS-Facility": ("Facility", ),
+    "VS-LastEco": ("LastEco", ),
+    "VS-Sahara": ("Bazaar", "Sahara"),
+    "VS-Titan": ("Origin", "Titan"),
+    "VS-Valkirie": ("FrontLine", "Valkirie"),
+    "VS-Wreckage": ("Wreckage", ),
+    "CO-Facility": ("Co-OpFacility", "CoOpFacility"),
+    "CO-Valkirie": ("Co-OpFrontLine", "CoOpFrontLine", "Co-OpValkirie", "CoOpValkirie")
+}
+
+gametype_map = {
+    "HawkenTDM": ("TeamDeathmatch", "TDM"),
+    "HawkenDM": ("Deathmatch", "DM"),
+    "HawkenSG": ("Siege", "SG"),
+    "HawkenMA": ("MissileAssault", "MA"),
+    "HawkenCoOp": ("Co-Op", "CoOp", "COBD")
+}
+
+
+def get_mapping(target, mapping):
+    target = target.lower()
+
+    for k in mapping.keys():
+        if k.lower() == target:
+            return k
+
+    for k, v in mapping.items():
+        for name in v:
+            if name.lower() == target:
+                return k
+
+    return None
+
+
+def get_region(name):
+    return get_mapping(name, region_map)
+
+
+def get_map(name):
+    return get_mapping(name, map_map)
+
+
+def get_gametype(name):
+    return get_mapping(name, gametype_map)
+
 
 class ApiClient(hawkenapi.client.Client):
     def __init__(self, config):
