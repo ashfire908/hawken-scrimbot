@@ -214,7 +214,7 @@ class SpectatorPlugin(BasePlugin):
                 self._xmpp.send_message(cmdtype, target, "No such player exists.")
             else:
                 # Get the user's server
-                servers = self._api.get_user_server(guid)
+                servers = self._api.get_user_server(guid, cache_bypass=True)
 
                 # Check if the user is on a server
                 if servers is None:

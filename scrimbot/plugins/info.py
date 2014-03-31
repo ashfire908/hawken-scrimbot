@@ -141,7 +141,7 @@ Not every bit of information is required, but at the very least you need to send
             server = servers[0]
         else:
             # Find the server the user is on
-            servers = self._api.get_user_server(user)
+            servers = self._api.get_user_server(user, cache_bypass=True)
             if servers is None:
                 self._xmpp.send_message(cmdtype, target, "You are not on a server.")
                 return

@@ -70,7 +70,7 @@ class QualityPlugin(BasePlugin):
                 return False, "Rankings for arbitrary servers are disabled."
         else:
             # Find the server the user is on
-            server = self._api.get_user_server(user)
+            server = self._api.get_user_server(user, cache_bypass=True)
             # Check if they are actually on a server
             if server is None:
                 return False, "You are not on a server."
@@ -207,7 +207,7 @@ class QualityPlugin(BasePlugin):
             gametype = None
 
         # Get the server list
-        server_list = self._api.get_server()
+        server_list = self._api.get_server_list()
 
         # Load the player data
         player = self._api.get_user_stats(user)

@@ -69,7 +69,7 @@ class ServerRankPlugin(BasePlugin):
                 return False, "Rankings for arbitrary servers are disabled."
         else:
             # Find the server the user is on
-            server = self._api.get_user_server(user)
+            server = self._api.get_user_server(user, cache_bypass=True)
 
             # Check if they are actually on a server
             if server is None:

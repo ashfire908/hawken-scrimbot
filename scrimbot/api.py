@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import hawkenapi.client
+from hawkenapi.interface import Session
 import hawkenapi.sleekxmpp
 from scrimbot.util import CaseInsensitiveDict
 
@@ -106,25 +107,26 @@ class ApiClient(hawkenapi.client.Client):
         # Register config values
         self.config.register("api.username", None)
         self.config.register("api.password", None)
-        self.config.register("api.host", None)
-        self.config.register("api.scheme", None)
-        self.config.register("api.retry_max", 2)
+        self.config.register("api.session.host", None)
+        self.config.register("api.session.scheme", None)
+        self.config.register("api.session.max_retries", 2)
+        self.config.register("api.session.timeout", 15)
+        self.config.register("api.cache.prefix", "hawkenscrimbot")
+        self.config.register("api.cache.mode", None)
+        self.config.register("api.cache.params", {})
         self.config.register("api.advertisement.polling_rate.server", 0.5)
         self.config.register("api.advertisement.polling_rate.matchmaking", 1)
         self.config.register("api.advertisement.polling_limit.server", 15.0)
         self.config.register("api.advertisement.polling_limit.matchmaking", 300.0)
 
     def setup(self):
-        # Get the parameters and init the underlying client
-        kwargs = {}
-        if self.config.api.host is not None:
-            kwargs["host"] = self.config.api.host
-        if self.config.api.scheme is not None:
-            kwargs["scheme"] = self.config.api.scheme
-        if self.config.api.retry_max is not None:
-            kwargs["max_retries"] = self.config.api.retry_max
+        # Init the underlying client
+        super().__init__(Session(**self.config.api.session))
 
-        super().__init__(**kwargs)
+        # Setup caching
+        if self.config.api.cache.mode == "redis":
+            import hawkenapi.cache
+            self.cache = hawkenapi.cache.RedisCache(self.config.api.cache.prefix, **self.config.api.cache.params)
 
         # Authenticate to the API and grab the user's callsign
         self.login(self.config.api.username, self.config.api.password)
