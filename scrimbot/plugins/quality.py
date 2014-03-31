@@ -215,7 +215,9 @@ class QualityPlugin(BasePlugin):
         if player is None:
             self._xmpp.send_message(cmdtype, target, "Error: Failed to load player stats.")
         else:
-            # Filter the servers
+            # Filter the servers and calculate the fitness
+            server_fitness = {}
+
             def server_filter(server):
                 if len(server["Users"]) == 0:
                     # Empty server
@@ -235,7 +237,13 @@ class QualityPlugin(BasePlugin):
 
                 return True
 
-            servers = [server for server in server_list if server_filter(server)]
+            def get_fitness(server):
+                fitness = calc_fitness(self._cache["globals"], player, server)
+                server_fitness[server["Guid"]] = fitness[3]
+
+                return abs(fitness[0])
+
+            results = sorted((server for server in server_list if server_filter(server)), key=get_fitness)[:self._config.plugins.quality.max_results]
 
             # Get the header identifier
             if gametype is None:
@@ -244,19 +252,9 @@ class QualityPlugin(BasePlugin):
                 identifier = "{0} {1}".format(region_names[region], gametype_names[gametype])
 
             # Check if we have any servers left
-            if len(servers) == 0:
+            if len(results) == 0:
                 lines = ["No {0} servers found.".format(identifier)]
             else:
-                # Calculate the server fitness
-                server_fitness = {}
-
-                def get_fitness(server):
-                    fitness = calc_fitness(self._cache["globals"], player, server)
-                    server_fitness[server["Guid"]] = fitness[3]
-
-                    return abs(fitness[0])
-                results = sorted(servers, key=get_fitness)[:self._config.plugins.quality.max_results]
-
                 # Format the output
                 lines = []
                 x = 0
