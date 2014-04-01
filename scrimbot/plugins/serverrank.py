@@ -114,7 +114,7 @@ suht pu ijm geteing durnk wtih rei
 replacing all mechs with the tech""".split("\n"))
 
     def server_rank(self, cmdtype, cmdname, args, target, user, party):
-        if random.randint(0, 2) == 2:
+        if random.randint(0, 5) == 2:
             self._xmpp.send_message(cmdtype, target, self.random_message())
             return
 
@@ -142,7 +142,7 @@ replacing all mechs with the tech""".split("\n"))
                 self._xmpp.send_message(cmdtype, target, message)
 
     def server_rank_detailed(self, cmdtype, cmdname, args, target, user, party):
-        if random.randint(0, 2) == 2:
+        if random.randint(0, 5) == 2:
             self._xmpp.send_message(cmdtype, target, self.random_message())
             return
 
