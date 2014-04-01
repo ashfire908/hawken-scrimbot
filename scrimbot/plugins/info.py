@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import random
+import time
 import itertools
 from scrimbot.api import region_names, map_names, gametype_names
 from scrimbot.command import CommandType
@@ -43,11 +45,65 @@ This bot is an unofficial tool, neither run nor endorsed by Adhesive Games or Me
         self._xmpp.send_message(cmdtype, target, message)
 
     def foundabug(self, cmdtype, cmdname, args, target, user, party):
-        message = """If you have encounter an error with the bot, please send in an error report. Either send a pm to Ashfire908 on the Hawken forums, talk to him on the #hawkenscrim IRC channel, or send an email to: scrimbot@hawkenwiki.com
-
-The error report should contain your callsign, what you were doing, the command you were using, what time is was (including timezone), and the error you recieved.
-
-Not every bit of information is required, but at the very least you need to send in your callsign and the approximate time the error occured; Otherwise the error can't be found."""
+        message = "Error: " + random.choice("""clock speed mismatch
+solar flares
+electromagnetic radiation from satellite debris
+static from nylon underwear
+static from plastic slide rules
+global warming
+poor power conditioning
+static buildup
+doppler effect
+hardware stress fractures
+magnetic interference from money/credit cards
+dry joints on cable plug
+waiting for AWS to fix the line
+temporary routing anomaly
+somebody is calculating pi on the server
+fat electrons in the lines
+excess surge protection
+floating point processor overflow
+divide-by-zero error
+POSIX compliance problem
+monitor resolution too high
+improperly oriented keyboard
+network packets travelling uphill
+Decreasing electron flux
+first Saturday after first full moon in Winter
+radiosity depletion
+CPU radiator broken
+positron router malfunction
+cellular telephone interference
+techtonic stress
+piezo-electric interference
+dynamic software linking table corrupted
+heavy gravity fluctuation, move computer to floor rapidly
+not enough memory, please visit http://downloadmoreram.com/
+interrupt configuration error
+spaghetti cable cause packet failure
+boss forgot system password
+bank holiday - system operating credits not recharged
+waste water tank overflowed onto computer
+Complete Transient Lockout
+bad ether in the cables
+Bogon emissions
+Change in Earth's rotational speed
+Cosmic ray particles crashed through the hard disk platter
+Smell from unhygienic janitorial staff wrecked the tape heads
+Little hamster in running wheel had coronary; waiting for replacement to be Fedexed from Wyoming
+high pressure system failure
+failed trials, system needs redesigned
+system has been recalled
+not approved by the FCC
+not properly grounded, please bury computer
+CPU needs recalibration
+system needs to be rebooted
+bit bucket overflow
+descramble code needed from software company
+only available on a need to know basis
+knot in cables caused data stream to become twisted and kinked
+nesting roaches shorted out the ether cable
+The file system is full of it""".split("\n"))
 
         self._xmpp.send_message(cmdtype, target, message)
 
@@ -120,7 +176,9 @@ Not every bit of information is required, but at the very least you need to send
         self._xmpp.send_message(cmdtype, target, message)
 
     def hammertime(self, cmdtype, cmdname, args, target, user, party):
-        self._xmpp.send_message(cmdtype, target, "STOP! HAMMER TIME!")
+        self._xmpp.send_message(cmdtype, target, "STOP!")
+        time.sleep(5)
+        self._xmpp.send_message(cmdtype, target, "HAMMER TIME!")
 
     def server_info(self, cmdtype, cmdname, args, target, user, party):
         if len(args) > 0:
@@ -151,6 +209,7 @@ Not every bit of information is required, but at the very least you need to send
 
         # Return the server info
         message = "Server {0[ServerName]}: {1} on {2} in {3} - Users {4}/{0[MaxUsers]} - Rating {5}".format(server, gametype_names.get(server["GameType"], server["GameType"]), map_names.get(server["Map"], server["Map"]), region_names.get(server["Region"], server["Region"]), len(server["Users"]), server["ServerRanking"] or "<None>")
+        message += " - " + random.choice(["Likes long walks on the beach", "Hates the rain", "Spreads rumors behind {0}'s back".format(self._cache.get_callsign(user)), "Busy determining priorities"])
         self._xmpp.send_message(cmdtype, target, message)
 
 plugin = InfoPlugin

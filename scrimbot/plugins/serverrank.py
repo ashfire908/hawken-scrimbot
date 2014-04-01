@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import random
 import logging
 import hawkenapi.exceptions
 from scrimbot.command import CommandType
@@ -101,7 +102,22 @@ class ServerRankPlugin(BasePlugin):
 
         return True, None
 
+    def random_message(self):
+        return "Error: Can't get server data - " + random.choice("""busy generating prioirites list
+waiting for bumps in the ice to be smoothed
+pending approval from Khang Lee
+unable to buff scout
+busy implementing ideas from FenixStryk
+creating another excuse
+Xacius' epeen caused memory overflow
+suht pu ijm geteing durnk wtih rei
+replacing all mechs with the tech""".split("\n"))
+
     def server_rank(self, cmdtype, cmdname, args, target, user, party):
+        if random.randint(0, 2) == 2:
+            self._xmpp.send_message(cmdtype, target, self.random_message())
+            return
+
         # Get the server info
         result = self.load_server_info(args, user)
 
@@ -126,6 +142,10 @@ class ServerRankPlugin(BasePlugin):
                 self._xmpp.send_message(cmdtype, target, message)
 
     def server_rank_detailed(self, cmdtype, cmdname, args, target, user, party):
+        if random.randint(0, 2) == 2:
+            self._xmpp.send_message(cmdtype, target, self.random_message())
+            return
+
         # Get the server info
         result = self.load_server_info(args, user)
 

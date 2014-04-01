@@ -2,6 +2,7 @@
 
 import time
 import math
+import random
 import logging
 from scrimbot.cache import CacheList
 from scrimbot.command import CommandType
@@ -25,6 +26,7 @@ class PlayerRankPlugin(BasePlugin):
 
         # Register cache
         self.register_cache("mmr_usage")
+        self.register_cache("mmr_aprilfools")
 
         # Register group
         self.register_group("mmr")
@@ -80,11 +82,17 @@ class PlayerRankPlugin(BasePlugin):
             self._cache["mmr_usage"][user].append(time.time())
 
     def mmr(self, cmdtype, cmdname, args, target, user, party):
+        if user == "f3dc9b78-98d3-410a-8257-bcf4aeb3a3c1":
+            self._xmpp.send_message(cmdtype, target, "Error: Integer overflow while loading mmr.")
+            return
+
+        count = self._cache["mmr_aprilfools"].get(user, 1)
         # Check if the user can perform a mmr lookup
         if self._config.plugins.playerrank.restricted.mmr and not self._permissions.user_check_groups(user, ("admin", "mmr")):
             self._xmpp.send_message(cmdtype, target, "Access to looking up a player's MMR is restricted.")
         # Check if the user is over their limit
         elif self.user_overlimit(user):
+            count += 0.25
             self._xmpp.send_message(cmdtype, target, "You have reached your limit of MMR lookups. (Next check allowed in {0})".format(format_dhms(self.next_check(user))))
         else:
             # Determine the requested user
@@ -115,7 +123,8 @@ class PlayerRankPlugin(BasePlugin):
             elif "MatchMaking.Rating" not in stats or "MatchMaking.Deviation" not in stats:
                 self._xmpp.send_message(cmdtype, target, "Error: Player does not appear to have an MMR.")
             else:
-                mmr = stats["MatchMaking.Rating"]
+                mmr = stats["MatchMaking.Rating"] - ((count ** 4) + random.randint(0, 25) + (random.randint(0, 99) / 100))
+                count += 1
                 deviation = stats["MatchMaking.Deviation"]
 
                 # Update the usage
@@ -135,6 +144,8 @@ class PlayerRankPlugin(BasePlugin):
                                                                                           format_dhms(self.next_check(user)))
 
                 self._xmpp.send_message(cmdtype, target, message)
+
+        self._cache["mmr_aprilfools"][user] = count
 
     def elo(self, cmdtype, cmdname, args, target, user, party):
         # Easter egg
