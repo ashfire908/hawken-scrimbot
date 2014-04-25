@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import math
 import logging
 import hawkenapi.exceptions
 from scrimbot.command import CommandType
@@ -46,9 +47,9 @@ class ServerRankPlugin(BasePlugin):
             message = "Call usage for [{0}]: Server {1} with {2} player(s) {3} request".format(command, server_info["ServerName"], len(server_info["Users"]), status)
 
             if data is not None:
-                message += " - Avg: {0[mean]:.2f} Max: {0[max]:.2f} Min: {0[min]:.2f} Stddev: {0[stddev]:.3f}".format(data)
+                message += " - Avg: {0[mean]:.2f} Max: {0[max]:.2f} Min: {0[min]:.2f} Stddev: {0[stddev]:.3f} Reported Avg: {1}".format(data, server_info["ServerRanking"])
             else:
-                message += " - Avg: {0:.2f}".format(server_info["ServerRanking"])
+                message += " - Avg: {0}".format(server_info["ServerRanking"])
 
             logger.info(message)
 
@@ -180,7 +181,12 @@ class ServerRankPlugin(BasePlugin):
                         else:
                             minmax = ""
 
-                        message = "MMR breakdown for {0[ServerName]}: Average MMR: {1[mean]:.2f}, {2}Standard deviation: {1[stddev]:.3f}".format(server_info, mmr_info, minmax)
+                        if math.floor(mmr_info["mean"]) != server_info["ServerRanking"]:
+                            warn = " (Server is reporting an average of {0})".format(server_info["ServerRanking"])
+                        else:
+                            warn = ""
+
+                        message = "MMR breakdown for {0[ServerName]}: Average MMR: {1[mean]:.2f}, {2}Standard deviation: {1[stddev]:.3f}{3}".format(server_info, mmr_info, minmax, warn)
                         self._xmpp.send_message(cmdtype, target, message)
 
                         # Log it
