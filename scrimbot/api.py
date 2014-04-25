@@ -36,7 +36,8 @@ gametype_names = CaseInsensitiveDict({
     "HawkenDM": "Deathmatch",
     "HawkenSG": "Siege",
     "HawkenMA": "Missile Assault",
-    "HawkenCoOp": "Co-Op Bot Destruction"
+    "HawkenCoOp": "Co-Op Bot Destruction",
+    "HawkenBotsTDM": "Co-Op Team Deathmatch"
 })
 
 region_map = {
@@ -69,7 +70,8 @@ gametype_map = {
     "HawkenDM": ("Deathmatch", "DM"),
     "HawkenSG": ("Siege", "SG"),
     "HawkenMA": ("MissileAssault", "MA"),
-    "HawkenCoOp": ("Co-Op", "CoOp", "COBD")
+    "HawkenCoOp": ("Co-Op", "CoOp", "COBD"),
+    "HawkenBotsTDM": ("CoOpTDM", "BotsTDM")
 }
 
 
