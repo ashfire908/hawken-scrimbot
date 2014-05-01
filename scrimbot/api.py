@@ -9,6 +9,7 @@ from scrimbot.util import CaseInsensitiveDict
 region_names = CaseInsensitiveDict({
     "US-East": "US East",
     "US-West": "US West",
+    "US-Central": "US Central",
     "UK": "UK",
     "Japan": "Asia North",
     "Singapore": "Asia South",
@@ -43,6 +44,7 @@ gametype_names = CaseInsensitiveDict({
 region_map = {
     "US-East": ("USEast", "USE"),
     "US-West": ("USWest", "USW"),
+    "US-Central": ("USCentral", "USC"),
     "UK": ("UK", ),
     "Japan": ("AsiaNorth", "AN"),
     "Singapore": ("AsiaSouth", "AS"),
