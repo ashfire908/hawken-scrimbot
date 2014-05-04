@@ -22,6 +22,7 @@ class AdminPlugin(BasePlugin):
         self.register_command(CommandType.PM, "config", self.config, permsreq=["admin"])
         self.register_command(CommandType.PM, "shutdown", self.shutdown, permsreq=["admin"])
         self.register_command(CommandType.PM, "friends", self.friends, permsreq=["admin"])
+        self.register_command(CommandType.PM, "isfriend", self.isfriend, permsreq=["admin"])
         self.register_command(CommandType.PM, "friend", self.friend, permsreq=["admin"])
         self.register_command(CommandType.PM, "unfriend", self.unfriend, permsreq=["admin"])
 
@@ -234,6 +235,18 @@ class AdminPlugin(BasePlugin):
                     online += 1
 
         self._xmpp.send_message(cmdtype, target, "Total friends: {0} Online Friends: {1}".format(count, online))
+
+    def isfriend(self, cmdtype, cmdname, args, target, user, party):
+        # Check arguments
+        if len(args) < 1:
+            self._xmpp.send_message(cmdtype, target, "Missing callsign.")
+        else:
+            guid = self._cache.get_guid(args[0])
+
+            if self._xmpp.has_jid(self._xmpp.format_jid(guid)):
+                self._xmpp.send_message(cmdtype, target, "{0} is a friend of the bot.".format(args[0]))
+            else:
+                self._xmpp.send_message(cmdtype, target, "{0} is not a friend of the bot.".format(args[0]))
 
     def friend(self, cmdtype, cmdname, args, target, user, party):
         # Check arguments
