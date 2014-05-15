@@ -333,10 +333,10 @@ class ScrimPlugin(BasePlugin):
 
                     # Add each group to the reservation
                     for group in groups:
-                        reservation.add(group, None)
+                        reservation.add(group, party.guid)
                 else:
                     # Setup the reservation
-                    reservation = ServerReservation(self._config, self._cache, self._api, servers[0], list(party.players), party=None)
+                    reservation = ServerReservation(self._config, self._cache, self._api, servers[0], list(party.players), party=party.guid)
 
                 # Check for issues
                 critical, issues = reservation.check()
@@ -363,14 +363,14 @@ class ScrimPlugin(BasePlugin):
         if not party.is_leader:
             self._xmpp.send_message(cmdtype, target, "Error: I am not the leader of the party.")
         # Abort the deployment
-        elif not party.abort(CancelCode.leadercancel):
+        elif not party.abort(CancelCode.leader_action):
             # Could not abort
             self._xmpp.send_message(cmdtype, target, "Party is not deploying - nothing to cancel.")
 
     def party_leave(self, cmdtype, cmdname, args, target, user, party):
         self._xmpp.send_message(cmdtype, target, "Leaving the party, have a nice day.")
 
-        party.abort(CancelCode.leaderchange)
+        party.abort(CancelCode.leader_change)
         self.leave_party(party.guid)
 
     def party_transfer(self, cmdtype, cmdname, args, target, user, party):
