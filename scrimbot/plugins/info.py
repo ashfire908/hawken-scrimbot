@@ -14,6 +14,7 @@ class InfoPlugin(BasePlugin):
     def enable(self):
         # Register config
         self.register_config("plugins.info.arbitrary_servers", True)
+        self.register_config("plugins.info.min_users", 2)
 
         # Register commands
         self.register_command(CommandType.PM, "botinfo", self.botinfo, safe=True)
@@ -150,7 +151,28 @@ Not every bit of information is required, but at the very least you need to send
             server = self._api.get_server(servers[0])
 
         # Return the server info
-        message = "Server {0[ServerName]}: {1} on {2} in {3} - Users {4}/{0[MaxUsers]} - Rating {5}".format(server, gametype_names.get(server["GameType"], server["GameType"]), map_names.get(server["Map"], server["Map"]), region_names.get(server["Region"], server["Region"]), len(server["Users"]), server["ServerRanking"] or "<None>")
+        message = "Server {0[ServerName]}: {1} on {2} in {3} - Users {4}/{0[MaxUsers]}".format(server, gametype_names.get(server["GameType"], server["GameType"]), map_names.get(server["Map"], server["Map"]), region_names.get(server["Region"], server["Region"]), len(server["Users"]))
+
+        # Add rating
+        if len(server["Users"]) >= self._config.plugins.info.min_users:
+            message += " - Rating {0}".format(server["ServerRanking"] or "<None>")
+
+        # Add state
+        if server["DeveloperData"]["MatchState"] == "1":
+            message += " - State: Prematch"
+        elif server["DeveloperData"]["MatchState"] == "2" or (server["DeveloperData"]["bTournament"] == "true" and server["DeveloperData"]["MatchState"] == "0"):
+            message += " - State: In Progress"
+        elif server["DeveloperData"]["MatchState"] == "2" or (server["MatchCompletionPercent"] >= 100 and server["DeveloperData"]["MatchState"] == "0"):
+            message += " - State: Postmatch"
+
+        # Add private state
+        if not server["IsMatchmakingVisible"]:
+            message += " - Private"
+
+        # Add password state
+        if server["DeveloperData"]["PasswordHash"] != "":
+            message += " - Password Protected"
+
         self._xmpp.send_message(cmdtype, target, message)
 
 plugin = InfoPlugin
