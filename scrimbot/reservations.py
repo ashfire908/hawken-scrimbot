@@ -235,7 +235,7 @@ class ServerReservation(BaseReservation):
             if self.server["MaxUsers"] < (len(self.server["Users"]) + len(self.users)):
                 issues.append("Warning: Server does not have enough room for all players ({0}/{1}) - reservation may fail!".format(len(self.server["Users"]) + len(self.users), self.server["MaxUsers"]))
             # Server outside the users's fitness range
-            if int(self.server["DeveloperData"]["AveragePilotLevel"]) > 0 and int(self.server["ServerRanking"]) > 0:
+            if self.server["DeveloperData"]["bIgnoreMMR"] == "FALSE" and int(self.server["DeveloperData"]["AveragePilotLevel"]) > 0 and int(self.server["ServerRanking"]) > 0:
                 try:
                     data = self._api.get_user_stats(self.users)
                 except hawkenapi.exceptions.InvalidBatch:
