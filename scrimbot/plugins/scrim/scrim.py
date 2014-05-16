@@ -333,10 +333,10 @@ class ScrimPlugin(BasePlugin):
 
                     # Add each group to the reservation
                     for group in groups:
-                        reservation.add(group, party.guid)
+                        reservation.add(group, None)
                 else:
                     # Setup the reservation
-                    reservation = ServerReservation(self._config, self._cache, self._api, servers[0], list(party.players), party=party.guid)
+                    reservation = ServerReservation(self._config, self._cache, self._api, servers[0], list(party.players), party=None)
 
                 # Check for issues
                 critical, issues = reservation.check()
