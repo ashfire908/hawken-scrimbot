@@ -65,7 +65,7 @@ class PagerPlugin(BasePlugin):
                 if self._config.plugins.page.defter is None:
                     raise Exception("No page target for defter")
 
-                self.hipchat_proxied(f, self._config.plugins.page.ashfire908, message)
+                self.hipchat_proxied(f, self._config.plugins.page.defter, message)
             else:
                 self._xmpp.send_message(cmdtype, target, "Error: Unknown page target.")
                 return
