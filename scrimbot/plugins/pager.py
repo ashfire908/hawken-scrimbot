@@ -51,7 +51,7 @@ class PagerPlugin(BasePlugin):
     def page(self, cmdtype, cmdname, args, target, user, party):
         # Check args
         if len(args) < 2:
-            self._xmpp.send_message(cmdtype, target, "Missing page target.")
+            self._xmpp.send_message(cmdtype, target, "Missing page target or message.")
         else:
             msg_target = args[0].lower()
             message = " ".join(args[1:])
