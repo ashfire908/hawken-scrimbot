@@ -132,7 +132,7 @@ class ApiClient(hawkenapi.client.Client):
         # Setup caching
         if self.config.api.cache.mode == "redis":
             import hawkenapi.cache
-            self.cache = hawkenapi.cache.RedisCache(self.config.api.cache.prefix, **self.config.api.cache.params)
+            self.cache = hawkenapi.cache.Cache(self.config.api.cache.prefix, **self.config.api.cache.params)
 
         # Authenticate to the API and grab the user's callsign
         self.login(self.config.api.username, self.config.api.password)
