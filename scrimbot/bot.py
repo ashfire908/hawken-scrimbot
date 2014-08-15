@@ -197,6 +197,7 @@ class ScrimBot:
         self.xmpp.add_event_handler("roster_subscription_remove", self.handle_subscription_remove)
         self.xmpp.add_event_handler("message", self.handle_chat_message, threaded=True)
         self.xmpp.add_event_handler("groupchat_message", self.handle_groupchat_message, threaded=True)
+        self.xmpp.add_event_handler("game_invite", self.handle_game_invite, threaded=True)
 
     def connect(self, *args, **kwargs):
         return self.xmpp.connect(*args, **kwargs)
@@ -354,3 +355,21 @@ class ScrimBot:
 
                 # Pass it off to the command handler
                 self.commands.handle_command_message(CommandType.PARTY, body, message)
+
+    def handle_game_invite(self, message):
+        # Refuse to process chat from the bot itself
+        if message["from"].user == self.xmpp.boundjid.user:
+            pass
+        # Drop messages that were sent while offline
+        elif message["delay"]["text"] == "Offline Storage":
+            pass
+        # Drop messages from people not friends with
+        elif not self.xmpp.has_jid(message["from"].bare):
+            pass
+        # Drop messages from users not allowed to send messages to the bot
+        elif self.permissions.user_check_group(message["from"].user, "blacklist") or \
+            (self.config.bot.whitelisted and not self.permissions.user_check_groups(message["from"].user, ("admin", "whitelist"))):
+            pass
+        else:
+            logger.info("Ignoring game invite from {0}.".format(message["from"].user))
+            self.xmpp.send_message(CommandType.PM, message["from"], "This bot does not accept game invites.")
