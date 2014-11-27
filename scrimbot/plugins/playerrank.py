@@ -31,6 +31,7 @@ class PlayerRankPlugin(BasePlugin):
 
         # Register commands
         self.register_command(CommandType.PM, "mmr", self.mmr)
+        self.register_command(CommandType.PM, "psr", self.psr, hidden=True)
         self.register_command(CommandType.PM, "glicko", self.glicko, hidden=True, safe=True)
         self.register_command(CommandType.PM, "elo", self.elo, hidden=True, safe=True)
 
@@ -135,6 +136,36 @@ class PlayerRankPlugin(BasePlugin):
                                                                                           format_dhms(self.next_check(user)))
 
                 self._xmpp.send_message(cmdtype, target, message)
+
+    def psr(self, cmdtype, cmdname, args, target, user, party):
+        # Easter egg
+
+        # Get user and 'standard' stats
+        stats = self._api.get_user_stats(user)
+        standard = self._api.get_user_stats(self._cache.get_guid("Poopslinger"))
+
+        # Verify
+        if stats is None or standard is None:
+            self._xmpp.send_message(cmdtype, target, "Error: Failed to look up stats.")
+        elif "MatchMaking.Rating" not in stats or "MatchMaking.Rating" not in standard:
+            self._xmpp.send_message(cmdtype, target, "Error: Unable to calculate PSR.")
+        else:
+            # Load them
+            mmr = stats["MatchMaking.Rating"]
+            psr = standard["MatchMaking.Rating"]
+
+            # Calculate rating
+            rating = (mmr - psr)
+
+            while abs(rating) >= 10:
+                rating = rating * 0.1
+
+            rating = math.floor(rating)
+
+            # Format message
+            message = "Your PSR is {0}.".format(rating)
+
+            self._xmpp.send_message(cmdtype, target, message)
 
     def elo(self, cmdtype, cmdname, args, target, user, party):
         # Easter egg
