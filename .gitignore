@@ -1,13 +1,6 @@
 # Python
 __pycache__
-
-# Virtualenv
-bin/
-Scripts/
-[Ll]ib/
-[Ii]nclude/
-tcl/
-pyvenv.cfg
+venv
 
 # IDE/Editor Files
 *.sublime-workspace
