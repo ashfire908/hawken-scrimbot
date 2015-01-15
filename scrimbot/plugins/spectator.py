@@ -5,7 +5,7 @@ import threading
 from hawkenapi.exceptions import InvalidResponse
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
-from scrimbot.reservations import ReservationResult, ServerReservation
+from scrimbot.reservations import ReservationResult, ServerReservation, NoSuchServer
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +96,11 @@ class SpectatorPlugin(BasePlugin):
 
     def place_reservation(self, cmdtype, target, user, server):
         # Set up the reservation
-        reservation = ServerReservation(self._config, self._cache, self._api, server, [user])
+        try:
+            reservation = ServerReservation(self._config, self._cache, self._api, server, [user])
+        except NoSuchServer:
+            self._xmpp.send_message(cmdtype, target, "Error: Unable to initialize reservation - the requested server does not exist.")
+            return
 
         # Check for potential issues and report them
         critical, issues = reservation.check()
