@@ -320,16 +320,16 @@ def calc_fitness(globals_info, player, server):
     threshold["sum"] = sum(threshold.values())
 
     # Calculate handicap
-    matches = min(min_matches, abs(min(0, int(player["GameMode.All.TotalMatches"]) - min_matches)))
+    matches = min(min_matches, abs(min(0, int(player.get("GameMode.All.TotalMatches", "0")) - min_matches)))
     handicap = matches * int(globals_info["NoobHandicapSize"])
 
     # Get adjusted player rating
-    rank = player["MatchMaking.Rating"] - handicap
+    rank = player.get("MatchMaking.Rating", 1500.0) - handicap
 
     # Calculate score
     score = {}
     score["rank"] = (server["ServerRanking"] - rank) * weight_rank
-    score["level"] = (avg_level - int(player["Progress.Pilot.Level"])) * weight_level
+    score["level"] = (avg_level - int(player.get("Progress.Pilot.Level", "1"))) * weight_level
     score["sum"] = sum(score.values())
 
     # Calculate health
