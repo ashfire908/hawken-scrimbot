@@ -1,0 +1,14 @@
+# SleekXMPP
+git+git@github.com:fritzy/SleekXMPP.git@new_muc#egg=sleekxmpp-new_muc
+
+# Hawken API
+hawken-api==0.6.1.3
+requests==2.5.1
+enum34==1.0.4
+msgpack-python==0.4.4
+redis==2.10.3
+
+# Hawken Tracker
+SQLAlchemy==0.9.8
+psycopg2==2.5.4
+
