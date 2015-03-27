@@ -224,7 +224,7 @@ class ScrimParty(Party):
 
     def kick(self, user):
         # Stop any active deployment
-        self.abort(CancelCode.member_kick)
+        self.abort(CancelCode.member_kicked)
 
         super().kick(user)
 
