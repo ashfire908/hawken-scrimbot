@@ -157,10 +157,18 @@ class PlayerRankPlugin(BasePlugin):
             # Calculate rating
             rating = (mmr - psr)
 
-            while abs(rating) >= 10:
-                rating = rating * 0.1
+            while abs(mmr) >= 10:
+                mmr *= 0.1
+            mmr = abs(math.floor(mmr))
 
-            rating = math.floor(rating)
+            while abs(psr) >= 10:
+                psr *= 0.1
+            psr = abs(math.floor(psr))
+
+            if mmr > psr:
+                rating = mmr
+            else:
+                rating = psr * -1
 
             # Format message
             message = "Your PSR is {0}.".format(rating)
