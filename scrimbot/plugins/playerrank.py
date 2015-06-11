@@ -151,24 +151,16 @@ class PlayerRankPlugin(BasePlugin):
             self._xmpp.send_message(cmdtype, target, "Error: Unable to calculate PSR.")
         else:
             # Load them
-            mmr = stats["MatchMaking.Rating"]
-            psr = standard["MatchMaking.Rating"]
+            mmr = math.floor(stats["MatchMaking.Rating"])
+            psr = math.floor(standard["MatchMaking.Rating"])
 
-            # Calculate rating
-            rating = (mmr - psr)
+            # Get least sig digit
+            # So bad... thanks stack overflow
+            mmr = int(str(mmr)[-1])
+            psr = int(str(psr)[-1])
 
-            while abs(mmr) >= 10:
-                mmr *= 0.1
-            mmr = abs(math.floor(mmr))
-
-            while abs(psr) >= 10:
-                psr *= 0.1
-            psr = abs(math.floor(psr))
-
-            if mmr > psr:
-                rating = mmr
-            else:
-                rating = psr * -1
+            # Set rating
+            rating = mmr - psr
 
             # Format message
             message = "Your PSR is {0}.".format(rating)
