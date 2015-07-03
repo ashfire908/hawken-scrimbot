@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # XMPP Client
 class ScrimBotClient(sleekxmpp.ClientXMPP):
     def __init__(self, api):
-        self.api = api
+        self.hawkenapi = api
 
     def setup(self, user, server, auth, **kwargs):
         # Init the client
@@ -97,7 +97,7 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
         if self.client_roster[jid]["name"] == "":
             # Update the jid with the user's callsign
             user = jid_user(jid)
-            callsign = self.api.get_user_callsign(user) or ""
+            callsign = self.hawkenapi.get_user_callsign(user) or ""
 
             self.client_roster[jid]["name"] = callsign
             updated = True
