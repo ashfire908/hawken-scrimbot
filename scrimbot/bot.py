@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 
 # XMPP Client
 class ScrimBotClient(sleekxmpp.ClientXMPP):
-    def __init__(self, cache):
-        self.cache = cache
+    def __init__(self, api):
+        self.api = api
 
     def setup(self, user, server, auth, **kwargs):
         # Init the client
@@ -158,7 +158,7 @@ class ScrimBot:
         # Init the API, cache, XMPP, permissions, plugins, and commands
         self.api = ApiClient(self.config)
         self.cache = Cache(self, self.config, self.api)
-        self.xmpp = ScrimBotClient(self.cache)
+        self.xmpp = ScrimBotClient(self.api)
         self.permissions = PermissionHandler(self.config, self.xmpp)
         self.parties = PartyManager(self.config, self.api, self.cache, self.xmpp)
         self.plugins = PluginManager(self)
