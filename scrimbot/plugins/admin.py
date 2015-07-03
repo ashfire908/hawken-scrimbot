@@ -51,7 +51,7 @@ class AdminPlugin(BasePlugin):
             return False, "Unknown group '{0}'.".format(group)
 
         # Check callsign
-        guid = self._cache.get_guid(callsign)
+        guid = self._api.get_user_guid(callsign)
 
         if guid is None:
             return False, "No such user exists."
@@ -105,7 +105,7 @@ class AdminPlugin(BasePlugin):
                 self._xmpp.send_message(cmdtype, target, "Unknown group '{0}'.".format(group))
             else:
                 # Convert user guids to callsigns, where possible.
-                users = [self._cache.get_callsign(x) or x for x in self._permissions.group_users(group)]
+                users = [self._api.get_user_callsign(x) or x for x in self._permissions.group_users(group)]
 
                 # Display the users in the group
                 if len(users) == 0:
@@ -120,7 +120,7 @@ class AdminPlugin(BasePlugin):
         # Check if we have a specific user
         if len(args) > 0:
             callsign = args[0]
-            guid = self._cache.get_guid(callsign)
+            guid = self._api.get_user_guid(callsign)
 
             if guid is None:
                 self._xmpp.send_message(cmdtype, target, "No such user exists.")
@@ -243,7 +243,7 @@ class AdminPlugin(BasePlugin):
         if len(args) < 1:
             self._xmpp.send_message(cmdtype, target, "Missing callsign.")
         else:
-            guid = self._cache.get_guid(args[0])
+            guid = self._api.get_user_guid(args[0])
 
             if self._xmpp.has_jid(self._xmpp.format_jid(guid)):
                 self._xmpp.send_message(cmdtype, target, "{0} is a friend of the bot.".format(args[0]))
@@ -255,7 +255,7 @@ class AdminPlugin(BasePlugin):
         if len(args) < 1:
             self._xmpp.send_message(cmdtype, target, "Missing callsign.")
         else:
-            guid = self._cache.get_guid(args[0])
+            guid = self._api.get_user_guid(args[0])
 
             if self._xmpp.add_jid(self._xmpp.format_jid(guid)):
                 self._xmpp.send_message(cmdtype, target, "Added {0} as a friend.".format(args[0]))
@@ -267,7 +267,7 @@ class AdminPlugin(BasePlugin):
         if len(args) < 1:
             self._xmpp.send_message(cmdtype, target, "Missing callsign.")
         else:
-            guid = self._cache.get_guid(args[0])
+            guid = self._api.get_user_guid(args[0])
 
             self._xmpp.remove_jid(self._xmpp.format_jid(guid))
             self._xmpp.send_message(cmdtype, target, "Removed {0} as a friend.".format(args[0]))
@@ -277,7 +277,7 @@ class AdminPlugin(BasePlugin):
         if len(args) < 1:
             self._xmpp.send_message(cmdtype, target, "Missing callsign.")
         else:
-            guid = self._cache.get_guid(args[0])
+            guid = self._api.get_user_guid(args[0])
 
             if not guid:
                 self._xmpp.send_message(cmdtype, target, "No such user.")

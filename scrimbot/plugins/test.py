@@ -36,7 +36,7 @@ class TestPlugin(BasePlugin):
             self._xmpp.send_message(cmdtype, target, "Missing target user guid.")
         else:
             # Get the callsign
-            callsign = self._cache.get_callsign(args[0])
+            callsign = self._api.get_user_callsign(args[0])
 
             # Check if we got a callsign back
             if callsign is None:
@@ -52,7 +52,7 @@ class TestPlugin(BasePlugin):
             self._xmpp.send_message(cmdtype, target, "Missing target user callsign.")
         else:
             # Get the guid
-            guid = self._cache.get_guid(args[0])
+            guid = self._api.get_user_guid(args[0])
 
             # Check if we got a guid back
             if guid is None:
@@ -71,7 +71,7 @@ class TestPlugin(BasePlugin):
             message = " ".join(args[1:])
 
             # Get the user's guid
-            guid = self._cache.get_guid(callsign)
+            guid = self._api.get_user_guid(callsign)
 
             if guid is None:
                 self._xmpp.send_message(cmdtype, target, "No such user exists.")

@@ -260,7 +260,7 @@ class ScrimPlugin(BasePlugin):
         if len(args) < 1:
             self._xmpp.send_message(cmdtype, target, "Missing target user.")
         else:
-            target_user = self._cache.get_guid(args[0])
+            target_user = self._api.get_user_guid(args[0])
 
             # Check if the user exists
             if target_user is None:
@@ -283,7 +283,7 @@ class ScrimPlugin(BasePlugin):
         if len(args) < 1:
             self._xmpp.send_message(cmdtype, target, "Missing target user.")
         else:
-            target_user = self._cache.get_guid(args[0])
+            target_user = self._api.get_user_guid(args[0])
 
             # Check if the user exists
             if target_user is None:
@@ -296,7 +296,7 @@ class ScrimPlugin(BasePlugin):
                 self._xmpp.send_message(cmdtype, target, "Error: Refusing to kick myself.")
             # Check if the user is in the party
             elif target_user not in party.players:
-                self._xmpp.send_message(cmdtype, target, "{0} is not in the party.".format(self._cache.get_callsign(target_user)))
+                self._xmpp.send_message(cmdtype, target, "{0} is not in the party.".format(self._api.get_user_callsign(target_user)))
             else:
                 # Kick the player from the party
                 party.kick(target_user)
@@ -378,7 +378,7 @@ class ScrimPlugin(BasePlugin):
         if len(args) < 1:
             self._xmpp.send_message(cmdtype, target, "Missing target user.")
         else:
-            target_user = self._cache.get_guid(args[0])
+            target_user = self._api.get_user_guid(args[0])
 
             # Check if the user exists
             if target_user is None:
@@ -390,7 +390,7 @@ class ScrimPlugin(BasePlugin):
             elif not party.is_leader:
                 self._xmpp.send_message(cmdtype, target, "Error: I am not the leader of the party.")
             else:
-                self._xmpp.send_message(cmdtype, target, "Transfering control over to {0}. Have a nice day.".format(self._cache.get_callsign(target_user)))
+                self._xmpp.send_message(cmdtype, target, "Transfering control over to {0}. Have a nice day.".format(self._api.get_user_callsign(target_user)))
 
                 party.set_leader(target_user)
                 self.leave_party(party.guid)

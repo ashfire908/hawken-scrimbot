@@ -55,7 +55,7 @@ class PagerPlugin(BasePlugin):
         else:
             msg_target = args[0].lower()
             message = " ".join(args[1:])
-            f = self._cache.get_callsign(user) or user
+            f = self._api.get_user_callsign(user) or user
             if msg_target == "ashfire908":
                 if self._config.plugins.page.ashfire908 is None:
                     raise Exception("No page target for ashfire908")

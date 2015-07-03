@@ -214,7 +214,7 @@ class SpectatorPlugin(BasePlugin):
             self._xmpp.send_message(cmdtype, target, "Missing target user")
         else:
             # Get the user
-            guid = self._cache.get_guid(args[0])
+            guid = self._api.get_user_guid(args[0])
 
             # Check if the user exists
             if guid is None:
@@ -225,13 +225,13 @@ class SpectatorPlugin(BasePlugin):
 
                 # Check if the user is on a server
                 if servers is None:
-                    self._xmpp.send_message(cmdtype, target, "{0} is not on a server.".format(self._cache.get_callsign(guid)))
+                    self._xmpp.send_message(cmdtype, target, "{0} is not on a server.".format(self._api.get_user_callsign(guid)))
                 else:
                     server = servers[0]
 
                     # Check if the server exists
                     if server is None:
-                        self._xmpp.send_message(cmdtype, target, "Error: Could not the find the server '{0}' is on.".format(self._cache.get_callsign(guid)))
+                        self._xmpp.send_message(cmdtype, target, "Error: Could not the find the server '{0}' is on.".format(self._api.get_user_callsign(guid)))
                     else:
                         # Place the reservation
                         self._xmpp.send_message(cmdtype, target, "Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self._config.bot.command_prefix, self.name))

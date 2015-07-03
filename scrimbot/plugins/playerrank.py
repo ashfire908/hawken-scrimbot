@@ -90,7 +90,7 @@ class PlayerRankPlugin(BasePlugin):
         else:
             # Determine the requested user
             if len(args) > 0:
-                guid = self._cache.get_guid(args[0])
+                guid = self._api.get_user_guid(args[0])
             else:
                 guid = user
 
@@ -142,7 +142,7 @@ class PlayerRankPlugin(BasePlugin):
 
         # Get user and 'standard' stats
         stats = self._api.get_user_stats(user)
-        standard = self._api.get_user_stats(self._cache.get_guid("Poopslinger"))
+        standard = self._api.get_user_stats(self._api.get_user_guid("Poopslinger"))
 
         # Verify
         if stats is None or standard is None:

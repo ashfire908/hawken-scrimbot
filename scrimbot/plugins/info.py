@@ -110,7 +110,7 @@ Not every bit of information is required, but at the very least you need to send
 
     def whoami(self, cmdtype, cmdname, args, target, user, party):
         # Get the callsign
-        callsign = self._cache.get_callsign(user)
+        callsign = self._api.get_user_callsign(user)
 
         # Check if we got a callsign back
         if callsign is None:

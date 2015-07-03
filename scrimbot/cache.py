@@ -139,50 +139,6 @@ class Cache:
         # Since we wish to preserve the old cache, we need not do anything
         logger.debug("Unregistered cache: {0}".format(name))
 
-    def get_callsign(self, guid):
-        # Check cache
-        if guid in self["callsign"]:
-            return self["callsign"][guid]
-
-        # Fetch callsign
-        callsign = self.api.get_user_callsign(guid)
-
-        if callsign is not None:
-            # Cache the callsign
-            self["callsign"][guid] = callsign
-
-            # Purge any temp cache we had for the GUID
-            try:
-                del self["guid"][callsign.lower()]
-            except KeyError:
-                pass
-        else:
-            logger.warning("No callsign listed for {0}.".format(guid))
-
-        return callsign
-
-    def get_guid(self, callsign):
-        # Case insensitive search
-        callsign = callsign.lower()
-
-        # Check GUID cache
-        if callsign in self["guid"]:
-            return self["guid"][callsign]
-
-        # Check callsign cache
-        for guid, cs in self["callsign"].items():
-            if cs.lower() == callsign:
-                return guid
-
-        # Fetch GUID
-        guid = self.api.get_user_guid(callsign)
-
-        if guid is not None:
-            # Cache the GUID
-            self["guid"][callsign] = guid
-
-        return guid
-
     def globals_update(self):
         logger.info("Updating globals.")
 

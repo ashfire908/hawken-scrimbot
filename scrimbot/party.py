@@ -262,7 +262,7 @@ class Party:
     @joined
     def invite(self, user):
         # Get the callsign
-        callsign = self.cache.get_callsign(user)
+        callsign = self.api.get_user_callsign(user)
 
         # Send the invite
         self.xmpp.plugin["hawken_party"].invite(self.room_jid, self.xmpp.boundjid, self.xmpp.format_jid(user), callsign)
@@ -275,7 +275,7 @@ class Party:
             raise ValueError("Cannot kick ourself from a party")
 
         # Get the callsign
-        callsign = self.cache.get_callsign(user)
+        callsign = self.api.get_user_callsign(user)
 
         # Send the kick
         self.xmpp.plugin["hawken_party"].kick(self.room_jid, callsign)

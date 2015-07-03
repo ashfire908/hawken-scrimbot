@@ -97,7 +97,7 @@ class ScrimBotClient(sleekxmpp.ClientXMPP):
         if self.client_roster[jid]["name"] == "":
             # Update the jid with the user's callsign
             user = jid_user(jid)
-            callsign = self.cache.get_callsign(user) or ""
+            callsign = self.api.get_user_callsign(user) or ""
 
             self.client_roster[jid]["name"] = callsign
             updated = True
