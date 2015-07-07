@@ -7,15 +7,10 @@ from scrimbot.util import CaseInsensitiveDict
 
 
 region_names = CaseInsensitiveDict({
-    "US-East": "US East",
-    "US-West": "US West",
-    "US-Central": "US Central",
-    "UK": "UK",
-    "Japan": "Asia North",
-    "Singapore": "Asia South",
-    "Australia": "Oceania",
-    "Comp-US-East": "Comp US East",
-    "Comp-US-West": "Comp US West"
+    "Asia-Oceania": "Asia/Oceania",
+    "Europe": "Europe",
+    "North-America": "North America",
+    "South-America": "South America"
 })
 
 map_names = CaseInsensitiveDict({
@@ -43,15 +38,10 @@ gametype_names = CaseInsensitiveDict({
 })
 
 region_map = {
-    "US-East": ("USEast", "USE"),
-    "US-West": ("USWest", "USW"),
-    "US-Central": ("USCentral", "USC"),
-    "UK": ("UK", ),
-    "Japan": ("AsiaNorth", "AN"),
-    "Singapore": ("AsiaSouth", "AS"),
-    "Australia": ("Oceania", ),
-    "Comp-US-East": ("CompUSEast", "CompUSE"),
-    "Comp-US-West": ("CompUSWest", "CompUSW")
+    "Asia-Oceania": ("AsiaOceania", "Asia", "Oceania", "AO"),
+    "Europe": ("Europe", "EU"),
+    "North-America": ("NorthAmerica", "NA"),
+    "South-America": ("South America", "SA")
 }
 
 map_map = {
