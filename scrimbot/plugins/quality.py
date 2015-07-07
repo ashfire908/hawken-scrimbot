@@ -183,7 +183,7 @@ class QualityPlugin(BasePlugin):
                     self.record_usage(cmdname, result[0], server_info, data=details)
 
     def quality_search(self, cmdtype, cmdname, args, target, user, party):
-        blacklist = ["HawkenCoOp"]
+        blacklist = ("HawkenCoOp", )
 
         # Check the arguments
         if len(args) < 1:
@@ -221,6 +221,14 @@ class QualityPlugin(BasePlugin):
             def server_filter(server):
                 if len(server["Users"]) == 0:
                     # Empty server
+                    return False
+
+                if len(server["DeveloperData"]["PasswordHash"]) > 0:
+                    # Password-protected server
+                    return False
+
+                if server["DeveloperData"]["bTournament"] == "true":
+                    # Tournament server
                     return False
 
                 if server["Region"].lower() != region.lower():
