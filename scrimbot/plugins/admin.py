@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import ast
-from hawkenapi.exceptions import AuthenticationFailure, AccountBanned, AccountDeactivated
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
 
@@ -26,7 +25,6 @@ class AdminPlugin(BasePlugin):
         self.register_command(CommandType.PM, "isfriend", self.isfriend, permsreq=["admin"])
         self.register_command(CommandType.PM, "friend", self.friend, permsreq=["admin"])
         self.register_command(CommandType.PM, "unfriend", self.unfriend, permsreq=["admin"])
-        self.register_command(CommandType.PM, "accountcheck", self.account_check, permsreq=["admin"])
 
     def disable(self):
         pass
@@ -271,25 +269,5 @@ class AdminPlugin(BasePlugin):
 
             self._xmpp.remove_jid(self._xmpp.format_jid(guid))
             self._xmpp.send_message(cmdtype, target, "Removed {0} as a friend.".format(args[0]))
-
-    def account_check(self, cmdtype, cmdname, args, target, user, party):
-        # Check arguments
-        if len(args) < 1:
-            self._xmpp.send_message(cmdtype, target, "Missing callsign.")
-        else:
-            guid = self._api.get_user_guid(args[0])
-
-            if not guid:
-                self._xmpp.send_message(cmdtype, target, "No such user.")
-            else:
-                try:
-                    if self._api.check_account(guid):
-                        self._xmpp.send_message(cmdtype, target, "Account is active and has our test password set? o_O")
-                except AuthenticationFailure:
-                    self._xmpp.send_message(cmdtype, target, "Account is active.")
-                except AccountDeactivated:
-                    self._xmpp.send_message(cmdtype, target, "Account is deactivated.")
-                except AccountBanned as e:
-                    self._xmpp.send_message(cmdtype, target, "Account is banned. Reason: {0}".format(e.reason))
 
 plugin = AdminPlugin
