@@ -99,6 +99,10 @@ class SpectatorPlugin(BasePlugin):
         try:
             reservation = ServerReservation(self._config, self._cache, self._api, server, [user])
         except NoSuchServer:
+            if isinstance(server, str):
+                logger.warning("Reservation for {0}: Cannot find server {1} - reservation not created".format(user, server))
+            else:
+                logger.warning("Reservation for {0}: Cannot find server {1} [{2}] with match id {3} - reservation not created".format(user, server["Guid"], server["ServerName"], server["MatchId"]))
             self._xmpp.send_message(cmdtype, target, "Error: Unable to initialize reservation - the requested server does not exist.")
             return
 
@@ -108,10 +112,12 @@ class SpectatorPlugin(BasePlugin):
             self._xmpp.send_message(cmdtype, target, issue)
 
         if critical:
+            logger.info("Reservation for {0}: Check failed critically for server {1} [{2}] with match id {3} - reservation not created".format(user, reservation.server["Guid"], reservation.server["ServerName"], reservation.server["MatchId"]))
             return
 
         # Submit the reservation
         reservation.reserve()
+        logger.info("Reservation for {0}: Created for server {1} [{2}] with match id {3}".format(user, reservation.server["Guid"], reservation.server["ServerName"], reservation.server["MatchId"]))
         self.reservation_set(user, reservation)
 
         # Set up the polling in another thread
@@ -126,14 +132,17 @@ class SpectatorPlugin(BasePlugin):
         try:
             result = reservation.poll()
         except InvalidResponse as e:
+            logger.exception("Reservation for {0}: Invalid response for server {1} [{2}] with match id {3}".format(user, reservation.server["Guid"], reservation.server["ServerName"], reservation.server["MatchId"]))
             self.reservation_delete(user)
             self._xmpp.send_message(cmdtype, target, "Error: Reservation returned invalid response - {0}.".format(e))
         except:
+            logger.exception("Reservation for {0}: Polling failed for server {1} [{2}] with match id {3}".format(user, reservation.server["Guid"], reservation.server["ServerName"], reservation.server["MatchId"]))
             self.reservation_delete(user)
             self._xmpp.send_message(cmdtype, target, "Error: Failed to poll for reservation. This is a bug - please report it!")
         else:
             # Handle the result
             if result == ReservationResult.READY:
+                logger.info("Reservation for {0}: Reservation complete for server {1} [{2}] with match id {3} - Server address {4}:{5}".format(user, reservation.server["Guid"], reservation.server["ServerName"], reservation.server["MatchId"], reservation.advertisement["AssignedServerIp"], reservation.advertisement["AssignedServerPort"]))
                 if reservation.server["DeveloperData"]["PasswordHash"] == "":
                     message = "\nReservation for server '{2}' complete.\nServer IP: {0}:{1}\nCommand: openip {0}:{1}?spectatorOnly=1\n\nUse '{3}{4} confirm' after joining the server, or '{3}{4} cancel' if you do not plan on joining the server."
                 else:
@@ -142,15 +151,19 @@ class SpectatorPlugin(BasePlugin):
             else:
                 self.reservation_delete(user)
                 if result == ReservationResult.TIMEOUT:
+                    logger.info("Reservation for {0}: Reservation timeout for server {1} [{2}] with match id {3}".format(user, reservation.server["Guid"], reservation.server["ServerName"], reservation.server["MatchId"]))
                     self._xmpp.send_message(cmdtype, target, "Time limit reached - reservation canceled.")
                 elif result == ReservationResult.NOTFOUND:
+                    logger.error("Reservation for {0}: Reservation missing for server {1} [{2}] with match id {3}".format(user, reservation.server["Guid"], reservation.server["ServerName"], reservation.server["MatchId"]))
                     self._xmpp.send_message(cmdtype, target, "Error: Could not retrieve advertisement - expired? This is a bug - please report it!")
                 elif result == ReservationResult.ERROR:
+                    logger.info("Reservation for {0}: Reservation error for server {1} [{2}] with match id {3}".format(user, reservation.server["Guid"], reservation.server["ServerName"], reservation.server["MatchId"]))
                     self._xmpp.send_message(cmdtype, target, "Error: Failed to poll for reservation. This is a bug - please report it!")
 
     def cancel(self, cmdtype, cmdname, args, target, user, party):
         # Delete the user's server reservation
         if self.reservation_delete(user):
+            logger.info("Canceled reservation for {0}".format(user))
             self._xmpp.send_message(cmdtype, target, "Canceled server reservation.")
         else:
             self._xmpp.send_message(cmdtype, target, "No reservation found to cancel.")
@@ -163,6 +176,7 @@ class SpectatorPlugin(BasePlugin):
         if not reservation:
             self._xmpp.send_message(cmdtype, target, "No reservation found to confirm.")
         else:
+            logger.info("Confirmed reservation for {0}".format(user))
             # Save the assigned server for later use
             self.saved_server_set(user, reservation.advertisement["AssignedServerGuid"])
             self._xmpp.send_message(cmdtype, target, "Reservation confirmed; saved for future use.")
@@ -182,6 +196,7 @@ class SpectatorPlugin(BasePlugin):
             if server is None:
                 self._xmpp.send_message(cmdtype, target, "You are not on a server.")
             else:
+                logger.info("Saved reservation for {0}: Server {1}".format(user, server))
                 self.saved_server_set(user, server[0])
                 self._xmpp.send_message(cmdtype, target, "Current server saved for future use.")
 
@@ -204,6 +219,7 @@ class SpectatorPlugin(BasePlugin):
             if server is None:
                 self._xmpp.send_message(cmdtype, target, "Error: Could not find the server from your last reservation.")
             else:
+                logger.info("Placing reservation for {0} by renewal: Server {1}".format(user, server))
                 # Place the reservation
                 self._xmpp.send_message(cmdtype, target, "Renewing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self._config.bot.command_prefix, self.name))
                 self.place_reservation(cmdtype, target, user, server)
@@ -234,6 +250,7 @@ class SpectatorPlugin(BasePlugin):
                         self._xmpp.send_message(cmdtype, target, "Error: Could not the find the server '{0}' is on.".format(self._api.get_user_callsign(guid)))
                     else:
                         # Place the reservation
+                        logger.info("Placing reservation for {0} by user: Server {1}".format(user, server))
                         self._xmpp.send_message(cmdtype, target, "Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self._config.bot.command_prefix, self.name))
                         self.place_reservation(cmdtype, target, user, server)
 
@@ -253,9 +270,12 @@ class SpectatorPlugin(BasePlugin):
             elif len(servers) > 1:
                 self._xmpp.send_message(cmdtype, target, "Error: Server '{0}' is ambiguous.".format(args[0]))
             else:
+                server = servers[0]
+
                 # Place the reservation
+                logger.info("Placing reservation for {0} by server: Server {1}".format(user, server["Guid"]))
                 self._xmpp.send_message(cmdtype, target, "Placing server reservation, waiting for response... use '{0}{1} cancel' to abort.".format(self._config.bot.command_prefix, self.name))
-                self.place_reservation(cmdtype, target, user, servers[0])
+                self.place_reservation(cmdtype, target, user, server)
 
 
 plugin = SpectatorPlugin
