@@ -127,10 +127,3 @@ class ApiClient(hawkenapi.client.Client):
         # Authenticate to the API and grab the user's callsign
         self.login(self.config.api.username, self.config.api.password)
         self.callsign = self.get_user_callsign(self.guid)
-
-    def check_account(self, identifier):
-        client = hawkenapi.client.Client(Session(**self.config.api.session))
-        if client.login(identifier, "ThIsPaSsIsAtEsT-fkem60dj3492jfa@0yu_0a4t7809hy4"):
-            client.logout()
-            return True
-        return False
