@@ -2,8 +2,6 @@
 
 import logging
 import smtplib
-import urllib.request
-import urllib.parse
 from email.mime.text import MIMEText
 from scrimbot.command import CommandType
 from scrimbot.plugins.base import BasePlugin
@@ -21,7 +19,6 @@ class PagerPlugin(BasePlugin):
         self.register_config("plugins.page.email_host", "localhost")
         self.register_config("plugins.page.email_from", "scrimbot@ashfire908.com")
         self.register_config("plugins.page.ashfire908", None)
-        self.register_config("plugins.page.defter", None)
 
         # Register commands
         self.register_command(CommandType.PM, "page", self.page, hidden=True)
@@ -45,9 +42,6 @@ class PagerPlugin(BasePlugin):
         s.send_message(msg)
         s.quit()
 
-    def hipchat_proxied(self, f, t, message):
-        urllib.request.urlopen(t + urllib.parse.quote("Page from {0}: {1}".format(f, message))).close()
-
     def page(self, cmdtype, cmdname, args, target, user, party):
         # Check args
         if len(args) < 2:
@@ -61,11 +55,6 @@ class PagerPlugin(BasePlugin):
                     raise Exception("No page target for ashfire908")
 
                 self.email_page(f, self._config.plugins.page.ashfire908, message)
-            elif msg_target == "defter":
-                if self._config.plugins.page.defter is None:
-                    raise Exception("No page target for defter")
-
-                self.hipchat_proxied(f, self._config.plugins.page.defter, message)
             else:
                 self._xmpp.send_message(cmdtype, target, "Error: Unknown page target.")
                 return
