@@ -2,10 +2,10 @@
 --extra-index-url https://pypi.fury.io/xvSRZNrCkiBFXAgMu6Au/ashfire908/
 
 # SleekXMPP
-git+git@github.com:fritzy/SleekXMPP.git@new_muc#egg=sleekxmpp-new_muc
+git+https://github.com/fritzy/SleekXMPP.git@new_muc#egg=sleekxmpp
 
 # Hawken API
-hawken-api==0.6.3.2
+hawkenapi==0.6.3.2
 requests==2.8.1
 msgpack-python==0.4.6
 redis==2.10.3
