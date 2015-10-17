@@ -103,7 +103,9 @@ class AdminPlugin(BasePlugin):
                 self._xmpp.send_message(cmdtype, target, "Unknown group '{0}'.".format(group))
             else:
                 # Convert user guids to callsigns, where possible.
-                users = [self._api.get_user_callsign(x) or x for x in self._permissions.group_users(group)]
+                group_users = self._permissions.group_users(group)
+                callsign = self._api.get_user_callsign(group_users)
+                users = [callsign.get(x, x) for x in group_users]
 
                 # Display the users in the group
                 if len(users) == 0:

@@ -1,11 +1,13 @@
+# Gemfury repo
+--extra-index-url https://pypi.fury.io/xvSRZNrCkiBFXAgMu6Au/ashfire908/
+
 # SleekXMPP
 git+git@github.com:fritzy/SleekXMPP.git@new_muc#egg=sleekxmpp-new_muc
 
 # Hawken API
-hawken-api==0.6.1.3
-requests==2.5.1
-enum34==1.0.4
-msgpack-python==0.4.4
+hawken-api==0.6.3.2
+requests==2.8.1
+msgpack-python==0.4.6
 redis==2.10.3
 
 # Hawken Tracker
