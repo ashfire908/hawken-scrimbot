@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import hawkenapi.client
-from hawkenapi.interface import Session
+from hawkenapi.interface import ApiSession
 import hawkenapi.sleekxmpp
 from scrimbot.util import CaseInsensitiveDict
 
@@ -117,7 +117,7 @@ class ApiClient(hawkenapi.client.Client):
 
     def setup(self):
         # Init the underlying client
-        super().__init__(Session(**self.config.api.session))
+        super().__init__(ApiSession(**self.config.api.session))
 
         # Setup caching
         if self.config.api.cache.mode == "redis":

@@ -5,8 +5,9 @@
 git+https://github.com/fritzy/SleekXMPP.git@new_muc#egg=sleekxmpp
 
 # Hawken API
-hawkenapi==0.6.3.2
+hawkenapi==0.7
 requests==2.8.1
+iso8601==0.1.11
 msgpack-python==0.4.6
 redis==2.10.3
 
