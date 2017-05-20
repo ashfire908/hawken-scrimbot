@@ -2,7 +2,7 @@
 --extra-index-url https://pypi.fury.io/xvSRZNrCkiBFXAgMu6Au/ashfire908/
 
 # SleekXMPP
-git+https://github.com/fritzy/SleekXMPP.git@new_muc#egg=sleekxmpp
+git+https://github.com/ashfire908/SleekXMPP.git@hwk#egg=sleekxmpp
 
 # Hawken API
 hawkenapi==0.7
