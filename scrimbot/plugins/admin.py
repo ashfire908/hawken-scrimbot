@@ -102,15 +102,17 @@ class AdminPlugin(BasePlugin):
             if group not in self._permissions.group_list():
                 self._xmpp.send_message(cmdtype, target, "Unknown group '{0}'.".format(group))
             else:
-                # Convert user guids to callsigns, where possible.
                 group_users = self._permissions.group_users(group)
-                callsign = self._api.get_user_callsign(group_users)
-                users = [callsign.get(x, x) for x in group_users]
 
-                # Display the users in the group
-                if len(users) == 0:
+                if len(group_users) == 0:
+                    # Display the users in the group
                     self._xmpp.send_message(cmdtype, target, "No users in group '{0}'.".format(group))
                 else:
+                    # Convert user guids to callsigns, where possible.
+                    callsign = self._api.get_user_callsign(group_users)
+                    users = [callsign.get(x, x) for x in group_users]
+
+                    # Display the users in the group
                     self._xmpp.send_message(cmdtype, target, "Users in group '{0}': {1}".format(group, ", ".join(sorted(users))))
         else:
             # Display the groups
