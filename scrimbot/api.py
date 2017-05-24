@@ -125,5 +125,5 @@ class ApiClient(hawkenapi.client.Client):
             self.cache = hawkenapi.cache.Cache(self.config.api.cache.prefix, **self.config.api.cache.params)
 
         # Authenticate to the API and grab the user's callsign
-        self.login(self.config.api.username, self.config.api.password)
+        self.storm_login(self.config.api.username, self.config.api.password)
         self.callsign = self.get_user_callsign(self.guid)
