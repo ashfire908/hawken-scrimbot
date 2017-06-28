@@ -96,13 +96,13 @@ class PlayerRankPlugin(BasePlugin):
 
             # Setup output, check perms, target user
             if guid == user:
-                identifier = "Your"
+                identifier = ("Your", "your")
             else:
                 if self._permissions.user_check_group(user, "admin"):
                     if not guid:
                         self._xmpp.send_message(cmdtype, target, "No such user exists.")
                         return
-                    identifier = "{}'s".format(args[0])
+                    identifier = ("{}'s".format(args[0]), "{}'s".format(args[0]))
                 else:
                     self._xmpp.send_message(cmdtype, target, "You are not an admin.")
                     return
@@ -113,21 +113,28 @@ class PlayerRankPlugin(BasePlugin):
             # Check for player data
             if stats is None:
                 self._xmpp.send_message(cmdtype, target, "Error: Failed to look up player stats.")
-            elif "MatchMaking.Rating" not in stats or "MatchMaking.Deviation" not in stats:
-                self._xmpp.send_message(cmdtype, target, "Error: Player does not appear to have an MMR.")
+            elif "MatchMaking.Rating" not in stats:
+                self._xmpp.send_message(cmdtype, target, "Error: Player does not appear to have an MMR yet.")
             else:
                 mmr = stats["MatchMaking.Rating"]
-                deviation = stats["MatchMaking.Deviation"]
+                seasonal = stats.get("MatchMaking.Rating.Seasonal")
 
                 # Update the usage
                 self.increment_usage(user)
 
                 # Format the message
                 if self._config.plugins.playerrank.bracket_range == 0:
-                    message = "{0} MMR is {1:.2f}, with an approximate true rating between {2:.2f}-{3:.2f}.".format(identifier, mmr, mmr - (deviation * 2), mmr + (deviation * 2))
+                    if seasonal is None:
+                        message = "{0} seasonal MMR is currently unknown, and {1} standard MMR is {2:.2f}.".format(*identifier, mmr)
+                    else:
+                        message = "{0} seasonal MMR is {2:.2f}, and {1} standard MMR is {3:.2f}.".format(*identifier, seasonal, mmr)
                 else:
                     low, high = get_bracket(mmr, self._config.plugins.playerrank.bracket_range)
-                    message = "{0} MMR bracket is {1}-{2}.".format(identifier, low, high)
+                    if seasonal is None:
+                        seasonal_low, seasonal_high = get_bracket(seasonal, self._config.plugins.playerrank.bracket_range)
+                        message = "{0} seasonal MMR bracket is {2}-{3}, and {1} standard MMR bracket is {4}-{5}.".format(*identifier, seasonal_low, seasonal_high, low, high)
+                    else:
+                        message = "{0} seasonal MMR bracket is currently unknown, and {1} standard MMR bracket is {2}-{3}.".format(*identifier, low, high)
 
                 if self.limit_active(user):
                     # Add the limit message
